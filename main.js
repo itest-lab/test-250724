@@ -1,4 +1,6 @@
-// --- 1) Firebase 初期化 ---
+// main.js
+
+// --- Firebase 初期化 ---
 const firebaseConfig = {
   apiKey:            "AIzaSyArSM1XI5MLkZDiDdzkLJxBwvjM4xGWS70",
   authDomain:        "test-250724.firebaseapp.com",
@@ -13,7 +15,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.database();
 
-// --- 2) キャリアコード⇒日本語ラベル マップ ---
+// キャリアラベル
 const carrierLabels = {
   sagawa:  "佐川急便",
   yamato:  "ヤマト運輸",
@@ -22,327 +24,359 @@ const carrierLabels = {
   tonami:  "トナミ運輸"
 };
 
-// --- 3) グローバル state ---
+// 各社の公式追跡ページURLベース
+const carrierUrls = {
+  sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo=",
+  yamato:  "https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
+  fukutsu: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
+  seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
+  tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]="
+};
+
 let isAdmin = false;
 
-// --- 4) DOM 要素 ---
-const loginView    = document.getElementById("login-view");
-const mainView     = document.getElementById("main-view");
-const loginErrorEl = document.getElementById("login-error");
-const emailInput   = document.getElementById("email");
-const passwordInput        = document.getElementById("password");
-const passwordConfirmInput = document.getElementById("password-confirm");
-const loginBtn             = document.getElementById("login-btn");
-const signupBtn            = document.getElementById("signup-btn");
-const guestBtn             = document.getElementById("guest-btn");
-const resetBtn             = document.getElementById("reset-btn");
-const logoutBtn            = document.getElementById("logout-btn");
+// --- DOM取得 ---
+const loginView          = document.getElementById("login-view");
+const mainView           = document.getElementById("main-view");
+const loginErrorEl       = document.getElementById("login-error");
+const emailInput         = document.getElementById("email");
+const passwordInput      = document.getElementById("password");
+const loginBtn           = document.getElementById("login-btn");
+const signupBtn          = document.getElementById("signup-btn");
+const guestBtn           = document.getElementById("guest-btn");
+const resetBtn           = document.getElementById("reset-btn");
+const logoutBtn          = document.getElementById("logout-btn");
 
-const scanModeDiv       = document.getElementById("scan-mode");
-const manualModeDiv     = document.getElementById("manual-mode");
-const startManualBtn    = document.getElementById("start-manual-btn");
-const caseBarcodeInput  = document.getElementById("case-barcode");
-const manualOrderIdInput   = document.getElementById("manual-order-id");
-const manualCustomerInput  = document.getElementById("manual-customer");
-const manualProductInput   = document.getElementById("manual-product-name");
-const manualConfirmBtn     = document.getElementById("manual-confirm-btn");
-const startScanBtn         = document.getElementById("start-scan-btn");
+const navAddBtn          = document.getElementById("nav-add-btn");
+const navSearchBtn       = document.getElementById("nav-search-btn");
 
-const caseDetailsDiv        = document.getElementById("case-details");
-const detailOrderId          = document.getElementById("detail-order-id");
-const detailCustomer         = document.getElementById("detail-customer");
-const detailProductName      = document.getElementById("detail-product-name");
-const fixedCarrierCheckbox   = document.getElementById("fixed-carrier-checkbox");
-const fixedCarrierSelect     = document.getElementById("fixed-carrier-select");
-const trackingRows           = document.getElementById("tracking-rows");
-const addTrackingRowBtn      = document.getElementById("add-tracking-row-btn");
-const confirmAddCaseBtn      = document.getElementById("confirm-add-case-btn");
-const addCaseMsg             = document.getElementById("add-case-msg");
-const anotherCaseBtn         = document.getElementById("another-case-btn");
+const scanModeDiv        = document.getElementById("scan-mode");
+const manualModeDiv      = document.getElementById("manual-mode");
+const startManualBtn     = document.getElementById("start-manual-btn");
+const caseBarcodeInput   = document.getElementById("case-barcode");
+const manualOrderIdInput = document.getElementById("manual-order-id");
+const manualCustomerInput= document.getElementById("manual-customer");
+const manualTitleInput   = document.getElementById("manual-title");
+const manualConfirmBtn   = document.getElementById("manual-confirm-btn");
+const startScanBtn       = document.getElementById("start-scan-btn");
 
-const searchView             = document.getElementById("search-view");
-const searchInput            = document.getElementById("search-input");
-const searchBtn              = document.getElementById("search-btn");
-const listAllBtn             = document.getElementById("list-all-btn");
-const searchResults          = document.getElementById("search-results");
+const caseDetailsDiv     = document.getElementById("case-details");
+const detailOrderId      = document.getElementById("detail-order-id");
+const detailCustomer     = document.getElementById("detail-customer");
+const detailTitle        = document.getElementById("detail-title");
 
-const caseDetailView         = document.getElementById("case-detail-view");
-const detailInfoDiv          = document.getElementById("detail-info");
-const detailShipmentsUl      = document.getElementById("detail-shipments");
-const backToSearchBtn        = document.getElementById("back-to-search-btn");
-const anotherCaseBtn2        = document.getElementById("another-case-btn-2");
+const fixedCarrierCheckbox = document.getElementById("fixed-carrier-checkbox");
+const fixedCarrierSelect   = document.getElementById("fixed-carrier-select");
+const trackingRows         = document.getElementById("tracking-rows");
+const addTrackingRowBtn    = document.getElementById("add-tracking-row-btn");
+const confirmAddCaseBtn    = document.getElementById("confirm-add-case-btn");
+const addCaseMsg           = document.getElementById("add-case-msg");
+const anotherCaseBtn       = document.getElementById("another-case-btn");
 
-// --- 5) showView helper ---
-function showView(id) {
-  document.querySelectorAll(".subview").forEach(el => el.style.display = "none");
-  document.getElementById(id).style.display = "block";
+const searchView         = document.getElementById("search-view");
+const searchInput        = document.getElementById("search-input");
+const searchBtn          = document.getElementById("search-btn");
+const listAllBtn         = document.getElementById("list-all-btn");
+const searchResults      = document.getElementById("search-results");
+
+const caseDetailView     = document.getElementById("case-detail-view");
+const detailInfoDiv      = document.getElementById("detail-info");
+const detailShipmentsUl  = document.getElementById("detail-shipments");
+const showAddTrackingBtn = document.getElementById("show-add-tracking-btn");
+const addTrackingDetail  = document.getElementById("add-tracking-detail");
+const detailTrackingRows = document.getElementById("detail-tracking-rows");
+const detailAddRowBtn    = document.getElementById("detail-add-tracking-row-btn");
+const confirmDetailAddBtn= document.getElementById("confirm-detail-add-btn");
+const detailAddMsg       = document.getElementById("detail-add-msg");
+const cancelDetailAddBtn = document.getElementById("cancel-detail-add-btn");
+const backToSearchBtn    = document.getElementById("back-to-search-btn");
+const anotherCaseBtn2    = document.getElementById("another-case-btn-2");
+
+// --- ビュー切替ヘルパー ---
+function showView(id){
+  document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
+  document.getElementById(id).style.display="block";
 }
 
-// --- 6) ナビゲーション設定 ---
-document.querySelectorAll("nav button").forEach(btn => {
-  btn.addEventListener("click", () => showView(btn.dataset.view));
-});
-
-// --- 7) 認証状態監視 + admin クレームチェック ---
-auth.onAuthStateChanged(user => {
-  if (user) {
-    // admin クレーム確認
-    user.getIdTokenResult().then(({ claims }) => {
-      isAdmin = !!claims.admin;
-    });
-    loginView.style.display = "none";
-    mainView.style.display  = "block";
+// --- 認証監視 ---
+auth.onAuthStateChanged(async user=>{
+  if(user){
+    const snap = await db.ref(`admins/${user.uid}`).once("value");
+    isAdmin = snap.val()===true;
+    loginView.style.display="none";
+    mainView.style.display="block";
     showView("add-case-view");
     initAddCaseView();
   } else {
-    emailInput.value = passwordInput.value = passwordConfirmInput.value = "";
-    loginErrorEl.textContent = "";
-    loginView.style.display = "block";
-    mainView.style.display  = "none";
+    isAdmin=false;
+    loginView.style.display="block";
+    mainView.style.display="none";
   }
 });
 
-// --- 8) 認証操作 ---
-loginBtn.onclick = () =>
-  auth.signInWithEmailAndPassword(emailInput.value, passwordInput.value)
-    .catch(e => loginErrorEl.textContent = e.message);
-
-signupBtn.onclick = () => {
-  if (passwordInput.value !== passwordConfirmInput.value) {
-    loginErrorEl.textContent = "パスワードが一致しません";
-    return;
+// --- 認証操作 ---
+loginBtn.onclick=async()=>{
+  const id=emailInput.value.trim(), pw=passwordInput.value;
+  loginErrorEl.textContent="";
+  try{
+    if(id==="admin"&&pw==="admin"){
+      await auth.signInWithEmailAndPassword("admin@test.com","admin");
+    } else {
+      await auth.signInWithEmailAndPassword(id,pw);
+    }
+  }catch(e){
+    loginErrorEl.textContent=e.message;
   }
-  auth.createUserWithEmailAndPassword(emailInput.value, passwordInput.value)
-    .catch(e => loginErrorEl.textContent = e.message);
 };
+signupBtn.onclick=()=>auth.createUserWithEmailAndPassword(emailInput.value.trim(),passwordInput.value)
+  .catch(e=>loginErrorEl.textContent=e.message);
+guestBtn.onclick=()=>auth.signInAnonymously().catch(e=>loginErrorEl.textContent=e.message);
+resetBtn.onclick=()=>auth.sendPasswordResetEmail(emailInput.value.trim())
+  .then(()=>loginErrorEl.textContent="再発行メール送信")
+  .catch(e=>loginErrorEl.textContent=e.message);
+logoutBtn.onclick=()=>auth.signOut();
 
-guestBtn.onclick = () =>
-  auth.signInAnonymously().catch(e => loginErrorEl.textContent = e.message);
+// --- ナビゲーション ---
+navAddBtn.addEventListener("click",   ()=>{showView("add-case-view");initAddCaseView();});
+navSearchBtn.addEventListener("click",()=>{showView("search-view");searchAll(searchInput.value.trim());});
 
-resetBtn.onclick = () => {
-  const email = emailInput.value.trim();
-  if (!email) {
-    loginErrorEl.textContent = "メールアドレスを入力してください";
-    return;
-  }
-  auth.sendPasswordResetEmail(email)
-    .then(()=> loginErrorEl.textContent = "再発行メールを送信しました")
-    .catch(e=> loginErrorEl.textContent = e.message);
-};
-
-logoutBtn.onclick = () => auth.signOut();
-
-// --- 9) 得意先追加: 初期化 + 追跡行管理 ---
-function createTrackingRow() {
-  const row = document.createElement("div");
-  row.className = "tracking-row";
-  if (!fixedCarrierCheckbox.checked) {
-    const sel = document.createElement("select");
-    sel.innerHTML = `
+// --- 追跡行生成 ---
+function createTrackingRow(context="add"){
+  const row=document.createElement("div");row.className="tracking-row";
+  if(!fixedCarrierCheckbox.checked||context==="detail"){
+    const sel=document.createElement("select");
+    sel.innerHTML=`
       <option value="">運送会社</option>
       <option value="sagawa">佐川急便</option>
       <option value="yamato">ヤマト運輸</option>
       <option value="fukutsu">福山通運</option>
       <option value="seino">西濃運輸</option>
-      <option value="tonami">トナミ運輸</option>
-    `;
+      <option value="tonami">トナミ運輸</option>`;
     row.appendChild(sel);
   }
-  const inp = document.createElement("input");
-  inp.type = "text";
-  inp.placeholder = "追跡番号";
-  inp.inputMode = "numeric";
+  const inp=document.createElement("input");
+  inp.type="text";inp.placeholder="追跡番号";inp.inputMode="numeric";
+  inp.addEventListener("input",e=>{e.target.value=e.target.value.replace(/\D/g,"");});
+  inp.addEventListener("keydown",e=>{
+    if(e.key==="Enter"||e.key==="Tab"){
+      e.preventDefault();
+      const inputs=[...row.parentElement.querySelectorAll("input")];
+      const idx=inputs.indexOf(inp);
+      if(idx<inputs.length-1){
+        inputs[idx+1].focus();
+      } else {
+        if(context==="detail") detailAddRowBtn.click();
+        else addTrackingRowBtn.click();
+        setTimeout(()=>{
+          const arr=[...row.parentElement.querySelectorAll("input")];
+          arr[arr.length-1].focus();
+        },0);
+      }
+    }
+  });
   row.appendChild(inp);
   return row;
 }
 
-function initAddCaseView() {
-  scanModeDiv.style.display     = "block";
-  manualModeDiv.style.display   = "none";
-  caseDetailsDiv.style.display  = "none";
-  caseBarcodeInput.value        = "";
-  manualOrderIdInput.value      = "";
-  manualCustomerInput.value     = "";
-  manualProductInput.value      = "";
-  addCaseMsg.textContent        = "";
-  fixedCarrierCheckbox.checked  = false;
-  fixedCarrierSelect.style.display = "none";
-  fixedCarrierSelect.value      = "";
-  trackingRows.innerHTML        = "";
-  for (let i=0; i<10; i++) trackingRows.appendChild(createTrackingRow());
+// --- 初期化：案件追加 ---
+function initAddCaseView(){
+  scanModeDiv.style.display     ="block";
+  manualModeDiv.style.display   ="none";
+  caseDetailsDiv.style.display  ="none";
+  caseBarcodeInput.value        ="";
+  manualOrderIdInput.value      ="";
+  manualCustomerInput.value     ="";
+  manualTitleInput.value        ="";
+  addCaseMsg.textContent        ="";
+  fixedCarrierCheckbox.checked  =false;
+  fixedCarrierSelect.style.display="none";
+  fixedCarrierSelect.value      ="";
+  trackingRows.innerHTML        ="";
+  for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow());
 }
 
-addTrackingRowBtn.onclick = () => {
-  for (let i=0; i<10; i++) trackingRows.appendChild(createTrackingRow());
-};
-
-fixedCarrierCheckbox.onchange = () => {
-  fixedCarrierSelect.style.display = fixedCarrierCheckbox.checked ? "block" : "none";
-  initAddCaseView();
-};
-
-// スキャン→JSON展開
-caseBarcodeInput.addEventListener("keydown", e=>{
-  if (e.key!=="Enter") return;
-  const raw = caseBarcodeInput.value.trim();
-  if (!raw) return;
-  let obj, text;
-  try {
-    if (raw.startsWith("ZLIB64:")) {
-      const b64 = raw.slice(7),
-            bin = atob(b64),
-            arr = new Uint8Array([...bin].map(c=>c.charCodeAt(0))),
-            dec = pako.inflate(arr);
-      text = new TextDecoder().decode(dec);
+// --- 行追加・固定キャリア切替 ---
+addTrackingRowBtn.onclick=()=>{for(let i=0;i<10;i++)trackingRows.appendChild(createTrackingRow());};
+fixedCarrierCheckbox.onchange=()=>{
+  fixedCarrierSelect.style.display=fixedCarrierCheckbox.checked?"block":"none";
+  Array.from(trackingRows.children).forEach(row=>{
+    const sel=row.querySelector("select");
+    if(fixedCarrierCheckbox.checked){
+      if(sel)row.removeChild(sel);
     } else {
-      text = raw;
+      if(!sel)row.insertBefore(createTrackingRow().querySelector("select"),row.firstChild);
     }
-    obj = JSON.parse(text);
-  } catch(err) {
-    alert("QR解析失敗: "+err.message);
-    return;
+  });
+};
+
+// --- IME無効化 ---
+caseBarcodeInput.addEventListener("compositionstart",e=>e.preventDefault());
+
+// --- QR→テキスト展開＆表示 ---
+caseBarcodeInput.addEventListener("keydown", e=>{
+  if(e.key!=="Enter")return;
+  const raw=caseBarcodeInput.value.trim();if(!raw)return;
+  let text;
+  try{
+    if(raw.startsWith("ZLIB64:")){
+      const b64=raw.slice(7),bin=atob(b64),
+            arr=new Uint8Array([...bin].map(c=>c.charCodeAt(0))),
+            dec=pako.inflate(arr);
+      text=new TextDecoder().decode(dec);
+    } else text=raw;
+  }catch(err){
+    alert("QRデコード失敗: "+err.message);return;
   }
-  detailOrderId.textContent     = obj["受注No"]   || "";
-  detailCustomer.textContent    = obj["得意先"]   || "";
-  detailProductName.textContent = obj["品名"]     || "";
-  scanModeDiv.style.display     = "none";
-  caseDetailsDiv.style.display  = "block";
+  text=text.trim().replace(/「[^」]*」/g,"");
+  const matches=Array.from(text.matchAll(/"([^"]*)"/g),m=>m[1]);
+  console.log("QR debug:",matches);
+  detailOrderId.textContent  =matches[0]||"";
+  detailCustomer.textContent=matches[1]||"";
+  detailTitle.textContent   =matches[2]||"";
+  scanModeDiv.style.display="none";
+  caseDetailsDiv.style.display="block";
 });
 
-startManualBtn.onclick = ()=>{
-  scanModeDiv.style.display   = "none";
-  manualModeDiv.style.display = "block";
+// --- 手動確定 ---
+startManualBtn.onclick=()=>{
+  scanModeDiv.style.display="none";
+  manualModeDiv.style.display="block";
 };
-startScanBtn.onclick = ()=>{
-  manualModeDiv.style.display = "none";
-  scanModeDiv.style.display   = "block";
+startScanBtn.onclick=()=>{
+  manualModeDiv.style.display="none";
+  scanModeDiv.style.display="block";
+};
+manualConfirmBtn.onclick=()=>{
+  if(!manualOrderIdInput.value||!manualCustomerInput.value||!manualTitleInput.value){
+    alert("必須項目を入力");return;
+  }
+  detailOrderId.textContent  =manualOrderIdInput.value.trim();
+  detailCustomer.textContent=manualCustomerInput.value.trim();
+  detailTitle.textContent   =manualTitleInput.value.trim();
+  manualModeDiv.style.display="none";
+  caseDetailsDiv.style.display="block";
 };
 
-// 手動確定
-manualConfirmBtn.onclick = ()=>{
-  if (!manualOrderIdInput.value||!manualCustomerInput.value||!manualProductInput.value) {
-    alert("必須項目を入力してください");
-    return;
-  }
-  detailOrderId.textContent     = manualOrderIdInput.value.trim();
-  detailCustomer.textContent    = manualCustomerInput.value.trim();
-  detailProductName.textContent = manualProductInput.value.trim();
-  manualModeDiv.style.display   = "none";
-  caseDetailsDiv.style.display  = "block";
-};
-
-// 登録確定
-confirmAddCaseBtn.onclick = ()=>{
-  const orderId  = detailOrderId.textContent.trim();
-  const customer = detailCustomer.textContent.trim();
-  const product  = detailProductName.textContent.trim();
-  if (!orderId||!customer||!product) {
-    addCaseMsg.textContent = "案件情報が不足しています";
-    return;
-  }
-  const items = [];
+// --- 登録 ---
+confirmAddCaseBtn.onclick=async()=>{
+  const orderId=detailOrderId.textContent.trim(),
+        customer=detailCustomer.textContent.trim(),
+        title=detailTitle.textContent.trim();
+  if(!orderId||!customer||!title){addCaseMsg.textContent="情報不足";return;}
+  const snap=await db.ref(`shipments/${orderId}`).once("value");
+  const exist=snap.val()||{};const existSet=new Set(Object.values(exist).map(i=>i.tracking));
+  const items=[];
   Array.from(trackingRows.children).forEach(row=>{
-    const tn = row.querySelector("input").value.trim();
-    if (!tn) return;
-    const carrier = fixedCarrierCheckbox.checked
-      ? fixedCarrierSelect.value
-      : row.querySelector("select")?.value;
-    if (!carrier) return;
-    items.push({ carrier, tracking: tn });
+    const tn=row.querySelector("input").value.trim();if(!tn||existSet.has(tn))return;
+    const carrier=fixedCarrierCheckbox.checked
+      ?fixedCarrierSelect.value
+      :row.querySelector("select")?.value;
+    if(!carrier)return;
+    items.push({carrier,tracking:tn});
   });
-  if (items.length===0) {
-    alert("追跡番号を最低1件入力してください");
-    return;
-  }
-  const uid = auth.currentUser.uid;
-  db.ref(`cases/${uid}/${orderId}`).set({
-    注番:orderId, 得意先:customer, 品名:product, createdAt:Date.now()
-  });
-  items.forEach(item=>{
-    db.ref(`shipments/${uid}/${orderId}`).push({
-      carrier:item.carrier, tracking:item.tracking, createdAt:Date.now()
-    });
-  });
-  addCaseMsg.textContent = "登録完了";
+  if(!items.length){alert("新規追跡なし");return;}
+  await db.ref(`cases/${orderId}`).set({注番:orderId,得意先:customer,品名:title,createdAt:Date.now()});
+  items.forEach(it=>db.ref(`shipments/${orderId}`).push({carrier:it.carrier,tracking:it.tracking,createdAt:Date.now()}));
+  addCaseMsg.textContent="登録完了";
 };
 
-anotherCaseBtn.onclick = ()=>{
-  showView("add-case-view");
-  initAddCaseView();
-};
+// --- 別案件追加 ---
+anotherCaseBtn.onclick=()=>{showView("add-case-view");initAddCaseView();};
 
-// --- 10) 検索 & 一覧表示 ---
-function renderSearchResults(data) {
-  searchResults.innerHTML = "";
-  Object.entries(data).forEach(([id,obj])=>{
-    const li = document.createElement("li");
-    li.textContent = `${id} / ${obj.得意先} / ${obj.品名}`;
-    // 管理者なら削除ボタン
-    if (isAdmin) {
-      const btn = document.createElement("button");
-      btn.textContent = "削除";
-      btn.className = "delete-case-btn";
-      btn.onclick = ()=>{
-        if (!confirm("この案件を削除しますか？")) return;
-        const uid = auth.currentUser.uid;
-        db.ref(`cases/${uid}/${id}`).remove();
-        db.ref(`shipments/${uid}/${id}`).remove();
-        li.remove();
+// --- 検索結果描画 ---
+function renderSearchResults(list){
+  searchResults.innerHTML="";
+  list.forEach(item=>{
+    const li=document.createElement("li");
+    li.textContent=`${item.orderId} / ${item.得意先} / ${item.品名}`;
+    if(isAdmin){
+      const btn=document.createElement("button");
+      btn.textContent="削除";btn.className="delete-case-btn";
+      btn.onclick=async e=>{e.stopPropagation();if(!confirm(`${item.orderId}を削除?`))return;
+        await db.ref(`cases/${item.orderId}`).remove();
+        await db.ref(`shipments/${item.orderId}`).remove();li.remove();
       };
       li.appendChild(btn);
     }
-    li.onclick = ()=> showCaseDetail(id,obj);
-    searchResults.append(li);
+    li.onclick=()=>showCaseDetail(item.orderId,item);
+    searchResults.appendChild(li);
   });
 }
 
-searchBtn.onclick = ()=> {
-  const kw = searchInput.value.trim();
-  const uid= auth.currentUser.uid;
-  db.ref(`cases/${uid}`)
-    .orderByChild("注番")
-    .startAt(kw).endAt(kw+"\uf8ff")
-    .once("value")
-    .then(snap=> renderSearchResults(snap.val()||{}));
-};
+// --- 検索/全件 ---
+function searchAll(kw=""){
+  db.ref("cases").once("value").then(snap=>{
+    const data=snap.val()||{},res=[];
+    Object.entries(data).forEach(([orderId,obj])=>{
+      if(!kw||orderId.includes(kw)||obj.得意先.includes(kw)||obj.品名.includes(kw))
+        res.push({orderId,...obj});
+    });
+    renderSearchResults(res);
+  });
+}
+searchBtn.onclick=()=>{showView("search-view");searchAll(searchInput.value.trim());};
+listAllBtn.onclick=()=>{showView("search-view");searchAll();};
 
-listAllBtn.onclick = ()=>{
-  const uid= auth.currentUser.uid;
-  db.ref(`cases/${uid}`)
-    .once("value")
-    .then(snap=> renderSearchResults(snap.val()||{}));
-};
-
-// --- 11) 詳細表示 & ステータス取得 ---
-async function showCaseDetail(orderId,obj) {
+// --- 詳細＋ステータス取得 ---
+async function showCaseDetail(orderId,obj){
   showView("case-detail-view");
-  detailInfoDiv.innerHTML = `
-    <div>受注番号: ${orderId}</div>
-    <div>得意先:   ${obj.得意先}</div>
-    <div>品名:     ${obj.品名}</div>
-  `;
-  detailShipmentsUl.innerHTML = "";
-  const snap = await db.ref(`shipments/${auth.currentUser.uid}/${orderId}`).once("value");
-  const list = snap.val()||{};
-  for (const key of Object.keys(list)) {
-    const item = list[key];
-    const label = carrierLabels[item.carrier]||item.carrier;
-    const li = document.createElement("li");
-    li.textContent = `${label}：${item.tracking} – 読み込み中…`;
-    detailShipmentsUl.append(li);
-    try {
-      const res = await fetch("/fetchStatus", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify(item)
-      });
-      if (!res.ok) throw new Error(res.statusText);
-      const json = await res.json();
-      li.textContent = `${label}：${item.tracking} – ${json.status||json.error}`;
-    } catch {
-      li.textContent = `${label}：${item.tracking} – 取得失敗`;
+  detailInfoDiv.innerHTML=`<div>受注番号:${orderId}</div><div>得意先:${obj.得意先}</div><div>品名:${obj.品名}</div>`;
+  detailShipmentsUl.innerHTML="";
+  addTrackingDetail.style.display="none";
+  detailTrackingRows.innerHTML="";
+  detailAddMsg.textContent="";
+  const snap=await db.ref(`shipments/${orderId}`).once("value"),list=snap.val()||{};
+  for(const key of Object.keys(list)){
+    const it=list[key],label=carrierLabels[it.carrier]||it.carrier;
+    const li=document.createElement("li");
+    const a=document.createElement("a");
+    a.href=(carrierUrls[it.carrier]||"")+encodeURIComponent(it.tracking);
+    a.target="_blank";
+    a.textContent=`${label}：${it.tracking}：読み込み中…`;
+    li.appendChild(a);
+    detailShipmentsUl.appendChild(li);
+    try{
+      const res=await fetch("/fetchStatus",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(it)});
+      const json=await res.json();
+      console.log("[client] fetchStatus →",json);
+      let statusVal,timeVal;
+      if(typeof json.status==="object"){
+        statusVal=json.status.status||"";
+        timeVal=json.status.time||json.time||"";
+      } else {
+        statusVal=json.status||"";
+        timeVal=json.time||"";
+      }
+      a.textContent=timeVal
+        ?`${label}：${it.tracking}：${statusVal}　配達日時:${timeVal}`
+        :`${label}：${it.tracking}：${statusVal}`;
+    }catch(err){
+      console.error("fetchStatus error:",err);
+      a.textContent=`${label}：${it.tracking}：取得失敗`;
     }
   }
+  showAddTrackingBtn.onclick=()=>{
+    addTrackingDetail.style.display="block";detailTrackingRows.innerHTML="";
+    for(let i=0;i<5;i++)detailTrackingRows.appendChild(createTrackingRow("detail"));
+  };
+  detailAddRowBtn.onclick=()=>{for(let i=0;i<5;i++)detailTrackingRows.appendChild(createTrackingRow("detail"));};
+  cancelDetailAddBtn.onclick=()=>{addTrackingDetail.style.display="none";};
+  confirmDetailAddBtn.onclick=async()=>{
+    const snap2=await db.ref(`shipments/${orderId}`).once("value"),exist2=snap2.val()||{};
+    const existSet2=new Set(Object.values(exist2).map(i=>i.tracking)),items2=[];
+    Array.from(detailTrackingRows.children).forEach(row=>{
+      const tn=row.querySelector("input").value.trim();
+      if(!tn||existSet2.has(tn))return;
+      const carrier=row.querySelector("select")?.value;
+      if(!carrier)return;
+      items2.push({carrier,tracking:tn});
+    });
+    if(!items2.length){detailAddMsg.textContent="追加追跡なし";return;}
+    items2.forEach(it=>db.ref(`shipments/${orderId}`).push({carrier:it.carrier,tracking:it.tracking,createdAt:Date.now()}));
+    detailAddMsg.textContent="追加完了";
+    setTimeout(()=>showCaseDetail(orderId,obj),800);
+  };
 }
-backToSearchBtn.onclick = ()=> showView("search-view");
-anotherCaseBtn2.onclick  = ()=> { showView("add-case-view"); initAddCaseView(); };
+
+backToSearchBtn.onclick=()=>showView("search-view");
+anotherCaseBtn2.onclick=()=>{showView("add-case-view");initAddCaseView();};
