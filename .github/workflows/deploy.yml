@@ -1,38 +1,34 @@
-name: Deploy to GitHub Pages
+name: Node.js CI
 
-# main ブランチへ push されたときにトリガー
 on:
   push:
     branches:
-      - main
+      - "**"    # 全てのブランチ
+  pull_request:
+    branches:
+      - "**"    # 全ての PR
 
 jobs:
-  build-and-deploy:
+  install-dependencies:
+    name: Install dependencies
     runs-on: ubuntu-latest
 
     steps:
-      # 1. リポジトリをチェックアウト
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-      # 2. Node.js をセットアップ（バージョンはプロジェクトに合わせて）
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16.x'
-          cache: 'npm'
+          node-version: '16'  # 必要に応じてバージョンを変更
 
-      # 3. 依存のインストール
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
       - name: Install dependencies
         run: npm install
-
-      # 4. ビルド（npm run build でも yarn build でも）
-      - name: Build
-        run: npm run build
-
-      # 5. 成果物を gh-pages ブランチにデプロイ
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          # build スクリプトで出力したフォルダ名
-          publish_dir: ./dist
