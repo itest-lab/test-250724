@@ -1,12 +1,11 @@
 {
-  "name": "test-250724",
+  "name": "vercel-tracking-api",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server.js"
+    "start": "vercel dev"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "axios": "^1.4.0",
     "cheerio": "^1.0.0-rc.12"
   }
