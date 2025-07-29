@@ -372,6 +372,7 @@ async function showCaseDetail(orderId, obj){
       a.textContent = `${label}：${it.tracking}：取得失敗`;
     }
   }
+}
 
-backToSearchBtn.onclick     = () => showView("search-view");
-anotherCaseBtn2.onclick     = () => { showView("add-case-view"); initAddCaseView(); };
+backToSearchBtn.onclick=()=>showView("search-view");
+anotherCaseBtn2.onclick=()=>{showView("add-case-view");initAddCaseView();};
