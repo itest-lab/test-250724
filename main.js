@@ -2,14 +2,14 @@
 
 // --- Firebase 初期化 ---
 const firebaseConfig = {
-  apiKey: "AIzaSyArSM1XI5MLkZDiDdzkLJxBwvjM4xGWS70",
-  authDomain: "test-250724.firebaseapp.com",
-  databaseURL: "https://test-250724-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "test-250724",
-  storageBucket: "test-250724.firebasestorage.app",
+  apiKey:            "AIzaSyArSM1XI5MLkZDiDdzkLJxBwvjM4xGWS70",
+  authDomain:        "test-250724.firebaseapp.com",
+  databaseURL:       "https://test-250724-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "test-250724",
+  storageBucket:     "test-250724.appspot.com",
   messagingSenderId: "252374655568",
-  appId: "1:252374655568:web:3e583b46468714b7b7a755",
-  measurementId: "G-5WGPKD9BP2"
+  appId:             "1:252374655568:web:3e583b46468714b7b7a755",
+  measurementId:     "G-5WGPKD9BP2"
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -92,6 +92,11 @@ const cancelDetailAddBtn = document.getElementById("cancel-detail-add-btn");
 const backToSearchBtn    = document.getElementById("back-to-search-btn");
 const anotherCaseBtn2    = document.getElementById("another-case-btn-2");
 
+const btnScan2D          = document.getElementById("btnScan2D");
+
+const detailView  = document.getElementById('detail-view');
+const loadingOv   = document.getElementById('loadingOverlay');
+
 // --- ビュー切替ヘルパー ---
 function showView(id){
   document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
@@ -137,7 +142,7 @@ resetBtn.onclick=()=>auth.sendPasswordResetEmail(emailInput.value.trim())
 logoutBtn.onclick=()=>auth.signOut();
 
 // --- ナビゲーション ---
-navAddBtn.addEventListener("click",   ()=>{showView("add-case-view");initAddCaseView();});
+navAddBtn.addEventListener("click", () => { showView("add-case-view"); initAddCaseView(); });
 navSearchBtn.addEventListener("click",()=>{showView("search-view");searchAll(searchInput.value.trim());});
 
 // --- 追跡行生成 ---
@@ -154,8 +159,14 @@ function createTrackingRow(context="add"){
       <option value="tonami">トナミ運輸</option>`;
     row.appendChild(sel);
   }
+  // 追跡番号入力欄
   const inp=document.createElement("input");
-  inp.type="text";inp.placeholder="追跡番号";inp.inputMode="numeric";
+  inp.type="text";
+  inp.placeholder="追跡番号";
+  inp.inputMode="numeric";
+  // 一意のIDを割り当て
+  const uniqueId = `tracking-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+  inp.id = uniqueId;
   inp.addEventListener("input",e=>{e.target.value=e.target.value.replace(/\D/g,"");});
   inp.addEventListener("keydown",e=>{
     if(e.key==="Enter"||e.key==="Tab"){
@@ -175,6 +186,12 @@ function createTrackingRow(context="add"){
     }
   });
   row.appendChild(inp);
+  // 行ごとのカメラ起動ボタン
+  const scanBtn = document.createElement("button");
+  scanBtn.type = "button";
+  scanBtn.textContent = "カメラ起動";
+  scanBtn.addEventListener("click", () => start1DScanner(uniqueId));
+  row.appendChild(scanBtn);
   return row;
 }
 
@@ -184,6 +201,8 @@ function initAddCaseView(){
   manualModeDiv.style.display   ="none";
   caseDetailsDiv.style.display  ="none";
   caseBarcodeInput.value        ="";
+  // QRスキャンボタンを有効化
+  btnScan2D.disabled = false;
   manualOrderIdInput.value      ="";
   manualCustomerInput.value     ="";
   manualTitleInput.value        ="";
@@ -281,7 +300,7 @@ confirmAddCaseBtn.onclick=async()=>{
 };
 
 // --- 別案件追加 ---
-anotherCaseBtn.onclick=()=>{showView("add-case-view");initAddCaseView();};
+anotherCaseBtn.onclick=()=>{showView("login-view");initAddCaseView();};
 
 // --- 検索結果描画 ---
 function renderSearchResults(list){
@@ -372,6 +391,174 @@ async function showCaseDetail(orderId, obj){
       a.textContent = `${label}：${it.tracking}：取得失敗`;
     }
   }
+}
+
+backToSearchBtn.onclick=()=>showView("search-view");
+anotherCaseBtn2.onclick=()=>{showView("login-view");initAddCaseView();};
+
+function showLogin() {
+  loginView.style.display = 'block';
+  addView.style.display   = 'none';
+  detailView.style.display= 'none';
+}
+function showAddCase() {
+  loginView.style.display = 'none';
+  addView.style.display   = 'block';
+  detailView.style.display= 'none';
+  // ２次元入力欄をフォーカスしてカメラ起動
+  document.getElementById('barcode2dInput').focus();
+  start2DScanner('barcode2dInput');
+}
+function showDetail(caseId) {
+  loginView.style.display = 'none';
+  addView.style.display   = 'none';
+  detailView.style.display= 'block';
+  loadingOv.classList.remove('hidden');
+  db.ref(`cases/${caseId}/trackingInfo`)
+    .once('value')
+    .then(snap => {
+      const container = document.getElementById('trackingInfoContainer');
+      container.innerText = JSON.stringify(snap.val(), null, 2);
+    })
+    .finally(() => loadingOv.classList.add('hidden'));
+}
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    showAddCase();
+    startSessionTimer();
+  } else {
+    showLogin();
+  }
+});
+
+document.getElementById('btnLogin').addEventListener('click', () => {
+  const email = document.getElementById('email').value;
+  const pw    = document.getElementById('password').value;
+  auth.signInWithEmailAndPassword(email, pw)
+    .catch(e => alert('ログイン失敗: ' + e.message));
+});
+
+// ─────────────────────────────────────────────────────────────────
+// 3) ２次元コード読み取り (jsQR)
+// ─────────────────────────────────────────────────────────────────
+const canvas = document.createElement('canvas');
+async function start2DScanner(inputId) {
+  const video = document.getElementById('video2d');
+  video.style.display = 'block';
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" }
+  });
+  video.srcObject = stream;
+  video.play();
+  scan2D(video, inputId);
+}
+function stop2DScanner() {
+  const video = document.getElementById('video2d');
+  (video.srcObject?.getTracks() || []).forEach(t => t.stop());
+  video.srcObject = null;
+  video.style.display = 'none';
+}
+function scan2D(video, inputId) {
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(img.data, img.width, img.height);
+    if (code) {
+      document.getElementById(inputId).value = code.data;
+      stop2DScanner();
+      return;
+    }
+  }
+  requestAnimationFrame(() => scan2D(video, inputId));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 4) １次元バーコード読み取り (QuaggaJS)
+// ─────────────────────────────────────────────────────────────────
+function start1DScanner(inputId) {
+  const video = document.getElementById('video1d');
+  video.style.display = 'block';
+  Quagga.init({
+    inputStream: {
+      name: "Live",
+      type: "LiveStream",
+      target: video,
+      constraints: { facingMode: "environment" }
+    },
+    decoder: {
+      readers: [
+        "code_128_reader",
+        "ean_reader",
+        "ean_8_reader",
+        "upc_reader",
+        "upc_e_reader"
+      ]
+    }
+  }, err => {
+    if (err) return console.error(err);
+    Quagga.start();
+  });
+  Quagga.onDetected(result => {
+    const code = result.codeResult?.code;
+    if (code) {
+      document.getElementById(inputId).value = code;
+      Quagga.stop();
+      video.style.display = 'none';
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// 5) 登録処理：同一運送会社＋追跡番号の重複を防止
+// ─────────────────────────────────────────────────────────────────
+function registerCase() {
+  const carrier = document.getElementById('carrierSelect').value;
+  const tracking= document.getElementById('trackingInput').value.trim();
+  if (!carrier || !tracking) {
+    alert('運送会社と追跡番号を入力してください。');
+    return;
+  }
+  const key = `${carrier}_${tracking}`;
+  db.ref('cases')
+    .orderByChild('carrier_tracking')
+    .equalTo(key)
+    .once('value')
+    .then(snap => {
+      if (snap.exists()) {
+        alert('同じ運送会社・追跡番号の案件が既に登録されています。');
+      } else {
+        const newRef = db.ref('cases').push();
+        newRef.set({ carrier, tracking, carrier_tracking: key })
+          .then(() => {
+            alert('登録完了しました。');
+            document.getElementById('trackingInput').value = '';
+            // 必要なら他のフォームもクリア
+          });
+      }
+    });
+}
+document.getElementById('btnRegister')
+  .addEventListener('click', registerCase);
+
+// ─────────────────────────────────────────────────────────────────
+// 6) セッションタイムアウト（30分）
+// ─────────────────────────────────────────────────────────────────
+let sessionTimer;
+function resetSessionTimer() {
+  clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(() => {
+    alert('セッションが30分を超えました。再度ログインしてください。');
+    auth.signOut();
+  }, 30 * 60 * 1000);
+}
+function startSessionTimer() {
+  resetSessionTimer();
+  ['click','keydown','touchstart']
+    .forEach(evt => document.addEventListener(evt, resetSessionTimer));
 }
 
 backToSearchBtn.onclick=()=>showView("search-view");
