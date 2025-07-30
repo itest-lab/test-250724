@@ -100,19 +100,19 @@ const btnScan1D             = document.getElementById("btnScan1D");
 const video1d               = document.getElementById("video1d");
 
 // モバイル判定に応じてグローバルボタンを表示/無効化
-if (!isMobile) {
-  btnScan2D.style.display = "none";
-  btnScan1D.style.display = "none";
-} else {
+//if (!isMobile) {
+//  btnScan2D.style.display = "none";
+//  btnScan1D.style.display = "none";
+//} else {
   // 追跡番号用カメラ起動（グローバル）
-  btnScan1D.addEventListener("click", () => {
-    let target = document.activeElement;
-    if (!(target && target.tagName==="INPUT" && target.parentElement.classList.contains("tracking-row"))) {
-      target = trackingRows.querySelector("input");
-    }
-    if (target) start1DScanner(target.id);
-  });
-}
+//  btnScan1D.addEventListener("click", () => {
+//    let target = document.activeElement;
+//    if (!(target && target.tagName==="INPUT" && target.parentElement.classList.contains("tracking-row"))) {
+//      target = trackingRows.querySelector("input");
+//    }
+//    if (target) start1DScanner(target.id);
+//  });
+//}
 
 // --- ビュー切替ヘルパー ---
 function showView(id){

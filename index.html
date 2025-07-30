@@ -13,11 +13,10 @@
   <!-- ZLIB 展開用 pako -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 
-  <!-- ２次元コード読み取り -->
-  <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
-  <!-- １次元バーコード読み取り -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script>
-
+  <!-- ２次元コード読み取り（カメラ機能コメント化中） -->
+  <!-- <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script> -->
+  <!-- １次元バーコード読み取り（カメラ機能コメント化中） -->
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script> -->
 </head>
 <body>
 
@@ -50,18 +49,16 @@
     <div id="add-case-view" class="subview" style="display:none">
       <h3>案件追加</h3>
 
+      <!-- 隠しファイル入力（カメラ機能コメント化中） -->
+      <!-- <input type="file" id="fileInput2D" accept="image/*" capture="environment" style="display:none;"> -->
+      <!-- <input type="file" id="fileInput1D" accept="image/*" capture="environment" style="display:none;"> -->
+
       <!-- スキャンモード -->
       <div id="scan-mode" style="display:none;">
-        <input
-          id="case-barcode"
-          placeholder="バーコードをスキャン（Enter確定）"
-          autocomplete="off"
-          style="ime-mode: disabled;"
-        >
-        <!-- QRコード用カメラ起動ボタン -->
-        <button id="btnScan2D" type="button" class="small-btn" >カメラ起動</button>
-         <video id="video2d" style="display:none; width:100%; max-width:400px;"></video>
-         <button id="start-manual-btn">手動入力へ切替</button>
+        <input id="case-barcode" placeholder="バーコードをスキャン（Enter確定）" autocomplete="off" style="ime-mode: disabled;">
+        <!-- カメラ起動ボタン（無効化中） -->
+        <!-- <button id="btnScan2D" class="small-btn" type="button">カメラ起動</button> -->
+        <button id="start-manual-btn">手動入力へ切替</button>
       </div>
 
       <!-- 手動モード -->
@@ -96,9 +93,8 @@
         </div>
 
         <div id="tracking-rows"></div>
-        <!-- グローバル１次元コードカメラ起動（モバイル時のみ表示） -->
-        <button id="btnScan1D" class="small-btn" >カメラ起動</button>
-        <video id="video1d" style="display:none; width:100%; max-width:400px;"></video>
+        <!-- カメラ起動ボタン（無効化中） -->
+        <!-- <button id="btnScan1D" class="small-btn">カメラ起動</button> -->
         <button id="add-tracking-row-btn">＋追跡番号行を追加</button>
 
         <button id="confirm-add-case-btn">登録</button>
