@@ -16,7 +16,7 @@ const auth = firebase.auth();
 const db   = firebase.database();
 
 // --- モバイル判定 ---
-const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+//const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 // キャリアラベル
 const carrierLabels = {
