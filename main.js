@@ -15,6 +15,9 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.database();
 
+// --- モバイル判定 ---
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
 // キャリアラベル
 const carrierLabels = {
   sagawa:  "佐川急便",
@@ -93,6 +96,7 @@ const backToSearchBtn    = document.getElementById("back-to-search-btn");
 const anotherCaseBtn2    = document.getElementById("another-case-btn-2");
 
 const btnScan2D          = document.getElementById("btnScan2D");
+if (!isMobile) btnScan2D.style.display = "none";
 
 const detailView  = document.getElementById('detail-view');
 const loadingOv   = document.getElementById('loadingOverlay');
@@ -186,12 +190,14 @@ function createTrackingRow(context="add"){
     }
   });
   row.appendChild(inp);
-  // 行ごとのカメラ起動ボタン
-  const scanBtn = document.createElement("button");
-  scanBtn.type = "button";
-  scanBtn.textContent = "カメラ起動";
-  scanBtn.addEventListener("click", () => start1DScanner(uniqueId));
-  row.appendChild(scanBtn);
+  // 行ごとのカメラ起動ボタン（モバイルのみ）
+  if (isMobile) {
+    const scanBtn = document.createElement("button");
+    scanBtn.type = "button";
+    scanBtn.textContent = "カメラ起動";
+    scanBtn.addEventListener("click", () => start1DScanner(uniqueId));
+    row.appendChild(scanBtn);
+  }
   return row;
 }
 
@@ -201,8 +207,8 @@ function initAddCaseView(){
   manualModeDiv.style.display   ="none";
   caseDetailsDiv.style.display  ="none";
   caseBarcodeInput.value        ="";
-  // QRスキャンボタンを有効化
-  btnScan2D.disabled = false;
+  // モバイル外では非活性
+  if (!isMobile) btnScan2D.disabled = true;
   manualOrderIdInput.value      ="";
   manualCustomerInput.value     ="";
   manualTitleInput.value        ="";
@@ -254,6 +260,11 @@ caseBarcodeInput.addEventListener("keydown", e=>{
   detailTitle.textContent   =matches[2]||"";
   scanModeDiv.style.display="none";
   caseDetailsDiv.style.display="block";
+
+  // QR用カメラ起動（モバイルのみ）
+  if (isMobile) {
+    btnScan2D.addEventListener("click", () => start2DScanner('case-barcode'));
+  }
 });
 
 // --- 手動確定 ---
