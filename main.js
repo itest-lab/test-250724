@@ -18,87 +18,103 @@ const db   = firebase.database();
 // --- モバイル判定 ---
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-// キャリアラベル／URL
-const carrierLabels = { sagawa:"佐川急便", yamato:"ヤマト運輸", fukutsu:"福山通運", seino:"西濃運輸", tonami:"トナミ運輸" };
-const carrierUrls   = {
-  sagawa:"https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo=",
-  yamato:"https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
-  fukutsu:"https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
-  seino:"https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
-  tonami:"https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]="
+// キャリアラベル
+const carrierLabels = {
+  sagawa:  "佐川急便",
+  yamato:  "ヤマト運輸",
+  fukutsu: "福山通運",
+  seino:   "西濃運輸",
+  tonami:  "トナミ運輸"
+};
+
+// 各社の追跡ページURL
+const carrierUrls = {
+  sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo=",
+  yamato:  "https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
+  fukutsu: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
+  seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
+  tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]="
 };
 
 let isAdmin = false;
 
 // --- DOM取得 ---
-const loginView          = document.getElementById("login-view");
-const mainView           = document.getElementById("main-view");
-const loginErrorEl       = document.getElementById("login-error");
-const emailInput         = document.getElementById("email");
-const passwordInput      = document.getElementById("password");
-const loginBtn           = document.getElementById("login-btn");
-const signupBtn          = document.getElementById("signup-btn");
-const guestBtn           = document.getElementById("guest-btn");
-const resetBtn           = document.getElementById("reset-btn");
-const logoutBtn          = document.getElementById("logout-btn");
+const loginView             = document.getElementById("login-view");
+const mainView              = document.getElementById("main-view");
+const loginErrorEl          = document.getElementById("login-error");
+const emailInput            = document.getElementById("email");
+const passwordInput         = document.getElementById("password");
+const loginBtn              = document.getElementById("login-btn");
+const signupBtn             = document.getElementById("signup-btn");
+const guestBtn              = document.getElementById("guest-btn");
+const resetBtn              = document.getElementById("reset-btn");
+const logoutBtn             = document.getElementById("logout-btn");
 
-const navAddBtn          = document.getElementById("nav-add-btn");
-const navSearchBtn       = document.getElementById("nav-search-btn");
+const navAddBtn             = document.getElementById("nav-add-btn");
+const navSearchBtn          = document.getElementById("nav-search-btn");
 
-const scanModeDiv        = document.getElementById("scan-mode");
-const manualModeDiv      = document.getElementById("manual-mode");
-const startManualBtn     = document.getElementById("start-manual-btn");
-const caseBarcodeInput   = document.getElementById("case-barcode");
-const manualOrderIdInput = document.getElementById("manual-order-id");
-const manualCustomerInput= document.getElementById("manual-customer");
-const manualTitleInput   = document.getElementById("manual-title");
-const manualConfirmBtn   = document.getElementById("manual-confirm-btn");
-const startScanBtn       = document.getElementById("start-scan-btn");
+const scanModeDiv           = document.getElementById("scan-mode");
+const manualModeDiv         = document.getElementById("manual-mode");
+const startManualBtn        = document.getElementById("start-manual-btn");
+const caseBarcodeInput      = document.getElementById("case-barcode");
+const manualOrderIdInput    = document.getElementById("manual-order-id");
+const manualCustomerInput   = document.getElementById("manual-customer");
+const manualTitleInput      = document.getElementById("manual-title");
+const manualConfirmBtn      = document.getElementById("manual-confirm-btn");
+const startScanBtn          = document.getElementById("start-scan-btn");
 
-const caseDetailsDiv     = document.getElementById("case-details");
-const detailOrderId      = document.getElementById("detail-order-id");
-const detailCustomer     = document.getElementById("detail-customer");
-const detailTitle        = document.getElementById("detail-title");
+const caseDetailsDiv        = document.getElementById("case-details");
+const detailOrderId         = document.getElementById("detail-order-id");
+const detailCustomer        = document.getElementById("detail-customer");
+const detailTitle           = document.getElementById("detail-title");
 
-const fixedCarrierCheckbox = document.getElementById("fixed-carrier-checkbox");
-const fixedCarrierSelect   = document.getElementById("fixed-carrier-select");
-const trackingRows         = document.getElementById("tracking-rows");
-const addTrackingRowBtn    = document.getElementById("add-tracking-row-btn");
-const confirmAddCaseBtn    = document.getElementById("confirm-add-case-btn");
-const addCaseMsg           = document.getElementById("add-case-msg");
-const anotherCaseBtn       = document.getElementById("another-case-btn");
+const fixedCarrierCheckbox  = document.getElementById("fixed-carrier-checkbox");
+const fixedCarrierSelect    = document.getElementById("fixed-carrier-select");
+const trackingRows          = document.getElementById("tracking-rows");
+const addTrackingRowBtn     = document.getElementById("add-tracking-row-btn");
+const confirmAddCaseBtn     = document.getElementById("confirm-add-case-btn");
+const addCaseMsg            = document.getElementById("add-case-msg");
+const anotherCaseBtn        = document.getElementById("another-case-btn");
 
-const searchView         = document.getElementById("search-view");
-const searchInput        = document.getElementById("search-input");
-const searchBtn          = document.getElementById("search-btn");
-const listAllBtn         = document.getElementById("list-all-btn");
-const searchResults      = document.getElementById("search-results");
+const searchView            = document.getElementById("search-view");
+const searchInput           = document.getElementById("search-input");
+const searchBtn             = document.getElementById("search-btn");
+const listAllBtn            = document.getElementById("list-all-btn");
+const searchResults         = document.getElementById("search-results");
 
-const caseDetailView     = document.getElementById("case-detail-view");
-const detailInfoDiv      = document.getElementById("detail-info");
-const detailShipmentsUl  = document.getElementById("detail-shipments");
-const showAddTrackingBtn = document.getElementById("show-add-tracking-btn");
-const addTrackingDetail  = document.getElementById("add-tracking-detail");
-const detailTrackingRows = document.getElementById("detail-tracking-rows");
-const detailAddRowBtn    = document.getElementById("detail-add-tracking-row-btn");
-const confirmDetailAddBtn= document.getElementById("confirm-detail-add-btn");
-const detailAddMsg       = document.getElementById("detail-add-msg");
-const cancelDetailAddBtn = document.getElementById("cancel-detail-add-btn");
-const backToSearchBtn    = document.getElementById("back-to-search-btn");
-const anotherCaseBtn2    = document.getElementById("another-case-btn-2");
+const caseDetailView        = document.getElementById("case-detail-view");
+const detailInfoDiv         = document.getElementById("detail-info");
+const detailShipmentsUl     = document.getElementById("detail-shipments");
+const showAddTrackingBtn    = document.getElementById("show-add-tracking-btn");
+const addTrackingDetail     = document.getElementById("add-tracking-detail");
+const detailTrackingRows    = document.getElementById("detail-tracking-rows");
+const detailAddRowBtn       = document.getElementById("detail-add-tracking-row-btn");
+const confirmDetailAddBtn   = document.getElementById("confirm-detail-add-btn");
+const detailAddMsg          = document.getElementById("detail-add-msg");
+const cancelDetailAddBtn    = document.getElementById("cancel-detail-add-btn");
+const backToSearchBtn       = document.getElementById("back-to-search-btn");
+const anotherCaseBtn2       = document.getElementById("another-case-btn-2");
 
-const btnScan2D          = document.getElementById("btnScan2D");
-const btnScan1D          = document.getElementById("btnScan1D");
-const fileInput2D        = document.getElementById("fileInput2D");
-const fileInput1D        = document.getElementById("fileInput1D");
+const btnScan2D             = document.getElementById("btnScan2D");
+const btnScan1D             = document.getElementById("btnScan1D");
+const video1d               = document.getElementById("video1d");
 
-// モバイル判定でボタン表示制御
+// モバイル判定に応じてグローバルボタンを表示/無効化
 if (!isMobile) {
   btnScan2D.style.display = "none";
   btnScan1D.style.display = "none";
+} else {
+  // 追跡番号用カメラ起動（グローバル）
+  btnScan1D.addEventListener("click", () => {
+    let target = document.activeElement;
+    if (!(target && target.tagName==="INPUT" && target.parentElement.classList.contains("tracking-row"))) {
+      target = trackingRows.querySelector("input");
+    }
+    if (target) start1DScanner(target.id);
+  });
 }
 
-// --- ビュー切替 ---
+// --- ビュー切替ヘルパー ---
 function showView(id){
   document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
   document.getElementById(id).style.display="block";
@@ -144,18 +160,18 @@ resetBtn.onclick=()=>auth.sendPasswordResetEmail(emailInput.value.trim())
 logoutBtn.onclick=()=>auth.signOut();
 
 // --- ナビゲーション ---
-navAddBtn.addEventListener("click",()=>{
+navAddBtn.addEventListener("click", () => {
   showView("add-case-view");
   initAddCaseView();
 });
-navSearchBtn.addEventListener("click",()=>{
+navSearchBtn.addEventListener("click", ()=>{
   showView("search-view");
   searchAll(searchInput.value.trim());
 });
 
-// --- 追跡行生成関数 ---
+// --- 追跡行生成 ---
 function createTrackingRow(context="add"){
-  const row=document.createElement("div"); row.className="tracking-row";
+  const row=document.createElement("div");row.className="tracking-row";
   if(!fixedCarrierCheckbox.checked||context==="detail"){
     const sel=document.createElement("select");
     sel.innerHTML=`
@@ -168,9 +184,11 @@ function createTrackingRow(context="add"){
     row.appendChild(sel);
   }
   const inp=document.createElement("input");
-  inp.type="text"; inp.placeholder="追跡番号"; inp.inputMode="numeric";
-  const uniqueId=`tracking-${Date.now()}-${Math.floor(Math.random()*1000)}`;
-  inp.id=uniqueId;
+  inp.type="text";
+  inp.placeholder="追跡番号";
+  inp.inputMode="numeric";
+  const uniqueId = `tracking-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+  inp.id = uniqueId;
   inp.addEventListener("input",e=>{e.target.value=e.target.value.replace(/\D/g,"");});
   inp.addEventListener("keydown",e=>{
     if(e.key==="Enter"||e.key==="Tab"){
@@ -190,10 +208,11 @@ function createTrackingRow(context="add"){
     }
   });
   row.appendChild(inp);
-  if(isMobile){
-    const scanBtn=document.createElement("button");
-    scanBtn.type="button"; scanBtn.textContent="カメラ起動";
-    scanBtn.addEventListener("click",()=> fileInput1D.click());
+  if (isMobile) {
+    const scanBtn = document.createElement("button");
+    scanBtn.type = "button";
+    scanBtn.textContent = "カメラ起動";
+    scanBtn.addEventListener("click", () => start1DScanner(uniqueId));
     row.appendChild(scanBtn);
   }
   return row;
@@ -201,60 +220,67 @@ function createTrackingRow(context="add"){
 
 // --- 初期化：案件追加 ---
 function initAddCaseView(){
-  scanModeDiv.style.display="block";
-  manualModeDiv.style.display="none";
-  caseDetailsDiv.style.display="none";
-  caseBarcodeInput.value="";
-  if(!isMobile) btnScan2D.disabled=true;
-  manualOrderIdInput.value="";
-  manualCustomerInput.value="";
-  manualTitleInput.value="";
-  addCaseMsg.textContent="";
-  fixedCarrierCheckbox.checked=false;
+  scanModeDiv.style.display     ="block";
+  manualModeDiv.style.display   ="none";
+  caseDetailsDiv.style.display  ="none";
+  caseBarcodeInput.value        ="";
+  if (!isMobile) btnScan2D.disabled = true;
+  manualOrderIdInput.value      ="";
+  manualCustomerInput.value     ="";
+  manualTitleInput.value        ="";
+  addCaseMsg.textContent        ="";
+  fixedCarrierCheckbox.checked  =false;
   fixedCarrierSelect.style.display="none";
-  fixedCarrierSelect.value="";
-  trackingRows.innerHTML="";
+  fixedCarrierSelect.value      ="";
+  trackingRows.innerHTML        ="";
   for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow());
 }
 
-// --- 固定キャリア切替・行追加 ---
-addTrackingRowBtn.onclick=()=>{for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow());};
+// --- 行追加・固定キャリア切替 ---
+addTrackingRowBtn.onclick=()=>{for(let i=0;i<10;i++)trackingRows.appendChild(createTrackingRow());};
 fixedCarrierCheckbox.onchange=()=>{
   fixedCarrierSelect.style.display=fixedCarrierCheckbox.checked?"block":"none";
   Array.from(trackingRows.children).forEach(row=>{
     const sel=row.querySelector("select");
     if(fixedCarrierCheckbox.checked){
-      if(sel) row.removeChild(sel);
+      if(sel)row.removeChild(sel);
     } else {
-      if(!sel) row.insertBefore(createTrackingRow().querySelector("select"), row.firstChild);
+      if(!sel)row.insertBefore(createTrackingRow().querySelector("select"),row.firstChild);
     }
   });
 };
 
-// --- モード切替・QR読み取り ---
+// --- IME無効化 ---
 caseBarcodeInput.addEventListener("compositionstart",e=>e.preventDefault());
-caseBarcodeInput.addEventListener("keydown",e=>{
-  if(e.key!=="Enter") return;
-  const raw=caseBarcodeInput.value.trim(); if(!raw) return;
+
+// --- QR→テキスト展開＆表示 ---
+caseBarcodeInput.addEventListener("keydown", e=>{
+  if(e.key!=="Enter")return;
+  const raw=caseBarcodeInput.value.trim();if(!raw)return;
   let text;
   try{
     if(raw.startsWith("ZLIB64:")){
-      const b64=raw.slice(7), bin=atob(b64),
+      const b64=raw.slice(7),bin=atob(b64),
             arr=new Uint8Array([...bin].map(c=>c.charCodeAt(0))),
             dec=pako.inflate(arr);
       text=new TextDecoder().decode(dec);
     } else text=raw;
   }catch(err){
-    alert("QRデコード失敗: "+err.message); return;
+    alert("QRデコード失敗: "+err.message);return;
   }
   text=text.trim().replace(/「[^」]*」/g,"");
   const matches=Array.from(text.matchAll(/"([^"]*)"/g),m=>m[1]);
-  detailOrderId.textContent=matches[0]||"";
+  detailOrderId.textContent  =matches[0]||"";
   detailCustomer.textContent=matches[1]||"";
-  detailTitle.textContent=matches[2]||"";
+  detailTitle.textContent   =matches[2]||"";
   scanModeDiv.style.display="none";
   caseDetailsDiv.style.display="block";
+  if (isMobile) {
+    btnScan2D.addEventListener("click", () => start2DScanner('case-barcode'));
+  }
 });
+
+// --- 手動確定 ---
 startManualBtn.onclick=()=>{
   scanModeDiv.style.display="none";
   manualModeDiv.style.display="block";
@@ -265,41 +291,39 @@ startScanBtn.onclick=()=>{
 };
 manualConfirmBtn.onclick=()=>{
   if(!manualOrderIdInput.value||!manualCustomerInput.value||!manualTitleInput.value){
-    alert("必須項目を入力"); return;
+    alert("必須項目を入力");return;
   }
-  detailOrderId.textContent=manualOrderIdInput.value.trim();
+  detailOrderId.textContent  =manualOrderIdInput.value.trim();
   detailCustomer.textContent=manualCustomerInput.value.trim();
-  detailTitle.textContent=manualTitleInput.value.trim();
+  detailTitle.textContent   =manualTitleInput.value.trim();
   manualModeDiv.style.display="none";
   caseDetailsDiv.style.display="block";
 };
 
-// --- 登録処理 ---
+// --- 登録 ---
 confirmAddCaseBtn.onclick=async()=>{
   const orderId=detailOrderId.textContent.trim(),
         customer=detailCustomer.textContent.trim(),
         title=detailTitle.textContent.trim();
-  if(!orderId||!customer||!title){ addCaseMsg.textContent="情報不足"; return; }
+  if(!orderId||!customer||!title){addCaseMsg.textContent="情報不足";return;}
   const snap=await db.ref(`shipments/${orderId}`).once("value");
-  const exist=snap.val()||{};
-  const existSet=new Set(Object.values(exist).map(i=>i.tracking));
+  const exist=snap.val()||{};const existSet=new Set(Object.values(exist).map(i=>i.tracking));
   const items=[];
   Array.from(trackingRows.children).forEach(row=>{
-    const tn=row.querySelector("input").value.trim();
-    if(!tn||existSet.has(tn)) return;
+    const tn=row.querySelector("input").value.trim();if(!tn||existSet.has(tn))return;
     const carrier=fixedCarrierCheckbox.checked
-      ? fixedCarrierSelect.value
-      : row.querySelector("select")?.value;
-    if(!carrier) return;
+      ?fixedCarrierSelect.value
+      :row.querySelector("select")?.value;
+    if(!carrier)return;
     items.push({carrier,tracking:tn});
   });
-  if(!items.length){ alert("新規追跡なし"); return; }
+  if(!items.length){alert("新規追跡なし");return;}
   await db.ref(`cases/${orderId}`).set({注番:orderId,得意先:customer,品名:title,createdAt:Date.now()});
-  items.forEach(it=> db.ref(`shipments/${orderId}`).push({carrier:it.carrier,tracking:it.tracking,createdAt:Date.now()}));
+  items.forEach(it=>db.ref(`shipments/${orderId}`).push({carrier:it.carrier,tracking:it.tracking,createdAt:Date.now()}));
   addCaseMsg.textContent="登録完了";
 };
 
-// --- 別の案件追加（共通） ---
+// --- 別案件追加（追加画面／詳細画面 両方共通） ---
 anotherCaseBtn.onclick=()=>{
   showView("add-case-view");
   initAddCaseView();
@@ -309,7 +333,7 @@ anotherCaseBtn2.onclick=()=>{
   initAddCaseView();
 };
 
-// --- 検索／検索結果描画 ---
+// --- 検索結果描画 ---
 function renderSearchResults(list){
   searchResults.innerHTML="";
   list.forEach(item=>{
@@ -317,22 +341,25 @@ function renderSearchResults(list){
     li.textContent=`${item.orderId} / ${item.得意先} / ${item.品名}`;
     if(isAdmin){
       const btn=document.createElement("button");
-      btn.textContent="削除"; btn.onclick=async e=>{
+      btn.textContent="削除";btn.className="delete-case-btn";
+      btn.onclick=async e=>{
         e.stopPropagation();
-        if(!confirm(`${item.orderId}を削除?`)) return;
+        if(!confirm(`${item.orderId}を削除?`))return;
         await db.ref(`cases/${item.orderId}`).remove();
         await db.ref(`shipments/${item.orderId}`).remove();
         li.remove();
       };
       li.appendChild(btn);
     }
-    li.onclick=()=> showCaseDetail(item.orderId,item);
+    li.onclick=()=>showCaseDetail(item.orderId,item);
     searchResults.appendChild(li);
   });
 }
+
+// --- 検索／全件 ---
 function searchAll(kw=""){
   db.ref("cases").once("value").then(snap=>{
-    const data=snap.val()||{}, res=[];
+    const data=snap.val()||{},res=[];
     Object.entries(data).forEach(([orderId,obj])=>{
       if(!kw||orderId.includes(kw)||obj.得意先.includes(kw)||obj.品名.includes(kw))
         res.push({orderId,...obj});
@@ -349,110 +376,145 @@ listAllBtn.onclick=()=>{
   searchAll();
 };
 
-// --- 詳細表示＋ステータス取得 ---
+// --- 詳細＋ステータス取得 ---
 async function showCaseDetail(orderId, obj){
   showView("case-detail-view");
-  detailInfoDiv.innerHTML=`
+  detailInfoDiv.innerHTML = `
     <div>受注番号: ${orderId}</div>
     <div>得意先:   ${obj.得意先}</div>
     <div>品名: ${obj.品名}</div>`;
-  detailShipmentsUl.innerHTML="";
-  addTrackingDetail.style.display="none";
-  detailTrackingRows.innerHTML="";
-  detailAddMsg.textContent="";
-  const snap=await db.ref(`shipments/${orderId}`).once("value");
-  const list=snap.val()||{};
-  for(const key of Object.keys(list)){
-    const it=list[key];
-    const label=carrierLabels[it.carrier]||it.carrier;
-    const a=document.createElement("a");
-    a.href=carrierUrls[it.carrier]+encodeURIComponent(it.tracking);
-    a.target="_blank";
-    a.textContent=`${label}：${it.tracking}：読み込み中…`;
-    const li=document.createElement("li");
+  detailShipmentsUl.innerHTML = "";
+  addTrackingDetail.style.display = "none";
+  detailTrackingRows.innerHTML = "";
+  detailAddMsg.textContent = "";
+
+  const snap = await db.ref(`shipments/${orderId}`).once("value");
+  const list = snap.val() || {};
+
+  for (const key of Object.keys(list)) {
+    const it = list[key];
+    const label = carrierLabels[it.carrier] || it.carrier;
+    const a = document.createElement("a");
+    a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    a.target = "_blank";
+    a.textContent = `${label}：${it.tracking}：読み込み中…`;
+
+    const li = document.createElement("li");
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
+
     try {
-      const res=await fetch("https://tracking-api-eta.vercel.app/fetchStatus",{
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({carrier:it.carrier,tracking:it.tracking})
-      });
-      const json=await res.json();
-      const statusVal=json.status||"";
-      const timeVal=json.time||"";
-      a.textContent=timeVal
+      const res = await fetch(
+        "https://tracking-api-eta.vercel.app/fetchStatus",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            carrier: it.carrier,
+            tracking: it.tracking
+          })
+        }
+      );
+      const json = await res.json();
+      const statusVal = json.status || "";
+      const timeVal   = json.time   || "";
+      a.textContent = timeVal
         ? `${label}：${it.tracking}：${statusVal}　配達日時:${timeVal}`
         : `${label}：${it.tracking}：${statusVal}`;
-    } catch {
-      a.textContent=`${label}：${it.tracking}：取得失敗`;
+    } catch (err) {
+      console.error("fetchStatus error:", err);
+      a.textContent = `${label}：${it.tracking}：取得失敗`;
     }
   }
 }
-backToSearchBtn.onclick=()=> showView("search-view");
 
-// --- ネイティブカメラ→ファイル入力ハンドラ ---
-// QR (jsQR)
-fileInput2D.addEventListener('change', async e=>{
-  const file=e.target.files[0];
-  if(!file) return;
-  try{
-    const img=new Image();
-    img.onload=async ()=>{
-      const c=document.createElement('canvas');
-      c.width=img.width; c.height=img.height;
-      const ctx=c.getContext('2d');
-      ctx.drawImage(img,0,0);
-      const imgData=ctx.getImageData(0,0,c.width,c.height);
-      const code=jsQR(imgData.data,imgData.width,imgData.height);
-      if(code){
-        caseBarcodeInput.value=code.data;
-        caseBarcodeInput.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));
-      } else alert('QRコードが見つかりませんでした');
-    };
-    img.src=URL.createObjectURL(file);
-  } catch {
-    alert('画像読み込みに失敗しました');
-  } finally {
-    fileInput2D.value='';
-  }
-});
-// 1D (Quagga.decodeSingle)
-fileInput1D.addEventListener('change', e=>{
-  const file=e.target.files[0];
-  if(!file) return;
-  const imageUrl=URL.createObjectURL(file);
-  Quagga.decodeSingle({
-    src: imageUrl,
-    numOfWorkers: 0,
-    inputStream: { size: 800 },
-    decoder: { readers:["code_128_reader","ean_reader","ean_8_reader","upc_reader"] }
-  }, result=>{
-    if(result && result.codeResult){
-      let target=document.activeElement;
-      if(!(target && target.tagName==="INPUT" && target.parentElement.classList.contains("tracking-row"))){
-        target=trackingRows.querySelector("input");
-      }
-      if(target) target.value=result.codeResult.code;
-    } else {
-      alert('バーコードが見つかりませんでした');
-    }
-    URL.revokeObjectURL(imageUrl);
-    fileInput1D.value='';
-  });
-});
+backToSearchBtn.onclick=()=>showView("search-view");
 
 // ─────────────────────────────────────────────────────────────────
-//  セッションタイムアウト（30分）
+// ３）２次元コード読み取り (jsQR)
+// ─────────────────────────────────────────────────────────────────
+const canvas = document.createElement('canvas');
+async function start2DScanner(inputId) {
+  const video = document.getElementById('video2d');
+  video.style.display = 'block';
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" }
+  });
+  video.srcObject = stream;
+  video.play();
+  scan2D(video, inputId);
+}
+function stop2DScanner() {
+  const video = document.getElementById('video2d');
+  (video.srcObject?.getTracks() || []).forEach(t => t.stop());
+  video.srcObject = null;
+  video.style.display = 'none';
+}
+function scan2D(video, inputId) {
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(img.data, img.width, img.height);
+    if (code) {
+      document.getElementById(inputId).value = code.data;
+      stop2DScanner();
+      return;
+    }
+  }
+  requestAnimationFrame(() => scan2D(video, inputId));
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ４）１次元バーコード読み取り (QuaggaJS)
+// ─────────────────────────────────────────────────────────────────
+function start1DScanner(inputId) {
+  const video = document.getElementById('video1d');
+  video.style.display = 'block';
+  Quagga.init({
+    inputStream: {
+      name: "Live",
+      type: "LiveStream",
+      target: video,
+      constraints: { facingMode: "environment" }
+    },
+    decoder: {
+      readers: [
+        "code_128_reader",
+        "ean_reader",
+        "ean_8_reader",
+        "upc_reader",
+        "upc_e_reader"
+      ]
+    }
+  }, err => {
+    if (err) return console.error(err);
+    Quagga.start();
+  });
+  Quagga.onDetected(result => {
+    const code = result.codeResult?.code;
+    if (code) {
+      document.getElementById(inputId).value = code;
+      Quagga.stop();
+      video.style.display = 'none';
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────
+// ５）セッションタイムアウト（30分）
 // ─────────────────────────────────────────────────────────────────
 let sessionTimer;
-function resetSessionTimer(){
+function resetSessionTimer() {
   clearTimeout(sessionTimer);
-  sessionTimer=setTimeout(()=>{
+  sessionTimer = setTimeout(() => {
     alert('セッションが30分を超えました。再度ログインしてください。');
     auth.signOut();
-  },30*60*1000);
+  }, 30 * 60 * 1000);
 }
-function startSessionTimer(){
+function startSessionTimer() {
   resetSessionTimer();
-  ['click','keydown','touchstart'].forEach(evt=>document.addEventListener(evt,resetSessionTimer));
+  ['click','keydown','touchstart'].forEach(evt => document.addEventListener(evt, resetSessionTimer));
 }
