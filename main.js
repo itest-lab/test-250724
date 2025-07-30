@@ -2,14 +2,14 @@
 
 // --- Firebase 初期化 ---
 const firebaseConfig = {
-  apiKey:            "AIzaSyArSM1XI5MLkZDiDdzkLJxBwvjM4xGWS70",
-  authDomain:        "test-250724.firebaseapp.com",
-  databaseURL:       "https://test-250724-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:         "test-250724",
-  storageBucket:     "test-250724.appspot.com",
+  apiKey: "AIzaSyArSM1XI5MLkZDiDdzkLJxBwvjM4xGWS70",
+  authDomain: "test-250724.firebaseapp.com",
+  databaseURL: "https://test-250724-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "test-250724",
+  storageBucket: "test-250724.firebasestorage.app",
   messagingSenderId: "252374655568",
-  appId:             "1:252374655568:web:3e583b46468714b7b7a755",
-  measurementId:     "G-5WGPKD9BP2"
+  appId: "1:252374655568:web:3e583b46468714b7b7a755",
+  measurementId: "G-5WGPKD9BP2"
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
