@@ -386,14 +386,27 @@ function renderSearchResults(list){
 // --- 検索／全件 ---
 function searchAll(kw=""){
   db.ref("cases").once("value").then(snap=>{
-    const data=snap.val()||{},res=[];
+    const data = snap.val() || {},
+          res  = [];
+
+    // フィルタ＆配列化
     Object.entries(data).forEach(([orderId,obj])=>{
-      if(!kw||orderId.includes(kw)||obj.得意先.includes(kw)||obj.品名.includes(kw))
-        res.push({orderId,...obj});
+      if (!kw
+          || orderId.includes(kw)
+          || obj.得意先.includes(kw)
+          || obj.品名.includes(kw)
+      ) {
+        res.push({ orderId, ...obj });
+      }
     });
+
+    // 新→古順にソート（createdAt がタイムスタンプで入っている前提）
+    res.sort((a, b) => b.createdAt - a.createdAt);
+
     renderSearchResults(res);
   });
 }
+
 searchBtn.onclick=()=>{
   showView("search-view");
   searchAll(searchInput.value.trim());
