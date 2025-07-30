@@ -118,6 +118,32 @@ const video1d               = document.getElementById("video1d");
 function showView(id){
   document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
   document.getElementById(id).style.display="block";
+
+  // 画面ごとに最上部入力要素へフォーカス
+  switch(id){
+    case "add-case-view":
+      // 初期状態ならスキャンモード。手動モード時はそちら
+      if(scanModeDiv.style.display !== "none"){
+        caseBarcodeInput.focus();
+      } else if(manualModeDiv.style.display !== "none"){
+        manualOrderIdInput.focus();
+      }
+      break;
+
+    case "search-view":
+      searchInput.focus();
+      break;
+
+    case "case-detail-view":
+      // 詳細画面では「追跡番号追加」ボタンにフォーカス
+      showAddTrackingBtn.focus();
+      break;
+  }
+}
+
+// ページロード直後に、未ログインならメール入力へフォーカス
+if(loginView.style.display !== "none"){
+  emailInput.focus();
 }
 
 // --- 認証監視 ---
@@ -131,9 +157,11 @@ auth.onAuthStateChanged(async user=>{
     initAddCaseView();
     startSessionTimer();
   } else {
-    isAdmin=false;
-    loginView.style.display="block";
-    mainView.style.display="none";
+    isAdmin = false;
+    loginView.style.display = "block";
+    mainView.style.display = "none";
+    // ログイン画面表示時にメール欄にフォーカス
+    emailInput.focus();
   }
 });
 
