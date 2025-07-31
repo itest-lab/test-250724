@@ -94,6 +94,8 @@ const detailAddRowBtn       = document.getElementById("detail-add-tracking-row-b
 const confirmDetailAddBtn   = document.getElementById("confirm-detail-add-btn");
 const detailAddMsg          = document.getElementById("detail-add-msg");
 const cancelDetailAddBtn    = document.getElementById("cancel-detail-add-btn");
+const fixedCarrierCheckboxDetail = document.getElementById("fixed-carrier-checkbox-detail");
+const fixedCarrierSelectDetail   = document.getElementById("fixed-carrier-select-detail");
 const backToSearchBtn       = document.getElementById("back-to-search-btn");
 const anotherCaseBtn2       = document.getElementById("another-case-btn-2");
 
@@ -200,17 +202,34 @@ navSearchBtn.addEventListener("click", ()=>{
 
 // --- 追跡行生成 ---
 function createTrackingRow(context="add"){
-  const row=document.createElement("div");row.className="tracking-row";
-  if(!fixedCarrierCheckbox.checked||context==="detail"){
-    const sel=document.createElement("select");
-    sel.innerHTML=`
-      <option value="">運送会社</option>
-      <option value="sagawa">佐川急便</option>
-      <option value="yamato">ヤマト運輸</option>
-      <option value="fukutsu">福山通運</option>
-      <option value="seino">西濃運輸</option>
-      <option value="tonami">トナミ運輸</option>`;
-    row.appendChild(sel);
+  const row = document.createElement("div");
+  row.className = "tracking-row";
+
+  // ── 運送会社セレクトの付与 ──
+  if (context === "add") {
+    if (!fixedCarrierCheckbox.checked) {
+      const sel = document.createElement("select");
+      sel.innerHTML = `
+        <option value="">運送会社</option>
+        <option value="sagawa">佐川急便</option>
+        <option value="yamato">ヤマト運輸</option>
+        <option value="fukutsu">福山通運</option>
+        <option value="seino">西濃運輸</option>
+        <option value="tonami">トナミ運輸</option>`;
+      row.appendChild(sel);
+    }
+  } else {  // context === "detail"
+    if (!fixedCarrierCheckboxDetail.checked) {
+      const sel = document.createElement("select");
+      sel.innerHTML = `
+        <option value="">運送会社</option>
+        <option value="sagawa">佐川急便</option>
+        <option value="yamato">ヤマト運輸</option>
+        <option value="fukutsu">福山通運</option>
+        <option value="seino">西濃運輸</option>
+        <option value="tonami">トナミ運輸</option>`;
+      row.appendChild(sel);
+    }
   }
   const inp=document.createElement("input");
   inp.type="text";
@@ -246,6 +265,34 @@ function createTrackingRow(context="add"){
 //  }
   return row;
 }
+
+// ── 詳細画面：一括運送会社指定 ──
+fixedCarrierCheckboxDetail.onchange = () => {
+  // セレクトの表示／非表示
+  fixedCarrierSelectDetail.style.display = fixedCarrierCheckboxDetail.checked
+    ? "inline-block"
+    : "none";
+
+  // 既に追加済みの行についても select を追加／削除
+  Array.from(detailTrackingRows.children).forEach(row => {
+    const sel = row.querySelector("select");
+    if (fixedCarrierCheckboxDetail.checked) {
+      if (sel) row.removeChild(sel);
+    } else {
+      if (!sel) {
+        const newSel = document.createElement("select");
+        newSel.innerHTML = `
+          <option value="">運送会社</option>
+          <option value="sagawa">佐川急便</option>
+          <option value="yamato">ヤマト運輸</option>
+          <option value="fukutsu">福山通運</option>
+          <option value="seino">西濃運輸</option>
+          <option value="tonami">トナミ運輸</option>`;
+        row.insertBefore(newSel, row.firstChild);
+      }
+    }
+  });
+};
 
 // --- 初期化：案件追加 ---
 function initAddCaseView(){
@@ -571,8 +618,12 @@ function startSessionTimer() {
 showAddTrackingBtn.onclick = () => {
   addTrackingDetail.style.display = "block";
   detailTrackingRows.innerHTML = "";
-  // 最初の１行を追加
-  detailTrackingRows.appendChild(createTrackingRow("detail"));
+  // 最初に5行追加
+  for (let i = 0; i < 5; i++) {
+    detailTrackingRows.appendChild(createTrackingRow("detail"));
+  }
+  // 初回追加後は「追跡番号追加」ボタン自体を非表示に
+  showAddTrackingBtn.style.display = "none";
 };
 
 // 「＋追跡番号行を5行ずつ追加」
@@ -596,8 +647,9 @@ confirmDetailAddBtn.onclick = async () => {
   detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => {
     const tn = row.querySelector("input").value.trim();
     if (!tn) return;
-    const sel = row.querySelector("select");
-    const carrier = sel ? sel.value : fixedCarrierSelect.value;
+    const carrier = fixedCarrierCheckboxDetail.checked
+      ? fixedCarrierSelectDetail.value
+      : row.querySelector("select")?.value;
     if (!carrier) return;
     items.push({ carrier, tracking: tn });
   });
