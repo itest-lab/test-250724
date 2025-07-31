@@ -14,9 +14,16 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
-// --- セッション永続化を無効化（ページ読み込みごとにログアウト状態） ---
+// 1) ページロード時に既存セッションを強制クリア
+auth.signOut().catch(err=>{
+  console.warn("初期サインアウト失敗:", err);
+});
+
+// 2) 以降のサインインをメモリ（NONE）に限定
 auth.setPersistence(firebase.auth.Auth.Persistence.NONE)
-  .catch(err => console.error("Auth persistence error:", err));
+  .catch(err=>{
+    console.error("永続化設定エラー:", err);
+  });
 
 const db   = firebase.database();
 
