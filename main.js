@@ -118,6 +118,27 @@ const video1d               = document.getElementById("video1d");
 //  });
 //}
 
+// ─────────────────────────────────────────────────────────────────
+// セッションタイムスタンプ管理
+// ─────────────────────────────────────────────────────────────────
+
+const SESSION_LIMIT_MS = 30 * 60 * 1000;
+
+function clearLoginTime() {
+  // ログイン画面を開くたびに前回のタイムスタンプを消去
+  localStorage.removeItem('loginTime');
+}
+
+function markLoginTime() {
+  // 認証成功時に記録
+  localStorage.setItem('loginTime', Date.now().toString());
+}
+
+function isSessionExpired() {
+  const t = parseInt(localStorage.getItem('loginTime') || '0', 10);
+  return (Date.now() - t) > SESSION_LIMIT_MS;
+}
+
 // --- ビュー切替ヘルパー ---
 function showView(id){
   document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
@@ -165,6 +186,9 @@ auth.onAuthStateChanged(async user=>{
     mainView.style.display = "none";
     // ログイン画面表示時にメール欄にフォーカス
     emailInput.focus();
+
+    // ログイン画面を開くたびにタイムスタンプを消去
+    clearLoginTime();
   }
 });
 
@@ -172,12 +196,17 @@ auth.onAuthStateChanged(async user=>{
 loginBtn.onclick=async()=>{
   const id=emailInput.value.trim(), pw=passwordInput.value;
   loginErrorEl.textContent="";
+  // 念のため既存のタイムスタンプをクリア
+  clearLoginTime();
   try{
     if(id==="admin"&&pw==="admin"){
       await auth.signInWithEmailAndPassword("admin@test.com","admin");
     } else {
       await auth.signInWithEmailAndPassword(id,pw);
     }
+    // 認証成功時に今の時刻を記録
+    markLoginTime();
+    
   }catch(e){
     loginErrorEl.textContent=e.message;
   }
