@@ -37,6 +37,8 @@ const carrierUrls = {
 };
 
 let isAdmin = false;
+let sessionTimer;
+let currentOrderId = null;
 
 // --- DOM取得 ---
 const loginView             = document.getElementById("login-view");
@@ -424,9 +426,13 @@ async function showCaseDetail(orderId, obj){
     <div>得意先:   ${obj.得意先}</div>
     <div>品名: ${obj.品名}</div>`;
   detailShipmentsUl.innerHTML = "";
+  currentOrderId = orderId;            // いま操作している注文番号を保存
   addTrackingDetail.style.display = "none";
-  detailTrackingRows.innerHTML = "";
+  detailTrackingRows.innerHTML = "";   // 以前の行をクリア
   detailAddMsg.textContent = "";
+  detailAddRowBtn.disabled = false;
+  confirmDetailAddBtn.disabled = false;
+  cancelDetailAddBtn.disabled = false;
 
   const snap = await db.ref(`shipments/${orderId}`).once("value");
   const list = snap.val() || {};
@@ -546,7 +552,6 @@ function start1DScanner(inputId) {
 // ─────────────────────────────────────────────────────────────────
 // ５）セッションタイムアウト（30分）
 // ─────────────────────────────────────────────────────────────────
-let sessionTimer;
 function resetSessionTimer() {
   clearTimeout(sessionTimer);
   sessionTimer = setTimeout(() => {
@@ -558,3 +563,51 @@ function startSessionTimer() {
   resetSessionTimer();
   ['click','keydown','touchstart'].forEach(evt => document.addEventListener(evt, resetSessionTimer));
 }
+
+// ─────────────────────────────────────────────────────────────────
+// 詳細画面：追跡番号追加フォーム操作
+// ─────────────────────────────────────────────────────────────────
+// 「追跡番号追加」ボタン
+showAddTrackingBtn.onclick = () => {
+  addTrackingDetail.style.display = "block";
+  detailTrackingRows.innerHTML = "";
+  // 最初の１行を追加
+  detailTrackingRows.appendChild(createTrackingRow("detail"));
+};
+
+// 「＋追跡番号行を追加」
+detailAddRowBtn.onclick = () => {
+  detailTrackingRows.appendChild(createTrackingRow("detail"));
+};
+
+// 「キャンセル」
+cancelDetailAddBtn.onclick = () => {
+  addTrackingDetail.style.display = "none";
+  detailTrackingRows.innerHTML = "";
+  detailAddMsg.textContent = "";
+};
+
+// 「追加登録」
+confirmDetailAddBtn.onclick = async () => {
+  if (!currentOrderId) return;
+  const items = [];
+  detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => {
+    const tn = row.querySelector("input").value.trim();
+    if (!tn) return;
+    const sel = row.querySelector("select");
+    const carrier = sel ? sel.value : fixedCarrierSelect.value;
+    if (!carrier) return;
+    items.push({ carrier, tracking: tn });
+  });
+  if (items.length === 0) {
+    alert("追加する追跡番号がありません");
+    return;
+  }
+  // Firebase にプッシュ
+  for (const it of items) {
+    await db.ref(`shipments/${currentOrderId}`)
+            .push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() });
+  }
+  detailAddMsg.textContent = "追加登録完了";
+  // フォームはそのままに、必要なら明示的に閉じる／再表示処理を追加してください
+};
