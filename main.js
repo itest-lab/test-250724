@@ -575,9 +575,11 @@ showAddTrackingBtn.onclick = () => {
   detailTrackingRows.appendChild(createTrackingRow("detail"));
 };
 
-// 「＋追跡番号行を追加」
+// 「＋追跡番号行を5行ずつ追加」
 detailAddRowBtn.onclick = () => {
-  detailTrackingRows.appendChild(createTrackingRow("detail"));
+  for (let i = 0; i < 5; i++) {
+    detailTrackingRows.appendChild(createTrackingRow("detail"));
+  }
 };
 
 // 「キャンセル」
