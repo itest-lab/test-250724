@@ -13,6 +13,11 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
+
+// --- セッション永続化を無効化（ページ読み込みごとにログアウト状態） ---
+auth.setPersistence(firebase.auth.Auth.Persistence.NONE)
+  .catch(err => console.error("Auth persistence error:", err));
+
 const db   = firebase.database();
 
 // --- モバイル判定 ---
