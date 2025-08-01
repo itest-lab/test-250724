@@ -21,8 +21,10 @@ auth.signOut().catch(err=>{
 
 // 2) 以降のサインインをメモリ（NONE）に限定
 auth.setPersistence(firebase.auth.Auth.Persistence.NONE)
+  .then(()=> console.log("Persistence set"))
   .catch(err=>{
     console.error("永続化設定エラー:", err);
+    loginErrorEl.textContent = err.message;
   });
 
 const db   = firebase.database();
