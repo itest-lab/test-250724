@@ -439,26 +439,64 @@ manualConfirmBtn.onclick=()=>{
 };
 
 // --- 登録 ---
-confirmAddCaseBtn.onclick=async()=>{
-  const orderId=detailOrderId.textContent.trim(),
-        customer=detailCustomer.textContent.trim(),
-        title=detailTitle.textContent.trim();
-  if(!orderId||!customer||!title){addCaseMsg.textContent="情報不足";return;}
-  const snap=await db.ref(`shipments/${orderId}`).once("value");
-  const exist=snap.val()||{};const existSet=new Set(Object.values(exist).map(i=>i.tracking));
-  const items=[];
-  Array.from(trackingRows.children).forEach(row=>{
-    const tn=row.querySelector("input").value.trim();if(!tn||existSet.has(tn))return;
-    const carrier=fixedCarrierCheckbox.checked
-      ?fixedCarrierSelect.value
-      :row.querySelector("select")?.value;
-    if(!carrier)return;
-    items.push({carrier,tracking:tn});
+confirmAddCaseBtn.onclick = async () => {
+  const orderId  = detailOrderId.textContent.trim(),
+        customer = detailCustomer.textContent.trim(),
+        title    = detailTitle.textContent.trim();
+  if (!orderId || !customer || !title) {
+    addCaseMsg.textContent = "情報不足";
+    return;
+  }
+
+  // 既存データを取得し、「carrier:tracking」のキーでセットを作成
+  const snap      = await db.ref(`shipments/${orderId}`).once("value");
+  const existObj  = snap.val() || {};
+  const existSet  = new Set(
+    Object.values(existObj)
+          .map(it => `${it.carrier}:${it.tracking}`)
+  );
+
+  const items = [];
+
+  // 入力行をループし、carrier と tracking の組み合わせで重複をスキップ
+  Array.from(trackingRows.children).forEach(row => {
+    const tn = row.querySelector("input").value.trim();
+    const carrier = fixedCarrierCheckbox.checked
+      ? fixedCarrierSelect.value
+      : row.querySelector("select")?.value;
+
+    if (!tn || !carrier) return;           // 入力不足はスキップ
+
+    const key = `${carrier}:${tn}`;
+    if (existSet.has(key)) return;         // 既存／新規で重複していたらスキップ
+
+    existSet.add(key);                     // 同じセッション内での重複防止
+    items.push({ carrier, tracking: tn });
   });
-  if(!items.length){alert("新規追跡なし");return;}
-  await db.ref(`cases/${orderId}`).set({注番:orderId,得意先:customer,品名:title,createdAt:Date.now()});
-  items.forEach(it=>db.ref(`shipments/${orderId}`).push({carrier:it.carrier,tracking:it.tracking,createdAt:Date.now()}));
-  addCaseMsg.textContent="登録完了";
+
+  if (items.length === 0) {
+    alert("新規追跡なし");
+    return;
+  }
+
+  // ケース情報をセット
+  await db.ref(`cases/${orderId}`).set({
+    注番: orderId,
+    得意先: customer,
+    品名: title,
+    createdAt: Date.now()
+  });
+
+  // 重複チェック済みの items を一括プッシュ
+  for (const it of items) {
+    await db.ref(`shipments/${orderId}`).push({
+      carrier: it.carrier,
+      tracking: it.tracking,
+      createdAt: Date.now()
+    });
+  }
+
+  addCaseMsg.textContent = "登録完了";
 };
 
 // --- 別案件追加（追加画面／詳細画面 両方共通） ---
