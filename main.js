@@ -14,15 +14,14 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
-// 1) ページロード時に既存セッションを強制クリア
 auth.signOut().catch(err=>{
   console.warn("初期サインアウト失敗:", err);
 });
 
-// 2) 以降のサインインをメモリ（NONE）に限定
-auth.setPersistence(firebase.auth.Auth.Persistence.NONE)
-  .then(()=> console.log("Persistence set"))
-  .catch(err=>{
+// 認証の永続化を「セッション単位」に設定（タブを閉じるまで有効）
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+  .then(() => console.log("Persistence set to SESSION"))
+  .catch(err => {
     console.error("永続化設定エラー:", err);
     loginErrorEl.textContent = err.message;
   });
@@ -222,12 +221,18 @@ loginBtn.onclick = async () => {
   const email = emailInput.value.trim();
   const password = passwordInput.value;
   loginErrorEl.textContent = "";
-  clearLoginTime();  // 既存タイムスタンプをクリア
+  clearLoginTime();
 
   try {
-    // メール／パスワードでログイン（admin判定はDBで後述）
     await auth.signInWithEmailAndPassword(email, password);
-    markLoginTime();  // 認証成功時にタイムスタンプを記録
+    markLoginTime();
+
+    // ——— ログイン成功後に UI を切り替え ———
+    loginView.style.display = "none";
+    mainView.style.display  = "block";
+    showView("add-case-view");
+    initAddCaseView();
+    startSessionTimer();
   } catch (e) {
     loginErrorEl.textContent = e.message;
   }
