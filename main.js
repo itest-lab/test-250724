@@ -717,7 +717,7 @@ cancelDetailAddBtn.onclick = () => {
 confirmDetailAddBtn.onclick = async () => {
   if (!currentOrderId) return;
 
-  // 1) 入力行から items を組み立て
+  // 1) 入力行から新規追加分 items を組み立て
   const items = [];
   detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => {
     const tn = row.querySelector("input").value.trim();
@@ -740,12 +740,13 @@ confirmDetailAddBtn.onclick = async () => {
   }
   detailAddMsg.textContent = "追加登録完了";
 
-  // 3) フォームを閉じる
-  detailAddForm.classList.add("hidden");
+  // 3) フォームを閉じる＆クリア
+  addTrackingDetail.style.display = "none";              // コンテナを非表示
+  detailTrackingRows.innerHTML = "";                      // 行クリア
+  detailAddMsg.textContent = "";                          // メッセージクリア
+  showAddTrackingBtn.style.display = "inline-block";     // 「追跡番号追加」ボタンを再表示
 
   // 4) 追加分のみ追跡 API を叩いて結果を表示
-  //    ※ fetchStatus(carrier, tracking) と showDetailTrackingResult(...) は
-  //       既存のステータス取得／表示関数をお使いください
   const promises = items.map(it => fetchStatus(it.carrier, it.tracking));
   const results  = await Promise.all(promises);
   results.forEach((res, idx) => {
