@@ -727,24 +727,36 @@ confirmDetailAddBtn.onclick = async () => {
     await db.ref(`shipments/${currentOrderId}`)
             .push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() });
   }
-  detailAddMsg.textContent = "追加登録完了";
 
-  // 3) フォームを閉じる＆クリア
-  addTrackingDetail.style.display = "none";              // コンテナを非表示
-  detailTrackingRows.innerHTML = "";                      // 行クリア
-  detailAddMsg.textContent = "";                          // メッセージクリア
-  showAddTrackingBtn.style.display = "inline-block";     // 「追跡番号追加」ボタンを再表示
+  // 3) UI に「読み込み中」状態のリンクを追加
+  const anchorEls = items.map(it => {
+    const label = carrierLabels[it.carrier] || it.carrier;
+    const a = document.createElement("a");
+    a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    a.target = "_blank";
+    a.textContent = `${label}：${it.tracking}：読み込み中…`;
+    const li = document.createElement("li");
+    li.appendChild(a);
+    detailShipmentsUl.appendChild(li);
+    return a;
+  });
 
-  // 4) 追加分のみ追跡 API を叩いて結果を表示
-  const promises = items.map(it => fetchStatus(it.carrier, it.tracking));
-  const results  = await Promise.all(promises);
+  // 4) フォームを閉じ＆クリア
+  addTrackingDetail.style.display      = "none";
+  detailTrackingRows.innerHTML         = "";
+  detailAddMsg.textContent             = "";
+  showAddTrackingBtn.style.display     = "inline-block";
+
+  // 5) 追加分のみ追跡 API を叩いて結果を表示
+  const results = await Promise.all(
+    items.map(it => fetchStatus(it.carrier, it.tracking))
+  );
   results.forEach((res, idx) => {
     const it = items[idx];
-    showDetailTrackingResult({
-      carrier: it.carrier,
-      tracking: it.tracking,
-      status:  res.status,
-      time:    res.time
-    });
+    const label = carrierLabels[it.carrier] || it.carrier;
+    const a = anchorEls[idx];
+    a.textContent = res.time
+      ? `${label}：${it.tracking}：${res.status}　配達日時:${res.time}`
+      : `${label}：${it.tracking}：${res.status}`;
   });
 };
