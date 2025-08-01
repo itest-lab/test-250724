@@ -183,53 +183,69 @@ if(loginView.style.display !== "none"){
 }
 
 // --- 認証監視 ---
-auth.onAuthStateChanged(async user=>{
-  if(user){
-    const snap = await db.ref(`admins/${user.uid}`).once("value");
-    isAdmin = snap.val()===true;
-    loginView.style.display="none";
-    mainView.style.display="block";
+auth.onAuthStateChanged(async user => {
+  if (user) {
+    try {
+      // Realtime DB の admins/{uid} が true なら管理者扱い
+      const snap = await db.ref(`admins/${user.uid}`).once("value");
+      isAdmin = snap.val() === true;
+    } catch (e) {
+      console.error("管理者判定エラー:", e);
+      isAdmin = false;
+    }
+
+    loginView.style.display = "none";
+    mainView.style.display = "block";
     showView("add-case-view");
     initAddCaseView();
     startSessionTimer();
   } else {
+    // ログアウト時
     isAdmin = false;
     loginView.style.display = "block";
     mainView.style.display = "none";
-    // ログイン画面表示時にメール欄にフォーカス
     emailInput.focus();
-
-    // ログイン画面を開くたびにタイムスタンプを消去
     clearLoginTime();
   }
 });
 
 // --- 認証操作 ---
-loginBtn.onclick=async()=>{
-  const id=emailInput.value.trim(), pw=passwordInput.value;
-  loginErrorEl.textContent="";
-  // 念のため既存のタイムスタンプをクリア
-  clearLoginTime();
-  try{
-    if(id==="admin"&&pw==="admin"){
-      await auth.signInWithEmailAndPassword("admin@test.com","admin");
-    } else {
-      await auth.signInWithEmailAndPassword(id,pw);
-    }
-    // 認証成功時に今の時刻を記録
-    markLoginTime();
-    
-  }catch(e){
-    loginErrorEl.textContent=e.message;
+loginBtn.onclick = async () => {
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+  loginErrorEl.textContent = "";
+  clearLoginTime();  // 既存タイムスタンプをクリア
+
+  try {
+    // メール／パスワードでログイン（admin判定はDBで後述）
+    await auth.signInWithEmailAndPassword(email, password);
+    markLoginTime();  // 認証成功時にタイムスタンプを記録
+  } catch (e) {
+    loginErrorEl.textContent = e.message;
   }
 };
-signupBtn.onclick=()=>auth.createUserWithEmailAndPassword(emailInput.value.trim(),passwordInput.value)
-  .catch(e=>loginErrorEl.textContent=e.message);
-guestBtn.onclick=()=>auth.signInAnonymously().catch(e=>loginErrorEl.textContent=e.message);
-resetBtn.onclick=()=>auth.sendPasswordResetEmail(emailInput.value.trim())
-  .then(()=>loginErrorEl.textContent="再発行メール送信")
-  .catch(e=>loginErrorEl.textContent=e.message);
-logoutBtn.onclick=()=>auth.signOut();
+
+signupBtn.onclick = () => {
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+  // 新規登録後は admins ノードに自動で書き込まない ⇒ 管理者は手動でDBに追加
+  auth.createUserWithEmailAndPassword(email, password)
+    .catch(e => loginErrorEl.textContent = e.message);
+};
+
+guestBtn.onclick = () => {
+  auth.signInAnonymously()
+    .catch(e => loginErrorEl.textContent = e.message);
+};
+
+resetBtn.onclick = () => {
+  const email = emailInput.value.trim();
+  auth.sendPasswordResetEmail(email)
+    .then(() => loginErrorEl.textContent = "再発行メール送信")
+    .catch(e => loginErrorEl.textContent = e.message);
+};
+
+logoutBtn.onclick = () => auth.signOut();
 
 // --- ナビゲーション ---
 navAddBtn.addEventListener("click", () => {
