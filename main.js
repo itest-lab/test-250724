@@ -706,8 +706,15 @@ cancelDetailAddBtn.onclick = () => {
 confirmDetailAddBtn.onclick = async () => {
   if (!currentOrderId) return;
 
-  // 1) 入力行から新規追加分 items を組み立て
-  const items = [];
+  // 0) 既存データの読み込みと重複チェック
+  const snap = await db.ref(`shipments/${currentOrderId}`).once("value");
+  const existObj = snap.val() || {};
+  const existSet = new Set(
+    Object.values(existObj).map(it => `${it.carrier}:${it.tracking}`)
+  );
+
+  // 1) 入力行から新規追加分をピックアップ
+  const newItems = [];
   detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => {
     const tn = row.querySelector("input").value.trim();
     if (!tn) return;
@@ -715,21 +722,26 @@ confirmDetailAddBtn.onclick = async () => {
       ? fixedCarrierSelectDetail.value
       : row.querySelector("select")?.value;
     if (!carrier) return;
-    items.push({ carrier, tracking: tn });
+
+    const key = `${carrier}:${tn}`;
+    if (existSet.has(key)) return;        // 重複はスキップ
+    existSet.add(key);
+    newItems.push({ carrier, tracking: tn });
   });
-  if (items.length === 0) {
-    alert("追加する追跡番号がありません");
+
+  if (newItems.length === 0) {
+    alert("新規の追跡番号がありません（既に登録済みです）");
     return;
   }
 
-  // 2) Firebase にプッシュ
-  for (const it of items) {
+  // 2) DB プッシュ
+  for (const it of newItems) {
     await db.ref(`shipments/${currentOrderId}`)
             .push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() });
   }
 
-  // 3) UI に「読み込み中」状態のリンクを追加
-  const anchorEls = items.map(it => {
+  // 3) UI に「読み込み中」リンクを追加
+  const anchorEls = newItems.map(it => {
     const label = carrierLabels[it.carrier] || it.carrier;
     const a = document.createElement("a");
     a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
@@ -741,18 +753,20 @@ confirmDetailAddBtn.onclick = async () => {
     return a;
   });
 
-  // 4) フォームを閉じ＆クリア
-  addTrackingDetail.style.display      = "none";
-  detailTrackingRows.innerHTML         = "";
-  detailAddMsg.textContent             = "";
-  showAddTrackingBtn.style.display     = "inline-block";
+  // 4) フォームを閉じ＆行をクリア
+  addTrackingDetail.style.display  = "none";
+  detailTrackingRows.innerHTML     = "";
+  showAddTrackingBtn.style.display = "inline-block";
 
-  // 5) 追加分のみ追跡 API を叩いて結果を表示
+  // ← ここでメッセージをセット！
+  detailAddMsg.textContent = "追加しました";
+
+  // 5) 追加分のみステータス取得して更新
   const results = await Promise.all(
-    items.map(it => fetchStatus(it.carrier, it.tracking))
+    newItems.map(it => fetchStatus(it.carrier, it.tracking))
   );
   results.forEach((res, idx) => {
-    const it = items[idx];
+    const it = newItems[idx];
     const label = carrierLabels[it.carrier] || it.carrier;
     const a = anchorEls[idx];
     a.textContent = res.time
