@@ -532,57 +532,57 @@ listAllBtn.onclick=()=>{
 };
 
 // --- 詳細＋ステータス取得 ---
-async function showCaseDetail(orderId, obj) {
+async function showCaseDetail(orderId, obj){
   showView("case-detail-view");
-  detailInfoDiv.innerHTML = `
+  detailInfoDiv.innerHTML = 
     <div>受注番号: ${orderId}</div>
     <div>得意先:   ${obj.得意先}</div>
-    <div>品名:     ${obj.品名}</div>`;
+    <div>品名: ${obj.品名}</div>;
   detailShipmentsUl.innerHTML = "";
-  currentOrderId = orderId;
-  addTrackingDetail.style.display   = "none";
-  detailTrackingRows.innerHTML      = "";
-  detailAddMsg.textContent          = "";
-  detailAddRowBtn.disabled          = false;
-  confirmDetailAddBtn.disabled      = false;
-  cancelDetailAddBtn.disabled       = false;
+  currentOrderId = orderId;            // いま操作している注文番号を保存
+  addTrackingDetail.style.display = "none";
+  detailTrackingRows.innerHTML = "";   // 以前の行をクリア
+  detailAddMsg.textContent = "";
+  detailAddRowBtn.disabled = false;
+  confirmDetailAddBtn.disabled = false;
+  cancelDetailAddBtn.disabled = false;
 
-  const snap = await db.ref(`shipments/${orderId}`).once("value");
+  const snap = await db.ref(shipments/${orderId}).once("value");
   const list = snap.val() || {};
 
   for (const key of Object.keys(list)) {
-    const it    = list[key];
+    const it = list[key];
     const label = carrierLabels[it.carrier] || it.carrier;
-    const a     = document.createElement("a");
-
-    // 純粋に各社サイトへのリンクも張っておく
-    a.href       = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
-    a.target     = "_blank";
-    a.textContent = `${label}：${it.tracking}：読み込み中…`;
+    const a = document.createElement("a");
+    a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    a.target = "_blank";
+    a.textContent = ${label}：${it.tracking}：読み込み中…;
 
     const li = document.createElement("li");
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
 
     try {
-      // GET + クエリ文字列に変更
-      const params = new URLSearchParams({
-        carrier:  it.carrier,
-        tracking: it.tracking
-      });
       const res = await fetch(
-        `https://tracking-api-eta.vercel.app/api/track?${params.toString()}`
+        "https://tracking-api-eta.vercel.app/fetchStatus",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            carrier: it.carrier,
+            tracking: it.tracking
+          })
+        }
       );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const { status, time } = await res.json();
-
-      // レスポンステキストを更新
-      a.textContent = time
-        ? `${label}：${it.tracking}：${status}　配達日時:${time}`
-        : `${label}：${it.tracking}：${status}`;
+      const json = await res.json();
+      const statusVal = json.status || "";
+      const timeVal   = json.time   || "";
+      a.textContent = timeVal
+        ? ${label}：${it.tracking}：${statusVal}　配達日時:${timeVal}
+        : ${label}：${it.tracking}：${statusVal};
     } catch (err) {
       console.error("fetchStatus error:", err);
-      a.textContent = `${label}：${it.tracking}：取得失敗`;
+      a.textContent = ${label}：${it.tracking}：取得失敗;
     }
   }
 }
