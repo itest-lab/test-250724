@@ -36,7 +36,8 @@ const carrierLabels = {
   yamato:  "ヤマト運輸",
   fukutsu: "福山通運",
   seino:   "西濃運輸",
-  tonami:  "トナミ運輸"
+  tonami:  "トナミ運輸",
+  hida:  "飛騨運輸"
 };
 
 // 各社の追跡ページURL
@@ -45,7 +46,8 @@ const carrierUrls = {
   yamato:  "https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
   fukutsu: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
   seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
-  tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]="
+  tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
+  hida: "http://www.hida-unyu.co.jp/WP_HIDAUNYU_WKSHO_GUEST/KW_MENU01.do?_Action_=kw_ud04014mAction"
 };
 
 let isAdmin = false;
@@ -102,10 +104,13 @@ const detailShipmentsUl     = document.getElementById("detail-shipments");
 const showAddTrackingBtn    = document.getElementById("show-add-tracking-btn");
 const addTrackingDetail     = document.getElementById("add-tracking-detail");
 const detailTrackingRows    = document.getElementById("detail-tracking-rows");
+
+const detailAddForm       = document.getElementById("detail-add-form");
+const confirmDetailAddBtn = document.getElementById("confirm-detail-add");
 const detailAddRowBtn       = document.getElementById("detail-add-tracking-row-btn");
-const confirmDetailAddBtn   = document.getElementById("confirm-detail-add-btn");
 const detailAddMsg          = document.getElementById("detail-add-msg");
 const cancelDetailAddBtn    = document.getElementById("cancel-detail-add-btn");
+
 const fixedCarrierCheckboxDetail = document.getElementById("fixed-carrier-checkbox-detail");
 const fixedCarrierSelectDetail   = document.getElementById("fixed-carrier-select-detail");
 const backToSearchBtn       = document.getElementById("back-to-search-btn");
@@ -114,6 +119,7 @@ const anotherCaseBtn2       = document.getElementById("another-case-btn-2");
 const btnScan2D             = document.getElementById("btnScan2D");
 const btnScan1D             = document.getElementById("btnScan1D");
 const video1d               = document.getElementById("video1d");
+
 
 // モバイル判定に応じてグローバルボタンを表示/無効化
 //if (!isMobile) {
@@ -183,53 +189,69 @@ if(loginView.style.display !== "none"){
 }
 
 // --- 認証監視 ---
-auth.onAuthStateChanged(async user=>{
-  if(user){
-    const snap = await db.ref(`admins/${user.uid}`).once("value");
-    isAdmin = snap.val()===true;
-    loginView.style.display="none";
-    mainView.style.display="block";
+auth.onAuthStateChanged(async user => {
+  if (user) {
+    try {
+      // Realtime DB の admins/{uid} が true なら管理者扱い
+      const snap = await db.ref(`admins/${user.uid}`).once("value");
+      isAdmin = snap.val() === true;
+    } catch (e) {
+      console.error("管理者判定エラー:", e);
+      isAdmin = false;
+    }
+
+    loginView.style.display = "none";
+    mainView.style.display = "block";
     showView("add-case-view");
     initAddCaseView();
     startSessionTimer();
   } else {
+    // ログアウト時
     isAdmin = false;
     loginView.style.display = "block";
     mainView.style.display = "none";
-    // ログイン画面表示時にメール欄にフォーカス
     emailInput.focus();
-
-    // ログイン画面を開くたびにタイムスタンプを消去
     clearLoginTime();
   }
 });
 
 // --- 認証操作 ---
-loginBtn.onclick=async()=>{
-  const id=emailInput.value.trim(), pw=passwordInput.value;
-  loginErrorEl.textContent="";
-  // 念のため既存のタイムスタンプをクリア
-  clearLoginTime();
-  try{
-    if(id==="admin"&&pw==="admin"){
-      await auth.signInWithEmailAndPassword("admin@test.com","admin");
-    } else {
-      await auth.signInWithEmailAndPassword(id,pw);
-    }
-    // 認証成功時に今の時刻を記録
-    markLoginTime();
-    
-  }catch(e){
-    loginErrorEl.textContent=e.message;
+loginBtn.onclick = async () => {
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+  loginErrorEl.textContent = "";
+  clearLoginTime();  // 既存タイムスタンプをクリア
+
+  try {
+    // メール／パスワードでログイン（admin判定はDBで後述）
+    await auth.signInWithEmailAndPassword(email, password);
+    markLoginTime();  // 認証成功時にタイムスタンプを記録
+  } catch (e) {
+    loginErrorEl.textContent = e.message;
   }
 };
-signupBtn.onclick=()=>auth.createUserWithEmailAndPassword(emailInput.value.trim(),passwordInput.value)
-  .catch(e=>loginErrorEl.textContent=e.message);
-guestBtn.onclick=()=>auth.signInAnonymously().catch(e=>loginErrorEl.textContent=e.message);
-resetBtn.onclick=()=>auth.sendPasswordResetEmail(emailInput.value.trim())
-  .then(()=>loginErrorEl.textContent="再発行メール送信")
-  .catch(e=>loginErrorEl.textContent=e.message);
-logoutBtn.onclick=()=>auth.signOut();
+
+signupBtn.onclick = () => {
+  const email = emailInput.value.trim();
+  const password = passwordInput.value;
+  // 新規登録後は admins ノードに自動で書き込まない ⇒ 管理者は手動でDBに追加
+  auth.createUserWithEmailAndPassword(email, password)
+    .catch(e => loginErrorEl.textContent = e.message);
+};
+
+guestBtn.onclick = () => {
+  auth.signInAnonymously()
+    .catch(e => loginErrorEl.textContent = e.message);
+};
+
+resetBtn.onclick = () => {
+  const email = emailInput.value.trim();
+  auth.sendPasswordResetEmail(email)
+    .then(() => loginErrorEl.textContent = "再発行メール送信")
+    .catch(e => loginErrorEl.textContent = e.message);
+};
+
+logoutBtn.onclick = () => auth.signOut();
 
 // --- ナビゲーション ---
 navAddBtn.addEventListener("click", () => {
@@ -256,7 +278,8 @@ function createTrackingRow(context="add"){
         <option value="yamato">ヤマト運輸</option>
         <option value="fukutsu">福山通運</option>
         <option value="seino">西濃運輸</option>
-        <option value="tonami">トナミ運輸</option>`;
+        <option value="tonami">トナミ運輸</option>
+        <option value="hida">飛騨運輸</option>`;
       row.appendChild(sel);
     }
   } else {  // context === "detail"
@@ -268,7 +291,8 @@ function createTrackingRow(context="add"){
         <option value="yamato">ヤマト運輸</option>
         <option value="fukutsu">福山通運</option>
         <option value="seino">西濃運輸</option>
-        <option value="tonami">トナミ運輸</option>`;
+        <option value="tonami">トナミ運輸</option>
+        <option value="hida">飛騨運輸</option>`;
       row.appendChild(sel);
     }
   }
@@ -328,7 +352,8 @@ fixedCarrierCheckboxDetail.onchange = () => {
           <option value="yamato">ヤマト運輸</option>
           <option value="fukutsu">福山通運</option>
           <option value="seino">西濃運輸</option>
-          <option value="tonami">トナミ運輸</option>`;
+          <option value="tonami">トナミ運輸</option>
+          <option value="hida">飛騨運輸</option>`;
         row.insertBefore(newSel, row.firstChild);
       }
     }
@@ -684,6 +709,8 @@ cancelDetailAddBtn.onclick = () => {
 // 「追加登録」
 confirmDetailAddBtn.onclick = async () => {
   if (!currentOrderId) return;
+
+  // 1) 入力行から items を組み立て
   const items = [];
   detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => {
     const tn = row.querySelector("input").value.trim();
@@ -698,11 +725,29 @@ confirmDetailAddBtn.onclick = async () => {
     alert("追加する追跡番号がありません");
     return;
   }
-  // Firebase にプッシュ
+
+  // 2) Firebase にプッシュ
   for (const it of items) {
     await db.ref(`shipments/${currentOrderId}`)
             .push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() });
   }
   detailAddMsg.textContent = "追加登録完了";
-  // フォームはそのままに、必要なら明示的に閉じる／再表示処理を追加してください
+
+  // 3) フォームを閉じる
+  detailAddForm.classList.add("hidden");
+
+  // 4) 追加分のみ追跡 API を叩いて結果を表示
+  //    ※ fetchStatus(carrier, tracking) と showDetailTrackingResult(...) は
+  //       既存のステータス取得／表示関数をお使いください
+  const promises = items.map(it => fetchStatus(it.carrier, it.tracking));
+  const results  = await Promise.all(promises);
+  results.forEach((res, idx) => {
+    const it = items[idx];
+    showDetailTrackingResult({
+      carrier: it.carrier,
+      tracking: it.tracking,
+      status:  res.status,
+      time:    res.time
+    });
+  });
 };
