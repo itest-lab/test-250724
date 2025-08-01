@@ -532,57 +532,64 @@ listAllBtn.onclick=()=>{
 };
 
 // --- 詳細＋ステータス取得 ---
-async function showCaseDetail(orderId, obj){
+async function showCaseDetail(orderId, obj) {
   showView("case-detail-view");
-  detailInfoDiv.innerHTML = 
-    <div>受注番号: ${orderId}</div>
-    <div>得意先:   ${obj.得意先}</div>
-    <div>品名: ${obj.品名}</div>;
-  detailShipmentsUl.innerHTML = "";
-  currentOrderId = orderId;            // いま操作している注文番号を保存
-  addTrackingDetail.style.display = "none";
-  detailTrackingRows.innerHTML = "";   // 以前の行をクリア
-  detailAddMsg.textContent = "";
-  detailAddRowBtn.disabled = false;
-  confirmDetailAddBtn.disabled = false;
-  cancelDetailAddBtn.disabled = false;
 
-  const snap = await db.ref(shipments/${orderId}).once("value");
+  // ★ innerHTML はバッククォートで囲む ★
+  detailInfoDiv.innerHTML = `
+    <div>受注番号: ${orderId}</div>
+    <div>得意先: ${obj.得意先}</div>
+    <div>品名: ${obj.品名}</div>
+  `;
+
+  detailShipmentsUl.innerHTML = "";
+  currentOrderId = orderId;
+  addTrackingDetail.style.display    = "none";
+  detailTrackingRows.innerHTML       = "";
+  detailAddMsg.textContent           = "";
+  detailAddRowBtn.disabled           = false;
+  confirmDetailAddBtn.disabled       = false;
+  cancelDetailAddBtn.disabled        = false;
+
+  // ★ ref のパスもテンプレートリテラルで ★
+  const snap = await db.ref(`shipments/${orderId}`).once("value");
   const list = snap.val() || {};
 
   for (const key of Object.keys(list)) {
-    const it = list[key];
+    const it    = list[key];
     const label = carrierLabels[it.carrier] || it.carrier;
-    const a = document.createElement("a");
-    a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
-    a.target = "_blank";
-    a.textContent = ${label}：${it.tracking}：読み込み中…;
 
     const li = document.createElement("li");
+    const a  = document.createElement("a");
+    a.href    = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    a.target  = "_blank";
+    a.textContent = `${label}：${it.tracking}：読み込み中…`;
+
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
 
     try {
-      const res = await fetch(
+      const res  = await fetch(
         "https://tracking-api-eta.vercel.app/fetchStatus",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            carrier: it.carrier,
+            carrier:  it.carrier,
             tracking: it.tracking
           })
         }
       );
-      const json = await res.json();
+      const json      = await res.json();
       const statusVal = json.status || "";
       const timeVal   = json.time   || "";
+
       a.textContent = timeVal
-        ? ${label}：${it.tracking}：${statusVal}　配達日時:${timeVal}
-        : ${label}：${it.tracking}：${statusVal};
+        ? `${label}：${it.tracking}：${statusVal}　配達日時:${timeVal}`
+        : `${label}：${it.tracking}：${statusVal}`;
     } catch (err) {
       console.error("fetchStatus error:", err);
-      a.textContent = ${label}：${it.tracking}：取得失敗;
+      a.textContent = `${label}：${it.tracking}：取得失敗`;
     }
   }
 }
