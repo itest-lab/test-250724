@@ -36,7 +36,8 @@ const carrierLabels = {
   yamato:  "ヤマト運輸",
   fukutsu: "福山通運",
   seino:   "西濃運輸",
-  tonami:  "トナミ運輸"
+  tonami:  "トナミ運輸",
+  hida:  "飛騨運輸"
 };
 
 // 各社の追跡ページURL
@@ -45,7 +46,8 @@ const carrierUrls = {
   yamato:  "https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
   fukutsu: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
   seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
-  tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]="
+  tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
+  hida:  "http://www.hida-unyu.co.jp/tsuiseki/sho100.html?okurijoNo="
 };
 
 let isAdmin = false;
@@ -272,7 +274,8 @@ function createTrackingRow(context="add"){
         <option value="yamato">ヤマト運輸</option>
         <option value="fukutsu">福山通運</option>
         <option value="seino">西濃運輸</option>
-        <option value="tonami">トナミ運輸</option>`;
+        <option value="tonami">トナミ運輸</option>
+        <option value="hida">飛騨運輸</option>`;
       row.appendChild(sel);
     }
   } else {  // context === "detail"
@@ -284,7 +287,8 @@ function createTrackingRow(context="add"){
         <option value="yamato">ヤマト運輸</option>
         <option value="fukutsu">福山通運</option>
         <option value="seino">西濃運輸</option>
-        <option value="tonami">トナミ運輸</option>`;
+        <option value="tonami">トナミ運輸</option>
+        <option value="hida">飛騨運輸</option>`;
       row.appendChild(sel);
     }
   }
@@ -344,7 +348,8 @@ fixedCarrierCheckboxDetail.onchange = () => {
           <option value="yamato">ヤマト運輸</option>
           <option value="fukutsu">福山通運</option>
           <option value="seino">西濃運輸</option>
-          <option value="tonami">トナミ運輸</option>`;
+          <option value="tonami">トナミ運輸</option>
+          <option value="hida">飛騨運輸</option>`;
         row.insertBefore(newSel, row.firstChild);
       }
     }
@@ -700,6 +705,8 @@ cancelDetailAddBtn.onclick = () => {
 // 「追加登録」
 confirmDetailAddBtn.onclick = async () => {
   if (!currentOrderId) return;
+
+  // 1) 入力行から新規追加分 items を組み立て
   const items = [];
   detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => {
     const tn = row.querySelector("input").value.trim();
@@ -714,11 +721,30 @@ confirmDetailAddBtn.onclick = async () => {
     alert("追加する追跡番号がありません");
     return;
   }
-  // Firebase にプッシュ
+
+  // 2) Firebase にプッシュ
   for (const it of items) {
     await db.ref(`shipments/${currentOrderId}`)
             .push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() });
   }
   detailAddMsg.textContent = "追加登録完了";
-  // フォームはそのままに、必要なら明示的に閉じる／再表示処理を追加してください
+
+  // 3) フォームを閉じる＆クリア
+  addTrackingDetail.style.display = "none";              // コンテナを非表示
+  detailTrackingRows.innerHTML = "";                      // 行クリア
+  detailAddMsg.textContent = "";                          // メッセージクリア
+  showAddTrackingBtn.style.display = "inline-block";     // 「追跡番号追加」ボタンを再表示
+
+  // 4) 追加分のみ追跡 API を叩いて結果を表示
+  const promises = items.map(it => fetchStatus(it.carrier, it.tracking));
+  const results  = await Promise.all(promises);
+  results.forEach((res, idx) => {
+    const it = items[idx];
+    showDetailTrackingResult({
+      carrier: it.carrier,
+      tracking: it.tracking,
+      status:  res.status,
+      time:    res.time
+    });
+  });
 };
