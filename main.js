@@ -702,6 +702,17 @@ cancelDetailAddBtn.onclick = () => {
   detailAddMsg.textContent = "";
 };
 
+// ① fetchStatus ヘルパーを定義
+async function fetchStatus(carrier, tracking) {
+  const res = await fetch("https://tracking-api-eta.vercel.app/fetchStatus", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ carrier, tracking })
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();  // { status: "...", time: "..." }
+}
+
 // 「追加登録」
 confirmDetailAddBtn.onclick = async () => {
   if (!currentOrderId) return;
@@ -730,22 +741,22 @@ confirmDetailAddBtn.onclick = async () => {
   });
 
   if (newItems.length === 0) {
-    alert("新規の追跡番号がありません（既に登録済みです）");
+    alert("新規の追跡番号がありません（既に登録済み）");
     return;
   }
 
-  // 2) DB プッシュ
+  // 1) DB プッシュ
   for (const it of newItems) {
     await db.ref(`shipments/${currentOrderId}`)
             .push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() });
   }
 
-  // 3) UI に「読み込み中」リンクを追加
+  // 2) UI に「読み込み中…」リンクを追加しつつ anchorEls に保持
   const anchorEls = newItems.map(it => {
     const label = carrierLabels[it.carrier] || it.carrier;
     const a = document.createElement("a");
-    a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
-    a.target = "_blank";
+    a.href        = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    a.target      = "_blank";
     a.textContent = `${label}：${it.tracking}：読み込み中…`;
     const li = document.createElement("li");
     li.appendChild(a);
@@ -753,24 +764,26 @@ confirmDetailAddBtn.onclick = async () => {
     return a;
   });
 
-  // 4) フォームを閉じ＆行をクリア
+  // 3) フォームを閉じ＆クリア
   addTrackingDetail.style.display  = "none";
   detailTrackingRows.innerHTML     = "";
   showAddTrackingBtn.style.display = "inline-block";
+  detailAddMsg.textContent         = "追加しました";
 
-  // ← ここでメッセージをセット！
-  detailAddMsg.textContent = "追加しました";
-
-  // 5) 追加分のみステータス取得して更新
-  const results = await Promise.all(
-    newItems.map(it => fetchStatus(it.carrier, it.tracking))
-  );
-  results.forEach((res, idx) => {
-    const it = newItems[idx];
-    const label = carrierLabels[it.carrier] || it.carrier;
+  // 4) 追加分だけ逐次 fetchStatus を回してテキストを更新
+  newItems.forEach((it, idx) => {
     const a = anchorEls[idx];
-    a.textContent = res.time
-      ? `${label}：${it.tracking}：${res.status}　配達日時:${res.time}`
-      : `${label}：${it.tracking}：${res.status}`;
+    fetchStatus(it.carrier, it.tracking)
+      .then(json => {
+        const label = carrierLabels[it.carrier] || it.carrier;
+        const { status, time } = json;
+        a.textContent = time
+          ? `${label}：${it.tracking}：${status}　配達日時:${time}`
+          : `${label}：${it.tracking}：${status}`;
+      })
+      .catch(err => {
+        console.error("fetchStatus error:", err);
+        a.textContent = `${label}：${it.tracking}：取得失敗`;
+      });
   });
 };
