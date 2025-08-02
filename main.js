@@ -598,7 +598,7 @@ async function showCaseDetail(orderId, obj){
 
     try {
       const res = await fetch(
-        "https://tracking-api-eta.vercel.app/fetchStatus",
+        "https://track-api.hr46-ksg.workers.dev/",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -742,7 +742,7 @@ cancelDetailAddBtn.onclick = () => {
 
 // ① fetchStatus ヘルパーを定義
 async function fetchStatus(carrier, tracking) {
-  const res = await fetch("https://tracking-api-eta.vercel.app/fetchStatus", {
+  const res = await fetch("https://track-api.hr46-ksg.workers.dev/", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ carrier, tracking })
