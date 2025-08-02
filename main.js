@@ -27,9 +27,6 @@ auth.setPersistence(firebase.auth.Auth.Persistence.NONE)
 
 const db   = firebase.database();
 
-// --- モバイル判定 ---
-//const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
 // キャリアラベル
 const carrierLabels = {
   sagawa:  "佐川急便",
@@ -37,7 +34,7 @@ const carrierLabels = {
   fukutsu: "福山通運",
   seino:   "西濃運輸",
   tonami:  "トナミ運輸",
-  hida:  "飛騨運輸"
+  hida:    "飛騨運輸"
 };
 
 // 各社の追跡ページURL
@@ -47,7 +44,7 @@ const carrierUrls = {
   fukutsu: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
   seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
   tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
-  hida:  "http://www.hida-unyu.co.jp/tsuiseki/sho100.html?okurijoNo="
+  hida:    "http://www.hida-unyu.co.jp/tsuiseki/sho100.html?okurijoNo="
 };
 
 let isAdmin = false;
@@ -573,9 +570,9 @@ async function showCaseDetail(orderId, obj){
     <div>得意先:   ${obj.得意先}</div>
     <div>品名: ${obj.品名}</div>`;
   detailShipmentsUl.innerHTML = "";
-  currentOrderId = orderId;            // いま操作している注文番号を保存
+  currentOrderId = orderId;
   addTrackingDetail.style.display = "none";
-  detailTrackingRows.innerHTML = "";   // 以前の行をクリア
+  detailTrackingRows.innerHTML = "";
   detailAddMsg.textContent = "";
   detailAddRowBtn.disabled = false;
   confirmDetailAddBtn.disabled = false;
@@ -588,7 +585,7 @@ async function showCaseDetail(orderId, obj){
     const it = list[key];
     const label = carrierLabels[it.carrier] || it.carrier;
     const a = document.createElement("a");
-    a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    a.href   = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
     a.target = "_blank";
     a.textContent = `${label}：${it.tracking}：読み込み中…`;
 
@@ -597,23 +594,13 @@ async function showCaseDetail(orderId, obj){
     detailShipmentsUl.appendChild(li);
 
     try {
-      const res = await fetch(
-        "https://track-api.hr46-ksg.workers.dev/",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            carrier: it.carrier,
-            tracking: it.tracking
-          })
-        }
-      );
-      const json = await res.json();
-      const statusVal = json.status || "";
-      const timeVal   = json.time   || "";
-      a.textContent = timeVal
-        ? `${label}：${it.tracking}：${statusVal}　配達日時:${timeVal}`
-        : `${label}：${it.tracking}：${statusVal}`;
+      const json = await fetchStatus(it.carrier, it.tracking);
+      const { status, time } = json;
+      if (time) {
+        a.textContent = `${label}：${it.tracking}：${status}　配達日時:${time}`;
+      } else {
+        a.textContent = `${label}：${it.tracking}：${status}`;
+      }
     } catch (err) {
       console.error("fetchStatus error:", err);
       a.textContent = `${label}：${it.tracking}：取得失敗`;
@@ -742,11 +729,8 @@ cancelDetailAddBtn.onclick = () => {
 
 // ① fetchStatus ヘルパーを定義
 async function fetchStatus(carrier, tracking) {
-  const res = await fetch("https://track-api.hr46-ksg.workers.dev/", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ carrier, tracking })
-  });
+  const url = `https://track-api.hr46-ksg.workers.dev/?carrier=${encodeURIComponent(carrier)}&tracking=${encodeURIComponent(tracking)}`;
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();  // { status: "...", time: "..." }
 }
