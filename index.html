@@ -12,14 +12,12 @@
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <!-- ZLIB 展開用 pako -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
-
   <!-- ２次元コード読み取り（カメラ機能コメント化中） -->
   <!-- <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script> -->
   <!-- １次元バーコード読み取り（カメラ機能コメント化中） -->
   <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/quagga/0.12.1/quagga.min.js"></script> -->
 </head>
 <body>
-
   <!-- 読み込み中オーバーレイ -->
   <div id="loadingOverlay" class="loading-overlay hidden">
     <div class="spinner"></div>
@@ -83,7 +81,7 @@
             運送会社を固定
           </label>
           <select id="fixed-carrier-select" style="display:none;">
-            <option value="">選択してください</option>
+            <option value="">運送会社選択してください</option>
             <option value="sagawa">佐川急便</option>
             <option value="yamato">ヤマト運輸</option>
             <option value="fukutsu">福山通運</option>
@@ -108,9 +106,14 @@
     <div id="search-view" class="subview" style="display:none;">
       <h3>案件検索</h3>
       <input id="search-input" placeholder="キーワード（注番／得意先／タイトル）">
+      <!-- 期間指定: 開始日と終了日 -->
+      <label>開始日:<input type="date" id="start-date"></label>
+      <label>終了日:<input type="date" id="end-date"></label>
       <button id="search-btn">検索</button>
       <button id="list-all-btn">一覧表示</button>
       <ul id="search-results"></ul>
+      <!-- 選択削除ボタン（管理者のみ表示） -->
+      <button id="delete-selected-btn" style="display:none;">選択削除</button>
     </div>
 
     <!-- 案件詳細ビュー -->
@@ -124,32 +127,32 @@
       <div id="detail-add-msg"></div>
 
       <button id="show-add-tracking-btn">追跡番号追加</button>
-<div id="add-tracking-detail" style="display:none; margin-top:1em;">
-  <h4>追跡番号追加</h4>
+      <div id="add-tracking-detail" style="display:none; margin-top:1em;">
+        <h4>追跡番号追加</h4>
 
-  <!-- 運送会社一括指定（詳細画面用） -->
-  <div id="fixed-carrier-container-detail">
-    <label>
-      <input type="checkbox" id="fixed-carrier-checkbox-detail">
-      運送会社を固定
-    </label>
-    <select id="fixed-carrier-select-detail" style="display:none;">
-      <option value="">選択してください</option>
-      <option value="sagawa">佐川急便</option>
-      <option value="yamato">ヤマト運輸</option>
-      <option value="fukutsu">福山通運</option>
-      <option value="seino">西濃運輸</option>
-      <option value="tonami">トナミ運輸</option>
-      <option value="hida">飛騨運輸</option>
-    </select>
-  </div>
+        <!-- 運送会社一括指定（詳細画面用） -->
+        <div id="fixed-carrier-container-detail">
+          <label>
+            <input type="checkbox" id="fixed-carrier-checkbox-detail">
+            運送会社を固定
+          </label>
+          <select id="fixed-carrier-select-detail" style="display:none;">
+            <option value="">運送会社選択してください</option>
+            <option value="sagawa">佐川急便</option>
+            <option value="yamato">ヤマト運輸</option>
+            <option value="fukutsu">福山通運</option>
+            <option value="seino">西濃運輸</option>
+            <option value="tonami">トナミ運輸</option>
+            <option value="hida">飛騨運輸</option>
+          </select>
+        </div>
 
-  <div id="detail-tracking-rows"></div>
-  <button id="detail-add-tracking-row-btn">＋追跡番号行を追加</button>
-  <button id="confirm-detail-add-btn">追加登録</button>
-  <p id="detail-add-msg"></p>
-  <button id="cancel-detail-add-btn">キャンセル</button>
-</div>
+        <div id="detail-tracking-rows"></div>
+        <button id="detail-add-tracking-row-btn">＋追跡番号行を追加</button>
+        <button id="confirm-detail-add-btn">追加登録</button>
+        <p id="detail-add-msg"></p>
+        <button id="cancel-detail-add-btn">キャンセル</button>
+      </div>
 
       <button id="back-to-search-btn">検索に戻る</button>
       <button id="another-case-btn-2">別の案件を追加</button>

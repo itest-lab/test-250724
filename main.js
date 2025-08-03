@@ -14,18 +14,13 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 
-// 1) ページロード時に既存セッションを強制クリア
-auth.signOut().catch(err=>{
-  console.warn("初期サインアウト失敗:", err);
-});
-
-// 2) 以降のサインインをメモリ（NONE）に限定
-auth.setPersistence(firebase.auth.Auth.Persistence.NONE)
-  .catch(err=>{
+// セッション永続化をブラウザのセッション単位に設定
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+  .catch(err => {
     console.error("永続化設定エラー:", err);
   });
 
-const db   = firebase.database();
+const db = firebase.database();
 
 // キャリアラベル
 const carrierLabels = {
@@ -44,7 +39,8 @@ const carrierUrls = {
   fukutsu: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
   seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
   tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
-  hida:    "http://www.hida-unyu.co.jp/tsuiseki/sho100.html?okurijoNo="
+  // 飛騨運輸の追跡ページはAPI非対応のため固定URLに遷移させる
+  hida:    "http://www.hida-unyu.co.jp/WP_HIDAUNYU_WKSHO_GUEST/KW_UD04015.do?_Action_=a_srcAction"
 };
 
 let isAdmin = false;
@@ -91,9 +87,12 @@ const anotherCaseBtn        = document.getElementById("another-case-btn");
 
 const searchView            = document.getElementById("search-view");
 const searchInput           = document.getElementById("search-input");
+const startDateInput        = document.getElementById("start-date");
+const endDateInput          = document.getElementById("end-date");
 const searchBtn             = document.getElementById("search-btn");
 const listAllBtn            = document.getElementById("list-all-btn");
 const searchResults         = document.getElementById("search-results");
+const deleteSelectedBtn     = document.getElementById("delete-selected-btn");
 
 const caseDetailView        = document.getElementById("case-detail-view");
 const detailInfoDiv         = document.getElementById("detail-info");
@@ -110,73 +109,52 @@ const fixedCarrierSelectDetail   = document.getElementById("fixed-carrier-select
 const backToSearchBtn       = document.getElementById("back-to-search-btn");
 const anotherCaseBtn2       = document.getElementById("another-case-btn-2");
 
-const btnScan2D             = document.getElementById("btnScan2D");
-const btnScan1D             = document.getElementById("btnScan1D");
-const video1d               = document.getElementById("video1d");
-
-// モバイル判定に応じてグローバルボタンを表示/無効化
-//if (!isMobile) {
-//  btnScan2D.style.display = "none";
-//  btnScan1D.style.display = "none";
-//} else {
-  // 追跡番号用カメラ起動（グローバル）
-//  btnScan1D.addEventListener("click", () => {
-//    let target = document.activeElement;
-//    if (!(target && target.tagName==="INPUT" && target.parentElement.classList.contains("tracking-row"))) {
-//      target = trackingRows.querySelector("input");
-//    }
-//    if (target) start1DScanner(target.id);
-//  });
-//}
-
-// ─────────────────────────────────────────────────────────────────
-// セッションタイムスタンプ管理
-// ─────────────────────────────────────────────────────────────────
-
-const SESSION_LIMIT_MS = 30 * 60 * 1000;
-
+// --- セッションタイムスタンプ管理 ---
+// 10分以内のリロードはセッション維持する
+const SESSION_LIMIT_MS = 10 * 60 * 1000;
 function clearLoginTime() {
-  // ログイン画面を開くたびに前回のタイムスタンプを消去
   localStorage.removeItem('loginTime');
 }
-
 function markLoginTime() {
-  // 認証成功時に記録
   localStorage.setItem('loginTime', Date.now().toString());
 }
-
 function isSessionExpired() {
   const t = parseInt(localStorage.getItem('loginTime') || '0', 10);
   return (Date.now() - t) > SESSION_LIMIT_MS;
 }
 
+// ページ読み込み時にセッション期限切れならサインアウト
+if (isSessionExpired()) {
+  auth.signOut().catch(err => {
+    console.warn("セッションタイムアウト時サインアウト失敗:", err);
+  });
+  clearLoginTime();
+}
+
 // --- ビュー切替ヘルパー ---
 function showView(id){
   document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
-  document.getElementById(id).style.display="block";
+  const target = document.getElementById(id);
+  if (target) target.style.display = "block";
   // 画面ごとに最上部入力要素へフォーカス
   switch(id){
     case "add-case-view":
-      // 初期状態ならスキャンモード。手動モード時はそちら
       if(scanModeDiv.style.display !== "none"){
         caseBarcodeInput.focus();
       } else if(manualModeDiv.style.display !== "none"){
         manualOrderIdInput.focus();
       }
       break;
-
     case "search-view":
       searchInput.focus();
       break;
-
     case "case-detail-view":
-      // 詳細画面では「追跡番号追加」ボタンにフォーカス
       showAddTrackingBtn.focus();
       break;
   }
 }
 
-// ページロード直後に、未ログインならメール入力へフォーカス
+// ページロード直後にメール入力へフォーカス
 if(loginView.style.display !== "none"){
   emailInput.focus();
 }
@@ -198,6 +176,8 @@ auth.onAuthStateChanged(async user => {
     showView("add-case-view");
     initAddCaseView();
     startSessionTimer();
+    // 管理者の場合は一括削除ボタンの表示を更新
+    deleteSelectedBtn.style.display = isAdmin ? "block" : "none";
   } else {
     // ログアウト時
     isAdmin = false;
@@ -213,37 +193,30 @@ loginBtn.onclick = async () => {
   const email = emailInput.value.trim();
   const password = passwordInput.value;
   loginErrorEl.textContent = "";
-  clearLoginTime();  // 既存タイムスタンプをクリア
-
+  clearLoginTime();
   try {
-    // メール／パスワードでログイン（admin判定はDBで後述）
     await auth.signInWithEmailAndPassword(email, password);
-    markLoginTime();  // 認証成功時にタイムスタンプを記録
+    markLoginTime();
   } catch (e) {
     loginErrorEl.textContent = e.message;
   }
 };
-
 signupBtn.onclick = () => {
   const email = emailInput.value.trim();
   const password = passwordInput.value;
-  // 新規登録後は admins ノードに自動で書き込まない ⇒ 管理者は手動でDBに追加
   auth.createUserWithEmailAndPassword(email, password)
     .catch(e => loginErrorEl.textContent = e.message);
 };
-
 guestBtn.onclick = () => {
   auth.signInAnonymously()
     .catch(e => loginErrorEl.textContent = e.message);
 };
-
 resetBtn.onclick = () => {
   const email = emailInput.value.trim();
   auth.sendPasswordResetEmail(email)
     .then(() => loginErrorEl.textContent = "再発行メール送信")
     .catch(e => loginErrorEl.textContent = e.message);
 };
-
 logoutBtn.onclick = () => auth.signOut();
 
 // --- ナビゲーション ---
@@ -251,7 +224,7 @@ navAddBtn.addEventListener("click", () => {
   showView("add-case-view");
   initAddCaseView();
 });
-navSearchBtn.addEventListener("click", ()=>{
+navSearchBtn.addEventListener("click", () => {
   showView("search-view");
   searchAll(searchInput.value.trim());
 });
@@ -260,13 +233,12 @@ navSearchBtn.addEventListener("click", ()=>{
 function createTrackingRow(context="add"){
   const row = document.createElement("div");
   row.className = "tracking-row";
-
-  // ── 運送会社セレクトの付与 ──
+  // 運送会社セレクトの付与
   if (context === "add") {
     if (!fixedCarrierCheckbox.checked) {
       const sel = document.createElement("select");
       sel.innerHTML = `
-        <option value="">運送会社</option>
+        <option value="">運送会社選択してください</option>
         <option value="sagawa">佐川急便</option>
         <option value="yamato">ヤマト運輸</option>
         <option value="fukutsu">福山通運</option>
@@ -275,11 +247,11 @@ function createTrackingRow(context="add"){
         <option value="hida">飛騨運輸</option>`;
       row.appendChild(sel);
     }
-  } else {  // context === "detail"
+  } else {
     if (!fixedCarrierCheckboxDetail.checked) {
       const sel = document.createElement("select");
       sel.innerHTML = `
-        <option value="">運送会社</option>
+        <option value="">運送会社選択してください</option>
         <option value="sagawa">佐川急便</option>
         <option value="yamato">ヤマト運輸</option>
         <option value="fukutsu">福山通運</option>
@@ -289,24 +261,27 @@ function createTrackingRow(context="add"){
       row.appendChild(sel);
     }
   }
-  const inp=document.createElement("input");
-  inp.type="text";
-  inp.placeholder="追跡番号";
-  inp.inputMode="numeric";
+  const inp = document.createElement("input");
+  inp.type = "text";
+  // 入力案内をわかりやすく
+  inp.placeholder = "追跡番号を入力してください";
+  inp.inputMode = "numeric";
   const uniqueId = `tracking-${Date.now()}-${Math.floor(Math.random()*1000)}`;
   inp.id = uniqueId;
-  inp.addEventListener("input",e=>{e.target.value=e.target.value.replace(/\D/g,"");});
-  inp.addEventListener("keydown",e=>{
-    if(e.key==="Enter"||e.key==="Tab"){
+  inp.addEventListener("input", e => {
+    e.target.value = e.target.value.replace(/\D/g, "");
+  });
+  inp.addEventListener("keydown", e => {
+    if(e.key === "Enter" || e.key === "Tab"){
       e.preventDefault();
       const inputs=[...row.parentElement.querySelectorAll("input")];
       const idx=inputs.indexOf(inp);
-      if(idx<inputs.length-1){
+      if(idx < inputs.length-1){
         inputs[idx+1].focus();
       } else {
-        if(context==="detail") detailAddRowBtn.click();
+        if(context === "detail") detailAddRowBtn.click();
         else addTrackingRowBtn.click();
-        setTimeout(()=>{
+        setTimeout(() => {
           const arr=[...row.parentElement.querySelectorAll("input")];
           arr[arr.length-1].focus();
         },0);
@@ -314,23 +289,12 @@ function createTrackingRow(context="add"){
     }
   });
   row.appendChild(inp);
-//  if (isMobile) {
-//    const scanBtn = document.createElement("button");
-//    scanBtn.type = "button";
-//    scanBtn.textContent = "カメラ起動";
-//    scanBtn.addEventListener("click", () => start1DScanner(uniqueId));
-//    row.appendChild(scanBtn);
-//  }
   return row;
 }
 
-// ── 詳細画面：一括運送会社指定 ──
+// --- 詳細画面：一括運送会社指定 ---
 fixedCarrierCheckboxDetail.onchange = () => {
-  // セレクトの表示／非表示
-  fixedCarrierSelectDetail.style.display = fixedCarrierCheckboxDetail.checked
-    ? "inline-block"
-    : "none";
-
+  fixedCarrierSelectDetail.style.display = fixedCarrierCheckboxDetail.checked ? "inline-block" : "none";
   // 既に追加済みの行についても select を追加／削除
   Array.from(detailTrackingRows.children).forEach(row => {
     const sel = row.querySelector("select");
@@ -340,7 +304,7 @@ fixedCarrierCheckboxDetail.onchange = () => {
       if (!sel) {
         const newSel = document.createElement("select");
         newSel.innerHTML = `
-          <option value="">運送会社</option>
+          <option value="">運送会社選択してください</option>
           <option value="sagawa">佐川急便</option>
           <option value="yamato">ヤマト運輸</option>
           <option value="fukutsu">福山通運</option>
@@ -355,136 +319,145 @@ fixedCarrierCheckboxDetail.onchange = () => {
 
 // --- 初期化：案件追加 ---
 function initAddCaseView(){
-  scanModeDiv.style.display     ="block";
-  manualModeDiv.style.display   ="none";
-  caseDetailsDiv.style.display  ="none";
-  caseBarcodeInput.value        ="";
-//  if (!isMobile) btnScan2D.disabled = true;
-  manualOrderIdInput.value      ="";
-  manualCustomerInput.value     ="";
-  manualTitleInput.value        ="";
-  addCaseMsg.textContent        ="";
-  fixedCarrierCheckbox.checked  =false;
-  fixedCarrierSelect.style.display="none";
-  fixedCarrierSelect.value      ="";
-  trackingRows.innerHTML        ="";
+  scanModeDiv.style.display     = "block";
+  manualModeDiv.style.display   = "none";
+  caseDetailsDiv.style.display  = "none";
+  caseBarcodeInput.value        = "";
+  manualOrderIdInput.value      = "";
+  manualCustomerInput.value     = "";
+  manualTitleInput.value        = "";
+  addCaseMsg.textContent        = "";
+  fixedCarrierCheckbox.checked  = false;
+  fixedCarrierSelect.style.display = "none";
+  fixedCarrierSelect.value      = "";
+  trackingRows.innerHTML        = "";
   for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow());
 }
 
 // --- 行追加・固定キャリア切替 ---
-addTrackingRowBtn.onclick=()=>{for(let i=0;i<10;i++)trackingRows.appendChild(createTrackingRow());};
-fixedCarrierCheckbox.onchange=()=>{
-  fixedCarrierSelect.style.display=fixedCarrierCheckbox.checked?"block":"none";
-  Array.from(trackingRows.children).forEach(row=>{
-    const sel=row.querySelector("select");
+addTrackingRowBtn.onclick = () => {
+  for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow());
+};
+fixedCarrierCheckbox.onchange = () => {
+  fixedCarrierSelect.style.display = fixedCarrierCheckbox.checked ? "block" : "none";
+  Array.from(trackingRows.children).forEach(row => {
+    const sel = row.querySelector("select");
     if(fixedCarrierCheckbox.checked){
-      if(sel)row.removeChild(sel);
+      if(sel) row.removeChild(sel);
     } else {
-      if(!sel)row.insertBefore(createTrackingRow().querySelector("select"),row.firstChild);
+      if(!sel){
+        // create a select only, not entire row
+        const newSel = document.createElement("select");
+        newSel.innerHTML = `
+          <option value="">運送会社選択してください</option>
+          <option value="sagawa">佐川急便</option>
+          <option value="yamato">ヤマト運輸</option>
+          <option value="fukutsu">福山通運</option>
+          <option value="seino">西濃運輸</option>
+          <option value="tonami">トナミ運輸</option>
+          <option value="hida">飛騨運輸</option>`;
+        row.insertBefore(newSel, row.firstChild);
+      }
     }
   });
 };
 
 // --- IME無効化 ---
-caseBarcodeInput.addEventListener("compositionstart",e=>e.preventDefault());
+caseBarcodeInput.addEventListener("compositionstart", e => e.preventDefault());
 
 // --- QR→テキスト展開＆表示 ---
-caseBarcodeInput.addEventListener("keydown", e=>{
-  if(e.key!=="Enter")return;
-  const raw=caseBarcodeInput.value.trim();if(!raw)return;
+caseBarcodeInput.addEventListener("keydown", e => {
+  if(e.key !== "Enter") return;
+  const raw = caseBarcodeInput.value.trim();
+  if(!raw) return;
   let text;
   try{
     if(raw.startsWith("ZLIB64:")){
-      const b64=raw.slice(7),bin=atob(b64),
-            arr=new Uint8Array([...bin].map(c=>c.charCodeAt(0))),
-            dec=pako.inflate(arr);
-      text=new TextDecoder().decode(dec);
-    } else text=raw;
+      const b64 = raw.slice(7);
+      const bin = atob(b64);
+      const arr = new Uint8Array([...bin].map(c=>c.charCodeAt(0)));
+      const dec = pako.inflate(arr);
+      text = new TextDecoder().decode(dec);
+    } else {
+      text = raw;
+    }
   }catch(err){
-    alert("QRデコード失敗: "+err.message);return;
+    alert("QRデコード失敗: "+err.message);
+    return;
   }
-  text=text.trim().replace(/「[^」]*」/g,"");
-  const matches=Array.from(text.matchAll(/"([^"]*)"/g),m=>m[1]);
-  detailOrderId.textContent  =matches[0]||"";
-  detailCustomer.textContent=matches[1]||"";
-  detailTitle.textContent   =matches[2]||"";
-  scanModeDiv.style.display="none";
-  caseDetailsDiv.style.display="block";
-//  if (isMobile) {
-//    btnScan2D.addEventListener("click", () => start2DScanner('case-barcode'));
-//  }
+  text = text.trim().replace(/「[^」]*」/g, "");
+  const matches = Array.from(text.matchAll(/"([^"]*)"/g), m=>m[1]);
+  detailOrderId.textContent  = matches[0] || "";
+  detailCustomer.textContent = matches[1] || "";
+  detailTitle.textContent    = matches[2] || "";
+  scanModeDiv.style.display = "none";
+  caseDetailsDiv.style.display = "block";
 });
 
 // --- 手動確定 ---
-startManualBtn.onclick=()=>{
-  scanModeDiv.style.display="none";
-  manualModeDiv.style.display="block";
+startManualBtn.onclick = () => {
+  scanModeDiv.style.display = "none";
+  manualModeDiv.style.display = "block";
 };
-startScanBtn.onclick=()=>{
-  manualModeDiv.style.display="none";
-  scanModeDiv.style.display="block";
+startScanBtn.onclick = () => {
+  manualModeDiv.style.display = "none";
+  scanModeDiv.style.display = "block";
 };
-manualConfirmBtn.onclick=()=>{
-  if(!manualOrderIdInput.value||!manualCustomerInput.value||!manualTitleInput.value){
-    alert("必須項目を入力");return;
+manualConfirmBtn.onclick = () => {
+  if(!manualOrderIdInput.value || !manualCustomerInput.value || !manualTitleInput.value){
+    alert("必須項目を入力");
+    return;
   }
-  detailOrderId.textContent  =manualOrderIdInput.value.trim();
-  detailCustomer.textContent=manualCustomerInput.value.trim();
-  detailTitle.textContent   =manualTitleInput.value.trim();
-  manualModeDiv.style.display="none";
-  caseDetailsDiv.style.display="block";
+  detailOrderId.textContent  = manualOrderIdInput.value.trim();
+  detailCustomer.textContent = manualCustomerInput.value.trim();
+  detailTitle.textContent    = manualTitleInput.value.trim();
+  manualModeDiv.style.display = "none";
+  caseDetailsDiv.style.display = "block";
 };
 
 // --- 登録 ---
 confirmAddCaseBtn.onclick = async () => {
-  const orderId  = detailOrderId.textContent.trim(),
-        customer = detailCustomer.textContent.trim(),
-        title    = detailTitle.textContent.trim();
+  const orderId  = detailOrderId.textContent.trim();
+  const customer = detailCustomer.textContent.trim();
+  const title    = detailTitle.textContent.trim();
   if (!orderId || !customer || !title) {
     addCaseMsg.textContent = "情報不足";
     return;
   }
-
-  // 既存データを取得し、「carrier:tracking」のキーでセットを作成
-  const snap      = await db.ref(`shipments/${orderId}`).once("value");
-  const existObj  = snap.val() || {};
-  const existSet  = new Set(
-    Object.values(existObj)
-          .map(it => `${it.carrier}:${it.tracking}`)
-  );
-
+  // 既存データ取得
+  const snap = await db.ref(`shipments/${orderId}`).once("value");
+  const existObj = snap.val() || {};
+  const existSet = new Set(Object.values(existObj).map(it => `${it.carrier}:${it.tracking}`));
   const items = [];
-
-  // 入力行をループし、carrier と tracking の組み合わせで重複をスキップ
+  let missingCarrier = false;
   Array.from(trackingRows.children).forEach(row => {
     const tn = row.querySelector("input").value.trim();
-    const carrier = fixedCarrierCheckbox.checked
-      ? fixedCarrierSelect.value
-      : row.querySelector("select")?.value;
-
-    if (!tn || !carrier) return;           // 入力不足はスキップ
-
+    const carrier = fixedCarrierCheckbox.checked ? fixedCarrierSelect.value : row.querySelector("select")?.value;
+    if (tn && !carrier) {
+      missingCarrier = true;
+    }
+    if (!tn || !carrier) return; // 入力不足はスキップ
     const key = `${carrier}:${tn}`;
-    if (existSet.has(key)) return;         // 既存／新規で重複していたらスキップ
-
-    existSet.add(key);                     // 同じセッション内での重複防止
+    if (existSet.has(key)) return;
+    existSet.add(key);
     items.push({ carrier, tracking: tn });
   });
-
+  if (missingCarrier) {
+    addCaseMsg.textContent = "運送会社を選択してください";
+    return;
+  }
   if (items.length === 0) {
     alert("新規追跡なし");
     return;
   }
-
-  // ケース情報をセット
+  // ケース情報を保存
   await db.ref(`cases/${orderId}`).set({
     注番: orderId,
     得意先: customer,
     品名: title,
     createdAt: Date.now()
   });
-
-  // 重複チェック済みの items を一括プッシュ
+  // 新規追跡を登録
   for (const it of items) {
     await db.ref(`shipments/${orderId}`).push({
       carrier: it.carrier,
@@ -492,83 +465,113 @@ confirmAddCaseBtn.onclick = async () => {
       createdAt: Date.now()
     });
   }
-
   addCaseMsg.textContent = "登録完了";
 };
 
-// --- 別案件追加（追加画面／詳細画面 両方共通） ---
-anotherCaseBtn.onclick=()=>{
+// --- 別案件追加ボタン ---
+anotherCaseBtn.onclick = () => {
   showView("add-case-view");
   initAddCaseView();
 };
-anotherCaseBtn2.onclick=()=>{
+anotherCaseBtn2.onclick = () => {
   showView("add-case-view");
   initAddCaseView();
 };
 
 // --- 検索結果描画 ---
 function renderSearchResults(list){
-  searchResults.innerHTML="";
-  list.forEach(item=>{
-    const li=document.createElement("li");
-    li.textContent=`${item.orderId} / ${item.得意先} / ${item.品名}`;
+  searchResults.innerHTML = "";
+  // 更新前にチェックボックスイベントをリセット
+  list.forEach(item => {
+    const li = document.createElement("li");
+    // attach orderId to li
+    li.dataset.orderId = item.orderId;
     if(isAdmin){
-      const btn=document.createElement("button");
-      btn.textContent="削除";btn.className="delete-case-btn";
-      btn.onclick=async e=>{
-        e.stopPropagation();
-        if(!confirm(`${item.orderId}を削除?`))return;
-        await db.ref(`cases/${item.orderId}`).remove();
-        await db.ref(`shipments/${item.orderId}`).remove();
-        li.remove();
-      };
-      li.appendChild(btn);
+      // 先頭に複数選択用チェックボックス
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.className = "select-case-checkbox";
+      checkbox.dataset.orderId = item.orderId;
+      li.appendChild(checkbox);
     }
-    li.onclick=()=>showCaseDetail(item.orderId,item);
+    // テキスト表示
+    const span = document.createElement("span");
+    span.textContent = `${item.orderId} / ${item.得意先} / ${item.品名}`;
+    li.appendChild(span);
+    // 行クリックで詳細表示。ただしチェックボックスをクリックしたときは除外
+    li.onclick = (e) => {
+      if(e.target instanceof HTMLInputElement) return;
+      showCaseDetail(item.orderId, item);
+    };
     searchResults.appendChild(li);
   });
+  // 管理者のみ削除ボタンを表示
+  deleteSelectedBtn.style.display = isAdmin ? "block" : "none";
 }
 
 // --- 検索／全件 ---
 function searchAll(kw=""){
-  db.ref("cases").once("value").then(snap=>{
-    const data = snap.val() || {},
-          res  = [];
-
-    // フィルタ＆配列化
-    Object.entries(data).forEach(([orderId,obj])=>{
-      if (!kw
-          || orderId.includes(kw)
-          || obj.得意先.includes(kw)
-          || obj.品名.includes(kw)
-      ) {
-        res.push({ orderId, ...obj });
-      }
+  db.ref("cases").once("value").then(snap => {
+    const data = snap.val() || {};
+    const res = [];
+    const startVal = startDateInput.value;
+    const endVal   = endDateInput.value;
+    let startTs = null;
+    let endTs   = null;
+    if (startVal) {
+      // 開始日は 00:00:00
+      startTs = new Date(startVal + 'T00:00:00').getTime();
+    }
+    if (endVal) {
+      // 終了日は 23:59:59
+      const d = new Date(endVal + 'T23:59:59');
+      endTs = d.getTime();
+    }
+    Object.entries(data).forEach(([orderId,obj]) => {
+      // キーワード一致判定
+      const matchKw = !kw || orderId.includes(kw) || obj.得意先.includes(kw) || obj.品名.includes(kw);
+      if (!matchKw) return;
+      // 期間絞り込み
+      if (startTs !== null && obj.createdAt < startTs) return;
+      if (endTs !== null && obj.createdAt > endTs) return;
+      res.push({ orderId, ...obj });
     });
-
-    // 新→古順にソート（createdAt がタイムスタンプで入っている前提）
-    res.sort((a, b) => b.createdAt - a.createdAt);
-
+    // 新→古順にソート
+    res.sort((a,b) => b.createdAt - a.createdAt);
     renderSearchResults(res);
   });
 }
 
-searchBtn.onclick=()=>{
+searchBtn.onclick = () => {
   showView("search-view");
   searchAll(searchInput.value.trim());
 };
-listAllBtn.onclick=()=>{
+listAllBtn.onclick = () => {
+  // キーワードと期間をリセットせず全件表示
   showView("search-view");
   searchAll();
+};
+
+// 選択削除ボタンの処理（管理者のみ）
+deleteSelectedBtn.onclick = async () => {
+  const checkboxes = searchResults.querySelectorAll(".select-case-checkbox:checked");
+  if (!checkboxes.length) return;
+  for (const cb of checkboxes) {
+    const orderId = cb.dataset.orderId;
+    // 確認メッセージを表示
+    const confirmMsg = `「${orderId}」を削除しますか？`;
+    if (!confirm(confirmMsg)) continue;
+    await db.ref(`cases/${orderId}`).remove();
+    await db.ref(`shipments/${orderId}`).remove();
+    // 行を削除
+    cb.closest('li').remove();
+  }
 };
 
 // --- 詳細＋ステータス取得 ---
 async function showCaseDetail(orderId, obj){
   showView("case-detail-view");
-  detailInfoDiv.innerHTML = `
-    <div>受注番号: ${orderId}</div>
-    <div>得意先:   ${obj.得意先}</div>
-    <div>品名: ${obj.品名}</div>`;
+  detailInfoDiv.innerHTML = `<div>受注番号: ${orderId}</div><div>得意先:   ${obj.得意先}</div><div>品名: ${obj.品名}</div>`;
   detailShipmentsUl.innerHTML = "";
   currentOrderId = orderId;
   addTrackingDetail.style.display = "none";
@@ -577,30 +580,27 @@ async function showCaseDetail(orderId, obj){
   detailAddRowBtn.disabled = false;
   confirmDetailAddBtn.disabled = false;
   cancelDetailAddBtn.disabled = false;
-
   const snap = await db.ref(`shipments/${orderId}`).once("value");
   const list = snap.val() || {};
-
   for (const key of Object.keys(list)) {
     const it = list[key];
     const label = carrierLabels[it.carrier] || it.carrier;
     const a = document.createElement("a");
-    a.href   = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    // hida は固定 URL のため追跡番号を追加しない
+    if (it.carrier === 'hida') {
+      a.href = carrierUrls[it.carrier];
+    } else {
+      a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    }
     a.target = "_blank";
     a.textContent = `${label}：${it.tracking}：読み込み中…`;
-
     const li = document.createElement("li");
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
-
     try {
       const json = await fetchStatus(it.carrier, it.tracking);
       const { status, time } = json;
-      if (time) {
-        a.textContent = `${label}：${it.tracking}：${status}　配達日時:${time}`;
-      } else {
-        a.textContent = `${label}：${it.tracking}：${status}`;
-      }
+      a.textContent = formatShipmentText(it.carrier, it.tracking, status, time);
     } catch (err) {
       console.error("fetchStatus error:", err);
       a.textContent = `${label}：${it.tracking}：取得失敗`;
@@ -608,7 +608,7 @@ async function showCaseDetail(orderId, obj){
   }
 }
 
-backToSearchBtn.onclick=()=>showView("search-view");
+backToSearchBtn.onclick = () => showView("search-view");
 
 // ─────────────────────────────────────────────────────────────────
 // ３）２次元コード読み取り (jsQR)
@@ -617,9 +617,7 @@ const canvas = document.createElement('canvas');
 async function start2DScanner(inputId) {
   const video = document.getElementById('video2d');
   video.style.display = 'block';
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "environment" }
-  });
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
   video.srcObject = stream;
   video.play();
   scan2D(video, inputId);
@@ -684,14 +682,14 @@ function start1DScanner(inputId) {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// ５）セッションタイムアウト（30分）
+// ５）セッションタイムアウト（10分）
 // ─────────────────────────────────────────────────────────────────
 function resetSessionTimer() {
   clearTimeout(sessionTimer);
   sessionTimer = setTimeout(() => {
-    alert('セッションが30分を超えました。再度ログインしてください。');
+    alert('セッションが10分を超えました。再度ログインしてください。');
     auth.signOut();
-  }, 30 * 60 * 1000);
+  }, SESSION_LIMIT_MS);
 }
 function startSessionTimer() {
   resetSessionTimer();
@@ -705,106 +703,146 @@ function startSessionTimer() {
 showAddTrackingBtn.onclick = () => {
   addTrackingDetail.style.display = "block";
   detailTrackingRows.innerHTML = "";
-  // 最初に5行追加
+  // 初回は5行追加
   for (let i = 0; i < 5; i++) {
     detailTrackingRows.appendChild(createTrackingRow("detail"));
   }
-  // 初回追加後は「追跡番号追加」ボタン自体を非表示に
+  // ボタンを非表示
   showAddTrackingBtn.style.display = "none";
 };
-
 // 「＋追跡番号行を5行ずつ追加」
 detailAddRowBtn.onclick = () => {
   for (let i = 0; i < 5; i++) {
     detailTrackingRows.appendChild(createTrackingRow("detail"));
   }
 };
-
 // 「キャンセル」
 cancelDetailAddBtn.onclick = () => {
   addTrackingDetail.style.display = "none";
   detailTrackingRows.innerHTML = "";
   detailAddMsg.textContent = "";
+  showAddTrackingBtn.style.display = "inline-block";
 };
 
-// ① fetchStatus ヘルパーを定義
+// fetchStatus ヘルパー
 async function fetchStatus(carrier, tracking) {
+  // hida の API は非対応なので status/time は返さない
+  if (carrier === 'hida') {
+    return { status: '非対応', time: null };
+  }
   const url = `https://track-api.hr46-ksg.workers.dev/?carrier=${encodeURIComponent(carrier)}&tracking=${encodeURIComponent(tracking)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();  // { status: "...", time: "..." }
+  return res.json();
+}
+
+// 時間ラベルの生成
+function getTimeLabel(carrier, status, time) {
+  // time が無い場合や既に「：」が含まれている場合はラベルを付与しない
+  if (!time || time.includes('：')) {
+    return '';
+  }
+  // 西濃運輸は常に「最新日時:」
+  if (carrier === 'seino') {
+    return '最新日時:';
+  }
+  // ヤマト・トナミは配達完了（またはお届け完了）の場合に「配達日時:」
+  if (carrier === 'yamato' || carrier === 'tonami') {
+    if (status === '配達完了' || status === 'お届け完了') {
+      return '配達日時:';
+    }
+    return '予定日時:';
+  }
+  // その他のキャリア：status に「配達完了」が含まれていれば配達日時、それ以外は予定日時
+  if (status && status.includes('配達完了')) {
+    return '配達日時:';
+  }
+  return '予定日時:';
+}
+
+// テキスト組み立て
+function formatShipmentText(carrier, tracking, status, time) {
+  const label = carrierLabels[carrier] || carrier;
+  // hida は非対応
+  if (carrier === 'hida') {
+    return `${label}：${tracking}：${status}`;
+  }
+  const timeLabel = getTimeLabel(carrier, status, time);
+  if (time) {
+    if (timeLabel) {
+      return `${label}：${tracking}：${status}　${timeLabel}${time}`;
+    } else {
+      return `${label}：${tracking}：${status}　${time}`;
+    }
+  }
+  return `${label}：${tracking}：${status}`;
 }
 
 // 「追加登録」
 confirmDetailAddBtn.onclick = async () => {
   if (!currentOrderId) return;
-
-  // 0) 既存データの読み込みと重複チェック
   const snap = await db.ref(`shipments/${currentOrderId}`).once("value");
   const existObj = snap.val() || {};
-  const existSet = new Set(
-    Object.values(existObj).map(it => `${it.carrier}:${it.tracking}`)
-  );
-
-  // 1) 入力行から新規追加分をピックアップ
+  const existSet = new Set(Object.values(existObj).map(it => `${it.carrier}:${it.tracking}`));
   const newItems = [];
+  let missingCarrier = false;
   detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => {
     const tn = row.querySelector("input").value.trim();
     if (!tn) return;
-    const carrier = fixedCarrierCheckboxDetail.checked
-      ? fixedCarrierSelectDetail.value
-      : row.querySelector("select")?.value;
-    if (!carrier) return;
-
+    const carrier = fixedCarrierCheckboxDetail.checked ? fixedCarrierSelectDetail.value : row.querySelector("select")?.value;
+    if (!carrier) {
+      missingCarrier = true;
+      return;
+    }
     const key = `${carrier}:${tn}`;
-    if (existSet.has(key)) return;        // 重複はスキップ
+    if (existSet.has(key)) return;
     existSet.add(key);
     newItems.push({ carrier, tracking: tn });
   });
-
+  if (missingCarrier) {
+    detailAddMsg.textContent = "運送会社を選択してください";
+    return;
+  }
   if (newItems.length === 0) {
     alert("新規の追跡番号がありません（既に登録済み）");
     return;
   }
-
-  // 1) DB プッシュ
+  // DB へ登録
   for (const it of newItems) {
-    await db.ref(`shipments/${currentOrderId}`)
-            .push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() });
+    await db.ref(`shipments/${currentOrderId}`).push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() });
   }
-
-  // 2) UI に「読み込み中…」リンクを追加しつつ anchorEls に保持
+  // UI 更新
   const anchorEls = newItems.map(it => {
     const label = carrierLabels[it.carrier] || it.carrier;
     const a = document.createElement("a");
-    a.href        = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
-    a.target      = "_blank";
+    if (it.carrier === 'hida') {
+      a.href = carrierUrls[it.carrier];
+    } else {
+      a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    }
+    a.target = "_blank";
     a.textContent = `${label}：${it.tracking}：読み込み中…`;
     const li = document.createElement("li");
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
     return a;
   });
-
-  // 3) フォームを閉じ＆クリア
+  // フォームを閉じる
   addTrackingDetail.style.display  = "none";
   detailTrackingRows.innerHTML     = "";
   showAddTrackingBtn.style.display = "inline-block";
   detailAddMsg.textContent         = "追加しました";
-
-  // 4) 追加分だけ逐次 fetchStatus を回してテキストを更新
+  // fetch status and update text
   newItems.forEach((it, idx) => {
     const a = anchorEls[idx];
     fetchStatus(it.carrier, it.tracking)
       .then(json => {
-        const label = carrierLabels[it.carrier] || it.carrier;
         const { status, time } = json;
-        a.textContent = time
-          ? `${label}：${it.tracking}：${status}　配達日時:${time}`
-          : `${label}：${it.tracking}：${status}`;
+        a.textContent = formatShipmentText(it.carrier, it.tracking, status, time);
       })
       .catch(err => {
         console.error("fetchStatus error:", err);
+        const label = carrierLabels[it.carrier] || it.carrier;
         a.textContent = `${label}：${it.tracking}：取得失敗`;
       });
   });
