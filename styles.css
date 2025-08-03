@@ -104,3 +104,18 @@ body {
     }*/
 
     @keyframes spin { to { transform: rotate(360deg); } }
+
+/* 追跡番号のみ入力され運送会社が未選択のときに強調表示する */
+.tracking-row.missing-carrier {
+  border: 2px solid #e74c3c;
+  background-color: #ffecec;
+}
+
+/* 管理者用チェックボックスを大きくしてクリックしやすくする */
+.select-case-checkbox,
+#select-all-checkbox {
+  width: 1.4em;
+  height: 1.4em;
+  margin-right: 0.5em;
+  vertical-align: middle;
+}

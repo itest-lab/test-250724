@@ -35,6 +35,17 @@
     <p id="login-error" class="error"></p>
   </div>
 
+  <!-- 新規登録ビュー -->
+  <div id="signup-view" style="display:none;">
+    <h2>新規登録</h2>
+    <input id="signup-email" type="text" placeholder="メール or ID">
+    <input id="signup-password" type="password" placeholder="パスワード">
+    <input id="signup-confirm-password" type="password" placeholder="パスワード(確認)">
+    <button id="signup-confirm-btn">登録</button>
+    <button id="back-to-login-btn">戻る</button>
+    <p id="signup-error" class="error"></p>
+  </div>
+
   <!-- メインビュー -->
   <div id="main-view" style="display:none;">
     <button id="logout-btn">ログアウト</button>
@@ -112,7 +123,11 @@
       <button id="search-btn">検索</button>
       <button id="list-all-btn">一覧表示</button>
       <ul id="search-results"></ul>
-      <!-- 選択削除ボタン（管理者のみ表示） -->
+      <!-- 管理者専用: 全選択チェックボックスと選択削除ボタン -->
+      <label id="select-all-container" style="display:none;">
+        <input type="checkbox" id="select-all-checkbox">
+        表示項目を全選択
+      </label>
       <button id="delete-selected-btn" style="display:none;">選択削除</button>
     </div>
 

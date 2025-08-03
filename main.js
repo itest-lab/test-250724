@@ -59,6 +59,15 @@ const guestBtn              = document.getElementById("guest-btn");
 const resetBtn              = document.getElementById("reset-btn");
 const logoutBtn             = document.getElementById("logout-btn");
 
+// 新規登録ビュー関連
+const signupView            = document.getElementById("signup-view");
+const signupEmail           = document.getElementById("signup-email");
+const signupPassword        = document.getElementById("signup-password");
+const signupConfirmPassword = document.getElementById("signup-confirm-password");
+const signupConfirmBtn      = document.getElementById("signup-confirm-btn");
+const backToLoginBtn        = document.getElementById("back-to-login-btn");
+const signupErrorEl         = document.getElementById("signup-error");
+
 const navAddBtn             = document.getElementById("nav-add-btn");
 const navSearchBtn          = document.getElementById("nav-search-btn");
 
@@ -93,6 +102,21 @@ const searchBtn             = document.getElementById("search-btn");
 const listAllBtn            = document.getElementById("list-all-btn");
 const searchResults         = document.getElementById("search-results");
 const deleteSelectedBtn     = document.getElementById("delete-selected-btn");
+
+// 一覧表示用 全選択チェックボックス関連
+const selectAllContainer    = document.getElementById("select-all-container");
+const selectAllCheckbox     = document.getElementById("select-all-checkbox");
+
+// 全選択チェックボックスの挙動
+if (selectAllCheckbox) {
+  selectAllCheckbox.onchange = () => {
+    const check = selectAllCheckbox.checked;
+    const boxes = searchResults.querySelectorAll(".select-case-checkbox");
+    boxes.forEach(cb => {
+      cb.checked = check;
+    });
+  };
+}
 
 const caseDetailView        = document.getElementById("case-detail-view");
 const detailInfoDiv         = document.getElementById("detail-info");
@@ -172,6 +196,7 @@ auth.onAuthStateChanged(async user => {
     }
 
     loginView.style.display = "none";
+    signupView.style.display = "none";
     mainView.style.display = "block";
     showView("add-case-view");
     initAddCaseView();
@@ -182,6 +207,7 @@ auth.onAuthStateChanged(async user => {
     // ログアウト時
     isAdmin = false;
     loginView.style.display = "block";
+    signupView.style.display = "none";
     mainView.style.display = "none";
     emailInput.focus();
     clearLoginTime();
@@ -202,10 +228,15 @@ loginBtn.onclick = async () => {
   }
 };
 signupBtn.onclick = () => {
-  const email = emailInput.value.trim();
-  const password = passwordInput.value;
-  auth.createUserWithEmailAndPassword(email, password)
-    .catch(e => loginErrorEl.textContent = e.message);
+  // 新規登録ページへ切り替え
+  loginView.style.display = "none";
+  signupView.style.display = "block";
+  // 入力欄の初期化とエラークリア
+  signupEmail.value = emailInput.value.trim() || "";
+  signupPassword.value = "";
+  signupConfirmPassword.value = "";
+  signupErrorEl.textContent = "";
+  signupEmail.focus();
 };
 guestBtn.onclick = () => {
   auth.signInAnonymously()
@@ -219,6 +250,38 @@ resetBtn.onclick = () => {
 };
 logoutBtn.onclick = () => auth.signOut();
 
+// 新規登録ビュー: 登録処理
+signupConfirmBtn.onclick = async () => {
+  const email = signupEmail.value.trim();
+  const pass  = signupPassword.value;
+  const confirmPass = signupConfirmPassword.value;
+  signupErrorEl.textContent = "";
+  if (!email || !pass || !confirmPass) {
+    signupErrorEl.textContent = "全て入力してください";
+    return;
+  }
+  if (pass !== confirmPass) {
+    signupErrorEl.textContent = "パスワードが一致しません";
+    return;
+  }
+  try {
+    await auth.createUserWithEmailAndPassword(email, pass);
+    markLoginTime();
+    // アカウント作成後、Firebase の onAuthStateChanged によりメインビューへ遷移
+  } catch (e) {
+    signupErrorEl.textContent = e.message;
+  }
+};
+
+// 新規登録ビュー: ログイン画面へ戻る
+backToLoginBtn.onclick = () => {
+  signupView.style.display = "none";
+  loginView.style.display  = "block";
+  signupErrorEl.textContent = "";
+  loginErrorEl.textContent = "";
+  emailInput.focus();
+};
+
 // --- ナビゲーション ---
 navAddBtn.addEventListener("click", () => {
   showView("add-case-view");
@@ -226,7 +289,11 @@ navAddBtn.addEventListener("click", () => {
 });
 navSearchBtn.addEventListener("click", () => {
   showView("search-view");
-  searchAll(searchInput.value.trim());
+  // ナビゲーションから検索を開いたときは検索条件をクリアして全件表示
+  searchInput.value = "";
+  startDateInput.value = "";
+  endDateInput.value = "";
+  searchAll();
 });
 
 // --- 追跡行生成 ---
@@ -289,6 +356,31 @@ function createTrackingRow(context="add"){
     }
   });
   row.appendChild(inp);
+
+  // リアルタイムで運送会社未選択行を強調する
+  function updateMissingHighlight() {
+    // 追跡番号が入力されているか？
+    const tnVal = inp.value.trim();
+    // コンテキストごとに固定キャリアの有無を考慮
+    let carrierVal;
+    if (context === "add") {
+      carrierVal = fixedCarrierCheckbox.checked ? fixedCarrierSelect.value : row.querySelector("select")?.value;
+    } else {
+      carrierVal = fixedCarrierCheckboxDetail.checked ? fixedCarrierSelectDetail.value : row.querySelector("select")?.value;
+    }
+    if (tnVal && !carrierVal) {
+      row.classList.add('missing-carrier');
+    } else {
+      row.classList.remove('missing-carrier');
+    }
+  }
+  // 入力やセレクト変更時に強調を更新
+  inp.addEventListener('input', updateMissingHighlight);
+  // select は row 内に存在する場合のみ
+  const selEl = row.querySelector('select');
+  if (selEl) {
+    selEl.addEventListener('change', updateMissingHighlight);
+  }
   return row;
 }
 
@@ -430,11 +522,17 @@ confirmAddCaseBtn.onclick = async () => {
   const existSet = new Set(Object.values(existObj).map(it => `${it.carrier}:${it.tracking}`));
   const items = [];
   let missingCarrier = false;
+  // 行ごとの強調を初期化
+  Array.from(trackingRows.children).forEach(row => {
+    row.classList.remove('missing-carrier');
+  });
   Array.from(trackingRows.children).forEach(row => {
     const tn = row.querySelector("input").value.trim();
     const carrier = fixedCarrierCheckbox.checked ? fixedCarrierSelect.value : row.querySelector("select")?.value;
     if (tn && !carrier) {
       missingCarrier = true;
+      // 視覚的に強調
+      row.classList.add('missing-carrier');
     }
     if (!tn || !carrier) return; // 入力不足はスキップ
     const key = `${carrier}:${tn}`;
@@ -465,7 +563,10 @@ confirmAddCaseBtn.onclick = async () => {
       createdAt: Date.now()
     });
   }
+  // 完了メッセージをクリアし、詳細画面へ遷移
   addCaseMsg.textContent = "登録完了";
+  // 追加完了後に詳細画面を表示
+  await showCaseDetail(orderId, { 得意先: customer, 品名: title });
 };
 
 // --- 別案件追加ボタン ---
@@ -507,6 +608,23 @@ function renderSearchResults(list){
   });
   // 管理者のみ削除ボタンを表示
   deleteSelectedBtn.style.display = isAdmin ? "block" : "none";
+
+  // 管理者のみ全選択チェックボックスを表示
+  if (isAdmin) {
+    selectAllContainer.style.display = "block";
+  } else {
+    selectAllContainer.style.display = "none";
+  }
+  // 全選択状態をリセット
+  if (selectAllCheckbox) selectAllCheckbox.checked = false;
+
+  // 各チェックボックスの状態変更で全選択の状態を更新
+  const boxes = searchResults.querySelectorAll(".select-case-checkbox");
+  boxes.forEach(cb => {
+    cb.onchange = updateSelectAllState;
+  });
+  // 初期表示時に全選択状態を更新
+  updateSelectAllState();
 }
 
 // --- 検索／全件 ---
@@ -542,12 +660,40 @@ function searchAll(kw=""){
   });
 }
 
+// 全選択チェックボックスの状態を更新する関数
+function updateSelectAllState() {
+  if (!isAdmin) return;
+  const boxes = searchResults.querySelectorAll(".select-case-checkbox");
+  const checked = searchResults.querySelectorAll(".select-case-checkbox:checked");
+  // 全てのチェックボックスがオンの場合のみチェック状態にする
+  if (boxes.length > 0 && boxes.length === checked.length) {
+    selectAllCheckbox.checked = true;
+  } else {
+    selectAllCheckbox.checked = false;
+  }
+}
+
 searchBtn.onclick = () => {
+  // キーワードと期間の両方が入力されている場合はリセットして一覧表示
+  const kw = searchInput.value.trim();
+  const hasKw = kw.length > 0;
+  const hasPeriod = startDateInput.value || endDateInput.value;
   showView("search-view");
-  searchAll(searchInput.value.trim());
+  if (hasKw && hasPeriod) {
+    // 検索条件をクリアして全件表示
+    searchInput.value = "";
+    startDateInput.value = "";
+    endDateInput.value = "";
+    searchAll();
+  } else {
+    searchAll(kw);
+  }
 };
 listAllBtn.onclick = () => {
-  // キーワードと期間をリセットせず全件表示
+  // 検索条件をすべてリセットして全件表示
+  searchInput.value = "";
+  startDateInput.value = "";
+  endDateInput.value = "";
   showView("search-view");
   searchAll();
 };
@@ -555,17 +701,27 @@ listAllBtn.onclick = () => {
 // 選択削除ボタンの処理（管理者のみ）
 deleteSelectedBtn.onclick = async () => {
   const checkboxes = searchResults.querySelectorAll(".select-case-checkbox:checked");
-  if (!checkboxes.length) return;
+  const count = checkboxes.length;
+  if (count === 0) return;
+  if (count === 1) {
+    const orderId = checkboxes[0].dataset.orderId;
+    if (!confirm(`「${orderId}」を削除しますか？`)) return;
+  } else {
+    // 複数選択時は一度だけ確認
+    if (!confirm('選択案件を削除しますか？')) return;
+  }
   for (const cb of checkboxes) {
     const orderId = cb.dataset.orderId;
-    // 確認メッセージを表示
-    const confirmMsg = `「${orderId}」を削除しますか？`;
-    if (!confirm(confirmMsg)) continue;
-    await db.ref(`cases/${orderId}`).remove();
-    await db.ref(`shipments/${orderId}`).remove();
-    // 行を削除
+    try {
+      await db.ref(`cases/${orderId}`).remove();
+      await db.ref(`shipments/${orderId}`).remove();
+    } catch (e) {
+      console.error(e);
+    }
     cb.closest('li').remove();
   }
+  // 削除後に全選択状態を更新
+  updateSelectAllState();
 };
 
 // --- 詳細＋ステータス取得 ---
@@ -786,12 +942,18 @@ confirmDetailAddBtn.onclick = async () => {
   const existSet = new Set(Object.values(existObj).map(it => `${it.carrier}:${it.tracking}`));
   const newItems = [];
   let missingCarrier = false;
+  // 行ごとの強調を初期化
+  detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => {
+    row.classList.remove('missing-carrier');
+  });
   detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => {
     const tn = row.querySelector("input").value.trim();
     if (!tn) return;
     const carrier = fixedCarrierCheckboxDetail.checked ? fixedCarrierSelectDetail.value : row.querySelector("select")?.value;
     if (!carrier) {
       missingCarrier = true;
+      // 視覚的に強調
+      row.classList.add('missing-carrier');
       return;
     }
     const key = `${carrier}:${tn}`;
