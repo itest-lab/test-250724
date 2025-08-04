@@ -164,23 +164,23 @@ function showView(id){
   switch(id){
     case "add-case-view":
       if(scanModeDiv.style.display !== "none"){
-        caseBarcodeInput.focus();
+//        caseBarcodeInput.focus();
       } else if(manualModeDiv.style.display !== "none"){
-        manualOrderIdInput.focus();
+//        manualOrderIdInput.focus();
       }
       break;
     case "search-view":
-      searchInput.focus();
+//      searchInput.focus();
       break;
     case "case-detail-view":
-      showAddTrackingBtn.focus();
+//      showAddTrackingBtn.focus();
       break;
   }
 }
 
 // ページロード直後にメール入力へフォーカス
 if(loginView.style.display !== "none"){
-  emailInput.focus();
+//  emailInput.focus();
 }
 
 // --- 認証監視 ---
@@ -209,7 +209,7 @@ auth.onAuthStateChanged(async user => {
     loginView.style.display = "block";
     signupView.style.display = "none";
     mainView.style.display = "none";
-    emailInput.focus();
+//    emailInput.focus();
     clearLoginTime();
   }
 });
@@ -236,7 +236,7 @@ signupBtn.onclick = () => {
   signupPassword.value = "";
   signupConfirmPassword.value = "";
   signupErrorEl.textContent = "";
-  signupEmail.focus();
+//  signupEmail.focus();
 };
 guestBtn.onclick = () => {
   auth.signInAnonymously()
@@ -279,7 +279,7 @@ backToLoginBtn.onclick = () => {
   loginView.style.display  = "block";
   signupErrorEl.textContent = "";
   loginErrorEl.textContent = "";
-  emailInput.focus();
+//  emailInput.focus();
 };
 
 // --- ナビゲーション ---
@@ -344,13 +344,13 @@ function createTrackingRow(context="add"){
       const inputs=[...row.parentElement.querySelectorAll("input")];
       const idx=inputs.indexOf(inp);
       if(idx < inputs.length-1){
-        inputs[idx+1].focus();
+//        inputs[idx+1].focus();
       } else {
         if(context === "detail") detailAddRowBtn.click();
         else addTrackingRowBtn.click();
         setTimeout(() => {
           const arr=[...row.parentElement.querySelectorAll("input")];
-          arr[arr.length-1].focus();
+//          arr[arr.length-1].focus();
         },0);
       }
     }
