@@ -946,7 +946,7 @@ function getTimeLabel(carrier, status, time) {
   }
   // ヤマト・トナミは配達完了（またはお届け完了）の場合に「配達日時:」
   if (carrier === 'yamato' || carrier === 'tonami') {
-    if (status === '配達完了' || status === 'お届け完了') {
+    if (status === '配達完了' || status === 'お届け完了' || status === '配達済み') {
       return '配達日時:';
     }
     return '予定日時:';
