@@ -372,13 +372,13 @@ function createTrackingRow(context="add"){
       const inputs=[...row.parentElement.querySelectorAll("input")];
       const idx=inputs.indexOf(inp);
       if(idx < inputs.length-1){
-//        inputs[idx+1].focus();
+        inputs[idx+1].focus();
       } else {
         if(context === "detail") detailAddRowBtn.click();
         else addTrackingRowBtn.click();
         setTimeout(() => {
           const arr=[...row.parentElement.querySelectorAll("input")];
-//          arr[arr.length-1].focus();
+          arr[arr.length-1].focus();
         },0);
       }
     }
