@@ -250,12 +250,7 @@ resetBtn.onclick = () => {
 };
 
 logoutBtn.onclick = async () => {
-  try {
-    await auth.signOut();
-  } catch(e) {
-    console.error("サインアウトエラー:", e);
-  }
-  // メール・パスワード入力をクリア
+ // メール・パスワード入力をクリア
   emailInput.value = "";
   passwordInput.value = "";
   // セッションタイムスタンプ削除
@@ -780,10 +775,16 @@ async function showCaseDetail(orderId, obj){
 
       li.appendChild(form);
       updateText(it, btn);
-
     } else {
-      a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+      // その他キャリアは GET リンク
+      const a = document.createElement("a");
+      const digits = encodeURIComponent(it.tracking.replace(/\D/g, ""));
+      a.href        = carrierUrls[it.carrier] + digits;
+      a.textContent = `${label}：${it.tracking}：読み込み中…`;
+      li.appendChild(a);
+      updateText(it, a);
     }
+    
     a.target = "_blank";
     a.textContent = ${label}：${it.tracking}：読み込み中…;
     const li = document.createElement("li");
@@ -798,6 +799,18 @@ async function showCaseDetail(orderId, obj){
       a.textContent = ${label}：${it.tracking}：取得失敗;
     }
   }
+}
+
+// 共通：ステータス取得→テキスト更新のヘルパー
+function updateText(it, el) {
+  fetchStatus(it.carrier, it.tracking)
+    .then(json => {
+      const { status, time } = json;
+      el.textContent = formatShipmentText(it.carrier, it.tracking, status, time);
+    })
+    .catch(() => {
+      el.textContent = `${carrierLabels[it.carrier]||it.carrier}：${it.tracking}：取得失敗`;
+    });
 }
 
 backToSearchBtn.onclick = () => showView("search-view");
