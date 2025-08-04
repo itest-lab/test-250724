@@ -37,7 +37,7 @@ const carrierUrls = {
   sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo=",
   yamato:  "https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
   fukutsu: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
-  seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
+  seino:   "https://track.seino.co.jp/kamotsu/GempyoNoShokai.do?GNPNO1=",
   tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
   // 飛騨運輸の追跡ページはAPI非対応のため固定URLに遷移させる
   hida:    "http://www.hida-unyu.co.jp/WP_HIDAUNYU_WKSHO_GUEST/KW_UD04015.do?_Action_=a_srcAction"
@@ -248,7 +248,21 @@ resetBtn.onclick = () => {
     .then(() => loginErrorEl.textContent = "再発行メール送信")
     .catch(e => loginErrorEl.textContent = e.message);
 };
-logoutBtn.onclick = () => auth.signOut();
+
+logoutBtn.onclick = async () => {
+  try {
+    await auth.signOut();
+  } catch(e) {
+    console.error("サインアウトエラー:", e);
+  }
+  // メール・パスワード入力をクリア
+  emailInput.value = "";
+  passwordInput.value = "";
+  // セッションタイムスタンプ削除
+  clearLoginTime();
+  // それ以外の localStorage も全削除
+  localStorage.clear();
+};
 
 // 新規登録ビュー: 登録処理
 signupConfirmBtn.onclick = async () => {
@@ -725,13 +739,9 @@ deleteSelectedBtn.onclick = async () => {
 };
 
 // --- 詳細＋ステータス取得 ---
-async function showCaseDetail(orderId, obj) {
+async function showCaseDetail(orderId, obj){
   showView("case-detail-view");
-  detailInfoDiv.innerHTML = `
-    <div>受注番号: ${orderId}</div>
-    <div>得意先: ${obj.得意先}</div>
-    <div>品名: ${obj.品名}</div>
-  `;
+  detailInfoDiv.innerHTML = <div>受注番号: ${orderId}</div><div>得意先:   ${obj.得意先}</div><div>品名: ${obj.品名}</div>;
   detailShipmentsUl.innerHTML = "";
   currentOrderId = orderId;
   addTrackingDetail.style.display = "none";
@@ -740,60 +750,52 @@ async function showCaseDetail(orderId, obj) {
   detailAddRowBtn.disabled = false;
   confirmDetailAddBtn.disabled = false;
   cancelDetailAddBtn.disabled = false;
-
-  const snap = await db.ref(`shipments/${orderId}`).once("value");
+  const snap = await db.ref(shipments/${orderId}).once("value");
   const list = snap.val() || {};
-
   for (const key of Object.keys(list)) {
     const it = list[key];
     const label = carrierLabels[it.carrier] || it.carrier;
-
-    // リンク要素を作成
     const a = document.createElement("a");
-    a.target = "_blank";
-    a.textContent = `${label}：${it.tracking}：読み込み中…`;
-    const li = document.createElement("li");
-    li.appendChild(a);
-    detailShipmentsUl.appendChild(li);
-
-    // Hida は API 非対応の固定リンク
+    // hida は固定 URL のため追跡番号を追加しない
     if (it.carrier === 'hida') {
       a.href = carrierUrls[it.carrier];
+        } else if (it.carrier === 'seino') {
+      // 西濃運輸だけ「フォーム+ボタン」で POST
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "https://track.seino.co.jp/kamotsu/GempyoNoShokai.do";
+      form.style.display = "inline";  // li 内にインライン表示
 
-    // 西濃運輸はスマホ版対応で POST フォームを動的に組んで送信
-    } else if (it.carrier === 'seino') {
-      a.href = "#";
-      a.addEventListener('click', e => {
-        e.preventDefault();
-        const digits = it.tracking.replace(/\D/g, '');
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = 'https://track.seino.co.jp/kamotsu/GempyoNoShokai.do';
-        form.style.display = 'none';
+      const hidden = document.createElement("input");
+      hidden.type  = "hidden";
+      hidden.name  = "GNPNO1";
+      hidden.value = it.tracking.replace(/\D/g, "");
+      form.appendChild(hidden);
 
-        const input = document.createElement('input');
-        input.type  = 'hidden';
-        input.name  = 'GNPNO1';
-        input.value = digits;
-        form.appendChild(input);
+      const btn = document.createElement("button");
+      btn.type        = "submit";
+      btn.textContent = `${label}：${it.tracking}：読み込み中…`;
+      btn.style       = "border:none;background:none;padding:0;color:blue;cursor:pointer;";
+      form.appendChild(btn);
 
-        document.body.appendChild(form);
-        form.submit();
-      });
+      li.appendChild(form);
+      updateText(it, btn);
 
-    // その他キャリアは従来どおり GET リンク
     } else {
       a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
     }
-
-    // ステータス取得後にテキスト更新
+    a.target = "_blank";
+    a.textContent = ${label}：${it.tracking}：読み込み中…;
+    const li = document.createElement("li");
+    li.appendChild(a);
+    detailShipmentsUl.appendChild(li);
     try {
       const json = await fetchStatus(it.carrier, it.tracking);
       const { status, time } = json;
       a.textContent = formatShipmentText(it.carrier, it.tracking, status, time);
     } catch (err) {
       console.error("fetchStatus error:", err);
-      a.textContent = `${label}：${it.tracking}：取得失敗`;
+      a.textContent = ${label}：${it.tracking}：取得失敗;
     }
   }
 }
