@@ -155,34 +155,6 @@ if (isSessionExpired()) {
   clearLoginTime();
 }
 
-// --- ビュー切替ヘルパー ---
-function showView(id){
-  document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
-  const target = document.getElementById(id);
-  if (target) target.style.display = "block";
-  // 画面ごとに最上部入力要素へフォーカス
-  switch(id){
-    case "add-case-view":
-      if(scanModeDiv.style.display !== "none"){
-//        caseBarcodeInput.focus();
-      } else if(manualModeDiv.style.display !== "none"){
-//        manualOrderIdInput.focus();
-      }
-      break;
-    case "search-view":
-//      searchInput.focus();
-      break;
-    case "case-detail-view":
-//      showAddTrackingBtn.focus();
-      break;
-  }
-}
-
-// ページロード直後にメール入力へフォーカス
-if(loginView.style.display !== "none"){
-//  emailInput.focus();
-}
-
 // --- 認証監視 ---
 auth.onAuthStateChanged(async user => {
   if (user) {
@@ -209,7 +181,6 @@ auth.onAuthStateChanged(async user => {
     loginView.style.display = "block";
     signupView.style.display = "none";
     mainView.style.display = "none";
-//    emailInput.focus();
     clearLoginTime();
   }
 });
@@ -236,7 +207,6 @@ signupBtn.onclick = () => {
   signupPassword.value = "";
   signupConfirmPassword.value = "";
   signupErrorEl.textContent = "";
-//  signupEmail.focus();
 };
 guestBtn.onclick = () => {
   auth.signInAnonymously()
@@ -307,7 +277,6 @@ backToLoginBtn.onclick = () => {
   loginView.style.display  = "block";
   signupErrorEl.textContent = "";
   loginErrorEl.textContent = "";
-//  emailInput.focus();
 };
 
 // --- ナビゲーション ---
@@ -369,21 +338,25 @@ function createTrackingRow(context="add"){
   inp.addEventListener("keydown", e => {
     if(e.key === "Enter" || e.key === "Tab"){
       e.preventDefault();
-      const inputs=[...row.parentElement.querySelectorAll("input")];
-      const idx=inputs.indexOf(inp);
-      if(idx < inputs.length-1){
-        inputs[idx+1].focus();
+      const inputs = Array.from(
+        row.parentElement.querySelectorAll('input[type="text"]')
+      );
+      const idx = inputs.indexOf(inp);
+      if (idx !== -1 && idx < inputs.length - 1) {
+        inputs[idx + 1].focus();
       } else {
-        if(context === "detail") detailAddRowBtn.click();
+        if (context === "detail") detailAddRowBtn.click();
         else addTrackingRowBtn.click();
         setTimeout(() => {
-          const arr=[...row.parentElement.querySelectorAll("input")];
-          arr[arr.length-1].focus();
-        },0);
+          const newInputs = Array.from(
+            row.parentElement.querySelectorAll('input[type="text"]')
+          );
+          newInputs[newInputs.length - 1].focus();
+        }, 0);
       }
     }
   });
-  row.appendChild(inp);
+  return row;
 
   // リアルタイムで運送会社未選択行を強調する
   function updateMissingHighlight() {
