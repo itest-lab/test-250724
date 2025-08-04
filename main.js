@@ -263,6 +263,21 @@ logoutBtn.onclick = async () => {
   localStorage.clear();
 };
 
+// ログイン状態が変わったときに呼ばれるリスナー
+auth.onAuthStateChanged(user => {
+  const statusContainer = document.getElementById('login-status-container');
+  statusContainer.textContent = '';  // まずクリア
+
+  if (user) {
+    // ログイン中
+    // user.email や user.uid など好きな情報を表示できます
+    statusContainer.textContent = `${user.email} でログイン中`;
+  } else {
+    // 未ログイン時はなにも表示しない or 別文言を出してもOK
+    statusContainer.textContent = 'ログインしてください';
+  }
+});
+
 // 新規登録ビュー: 登録処理
 signupConfirmBtn.onclick = async () => {
   const email = signupEmail.value.trim();
