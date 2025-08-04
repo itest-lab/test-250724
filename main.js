@@ -356,7 +356,7 @@ function createTrackingRow(context="add"){
       }
     }
   });
-  return row;
+  row.appendChild(inp);
 
   // リアルタイムで運送会社未選択行を強調する
   function updateMissingHighlight() {
