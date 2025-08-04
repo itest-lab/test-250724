@@ -37,7 +37,7 @@ const carrierUrls = {
   sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo=",
   yamato:  "https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
   fukutsu: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
-  seino:   "https://track.seino.co.jp/kamotsu/GempyoNoShokai.do?GNPNO1=",
+  seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
   tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
   // 飛騨運輸の追跡ページはAPI非対応のため固定URLに遷移させる
   hida:    "http://www.hida-unyu.co.jp/WP_HIDAUNYU_WKSHO_GUEST/KW_UD04015.do?_Action_=a_srcAction"
@@ -248,14 +248,18 @@ resetBtn.onclick = () => {
     .then(() => loginErrorEl.textContent = "再発行メール送信")
     .catch(e => loginErrorEl.textContent = e.message);
 };
-
 logoutBtn.onclick = async () => {
- // メール・パスワード入力をクリア
-  emailInput.value = "";
+  try {
+    await auth.signOut();
+  } catch (e) {
+    console.error("サインアウトエラー:", e);
+  }
+  // メール・パスワード欄をクリア
+  emailInput.value    = "";
   passwordInput.value = "";
   // セッションタイムスタンプ削除
   clearLoginTime();
-  // それ以外の localStorage も全削除
+  // localStorage をまるごとクリア
   localStorage.clear();
 };
 
@@ -736,7 +740,7 @@ deleteSelectedBtn.onclick = async () => {
 // --- 詳細＋ステータス取得 ---
 async function showCaseDetail(orderId, obj){
   showView("case-detail-view");
-  detailInfoDiv.innerHTML = <div>受注番号: ${orderId}</div><div>得意先:   ${obj.得意先}</div><div>品名: ${obj.品名}</div>;
+  detailInfoDiv.innerHTML = `<div>受注番号: ${orderId}</div><div>得意先:   ${obj.得意先}</div><div>品名: ${obj.品名}</div>`;
   detailShipmentsUl.innerHTML = "";
   currentOrderId = orderId;
   addTrackingDetail.style.display = "none";
@@ -745,7 +749,7 @@ async function showCaseDetail(orderId, obj){
   detailAddRowBtn.disabled = false;
   confirmDetailAddBtn.disabled = false;
   cancelDetailAddBtn.disabled = false;
-  const snap = await db.ref(shipments/${orderId}).once("value");
+  const snap = await db.ref(`shipments/${orderId}`).once("value");
   const list = snap.val() || {};
   for (const key of Object.keys(list)) {
     const it = list[key];
@@ -754,39 +758,11 @@ async function showCaseDetail(orderId, obj){
     // hida は固定 URL のため追跡番号を追加しない
     if (it.carrier === 'hida') {
       a.href = carrierUrls[it.carrier];
-        } else if (it.carrier === 'seino') {
-      // 西濃運輸だけ「フォーム+ボタン」で POST
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "https://track.seino.co.jp/kamotsu/GempyoNoShokai.do";
-      form.style.display = "inline";  // li 内にインライン表示
-
-      const hidden = document.createElement("input");
-      hidden.type  = "hidden";
-      hidden.name  = "GNPNO1";
-      hidden.value = it.tracking.replace(/\D/g, "");
-      form.appendChild(hidden);
-
-      const btn = document.createElement("button");
-      btn.type        = "submit";
-      btn.textContent = `${label}：${it.tracking}：読み込み中…`;
-      btn.style       = "border:none;background:none;padding:0;color:blue;cursor:pointer;";
-      form.appendChild(btn);
-
-      li.appendChild(form);
-      updateText(it, btn);
     } else {
-      // その他キャリアは GET リンク
-      const a = document.createElement("a");
-      const digits = encodeURIComponent(it.tracking.replace(/\D/g, ""));
-      a.href        = carrierUrls[it.carrier] + digits;
-      a.textContent = `${label}：${it.tracking}：読み込み中…`;
-      li.appendChild(a);
-      updateText(it, a);
+      a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
     }
-    
     a.target = "_blank";
-    a.textContent = ${label}：${it.tracking}：読み込み中…;
+    a.textContent = `${label}：${it.tracking}：読み込み中…`;
     const li = document.createElement("li");
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
@@ -796,21 +772,9 @@ async function showCaseDetail(orderId, obj){
       a.textContent = formatShipmentText(it.carrier, it.tracking, status, time);
     } catch (err) {
       console.error("fetchStatus error:", err);
-      a.textContent = ${label}：${it.tracking}：取得失敗;
+      a.textContent = `${label}：${it.tracking}：取得失敗`;
     }
   }
-}
-
-// 共通：ステータス取得→テキスト更新のヘルパー
-function updateText(it, el) {
-  fetchStatus(it.carrier, it.tracking)
-    .then(json => {
-      const { status, time } = json;
-      el.textContent = formatShipmentText(it.carrier, it.tracking, status, time);
-    })
-    .catch(() => {
-      el.textContent = `${carrierLabels[it.carrier]||it.carrier}：${it.tracking}：取得失敗`;
-    });
 }
 
 backToSearchBtn.onclick = () => showView("search-view");
