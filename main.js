@@ -725,9 +725,13 @@ deleteSelectedBtn.onclick = async () => {
 };
 
 // --- 詳細＋ステータス取得 ---
-async function showCaseDetail(orderId, obj){
+async function showCaseDetail(orderId, obj) {
   showView("case-detail-view");
-  detailInfoDiv.innerHTML = `<div>受注番号: ${orderId}</div><div>得意先:   ${obj.得意先}</div><div>品名: ${obj.品名}</div>`;
+  detailInfoDiv.innerHTML = `
+    <div>受注番号: ${orderId}</div>
+    <div>得意先: ${obj.得意先}</div>
+    <div>品名: ${obj.品名}</div>
+  `;
   detailShipmentsUl.innerHTML = "";
   currentOrderId = orderId;
   addTrackingDetail.style.display = "none";
@@ -736,23 +740,53 @@ async function showCaseDetail(orderId, obj){
   detailAddRowBtn.disabled = false;
   confirmDetailAddBtn.disabled = false;
   cancelDetailAddBtn.disabled = false;
+
   const snap = await db.ref(`shipments/${orderId}`).once("value");
   const list = snap.val() || {};
+
   for (const key of Object.keys(list)) {
     const it = list[key];
     const label = carrierLabels[it.carrier] || it.carrier;
+
+    // リンク要素を作成
     const a = document.createElement("a");
-    // hida は固定 URL のため追跡番号を追加しない
-    if (it.carrier === 'hida') {
-      a.href = carrierUrls[it.carrier];
-    } else {
-      a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
-    }
     a.target = "_blank";
     a.textContent = `${label}：${it.tracking}：読み込み中…`;
     const li = document.createElement("li");
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
+
+    // Hida は API 非対応の固定リンク
+    if (it.carrier === 'hida') {
+      a.href = carrierUrls[it.carrier];
+
+    // 西濃運輸はスマホ版対応で POST フォームを動的に組んで送信
+    } else if (it.carrier === 'seino') {
+      a.href = "#";
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        const digits = it.tracking.replace(/\D/g, '');
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = 'https://track.seino.co.jp/kamotsu/GempyoNoShokai.do';
+        form.style.display = 'none';
+
+        const input = document.createElement('input');
+        input.type  = 'hidden';
+        input.name  = 'GNPNO1';
+        input.value = digits;
+        form.appendChild(input);
+
+        document.body.appendChild(form);
+        form.submit();
+      });
+
+    // その他キャリアは従来どおり GET リンク
+    } else {
+      a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    }
+
+    // ステータス取得後にテキスト更新
     try {
       const json = await fetchStatus(it.carrier, it.tracking);
       const { status, time } = json;
