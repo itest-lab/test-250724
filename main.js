@@ -939,9 +939,12 @@ function getTimeLabel(carrier, status, time) {
   // time が無い場合や既に「：」が含まれている場合はラベルを付与しない
   if (!time || time.includes('：')) {
     return '';
-  }
+  }        
   // 西濃運輸は常に「最新日時:」
   if (carrier === 'seino') {
+    if (status === '配達済みです') {
+      return '配達日時:';
+    }
     return '最新日時:';
   }
   // ヤマト・トナミは配達完了（またはお届け完了）の場合に「配達日時:」
