@@ -365,20 +365,31 @@ function createTrackingRow(context="add"){
   inp.addEventListener("keydown", e => {
     if(e.key === "Enter" || e.key === "Tab"){
       e.preventDefault();
+      // いま見えているテキスト入力欄数を覚えておく
       const inputs = Array.from(
         row.parentElement.querySelectorAll('input[type="text"]')
       );
+      const countBefore = inputs.length;
       const idx = inputs.indexOf(inp);
-      if (idx !== -1 && idx < inputs.length - 1) {
+  
+      if (idx !== -1 && idx < countBefore - 1) {
+        // 最後以外なら普通に次へ
         inputs[idx + 1].focus();
       } else {
-        if (context === "detail") detailAddRowBtn.click();
-        else addTrackingRowBtn.click();
+        // 最後の欄なら行追加
+        if (context === "detail") {
+          detailAddRowBtn.click();
+        } else {
+          addTrackingRowBtn.click();
+        }
+        // 行追加後、元の最後の次の欄（= countBefore 番目）にフォーカス
         setTimeout(() => {
           const newInputs = Array.from(
             row.parentElement.querySelectorAll('input[type="text"]')
           );
-          newInputs[newInputs.length - 1].focus();
+          if (newInputs[countBefore]) {
+            newInputs[countBefore].focus();
+          }
         }, 0);
       }
     }
@@ -873,6 +884,9 @@ function resetSessionTimer() {
   sessionTimer = setTimeout(() => {
     alert('セッションが10分を超えました。再度ログインしてください。');
     auth.signOut();
+    // メール・パスワード欄をクリア
+    emailInput.value    = "";
+    passwordInput.value = "";
   }, SESSION_LIMIT_MS);
 }
 function startSessionTimer() {
