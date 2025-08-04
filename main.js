@@ -24,23 +24,23 @@ const db = firebase.database();
 
 // キャリアラベル
 const carrierLabels = {
-  sagawa:  "佐川急便",
   yamato:  "ヤマト運輸",
   fukutsu: "福山通運",
   seino:   "西濃運輸",
   tonami:  "トナミ運輸",
-  hida:    "飛騨運輸"
+  hida:    "飛騨運輸",
+  sagawa:  "佐川急便"
 };
 
 // 各社の追跡ページURL
 const carrierUrls = {
-  sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo=",
   yamato:  "https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
   fukutsu: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
   seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
   tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
   // 飛騨運輸の追跡ページはAPI非対応のため固定URLに遷移させる
-  hida:    "http://www.hida-unyu.co.jp/WP_HIDAUNYU_WKSHO_GUEST/KW_UD04015.do?_Action_=a_srcAction"
+  hida:    "http://www.hida-unyu.co.jp/WP_HIDAUNYU_WKSHO_GUEST/KW_UD04015.do?_Action_=a_srcAction",
+  sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo="
 };
 
 let isAdmin = false;
@@ -334,12 +334,12 @@ function createTrackingRow(context="add"){
       const sel = document.createElement("select");
       sel.innerHTML = `
         <option value="">運送会社選択してください</option>
-        <option value="sagawa">佐川急便</option>
         <option value="yamato">ヤマト運輸</option>
         <option value="fukutsu">福山通運</option>
         <option value="seino">西濃運輸</option>
         <option value="tonami">トナミ運輸</option>
-        <option value="hida">飛騨運輸</option>`;
+        <option value="hida">飛騨運輸</option>
+        <option value="sagawa">佐川急便</option>`;
       row.appendChild(sel);
     }
   } else {
@@ -347,12 +347,12 @@ function createTrackingRow(context="add"){
       const sel = document.createElement("select");
       sel.innerHTML = `
         <option value="">運送会社選択してください</option>
-        <option value="sagawa">佐川急便</option>
         <option value="yamato">ヤマト運輸</option>
         <option value="fukutsu">福山通運</option>
         <option value="seino">西濃運輸</option>
         <option value="tonami">トナミ運輸</option>
-        <option value="hida">飛騨運輸</option>`;
+        <option value="hida">飛騨運輸</option>
+        <option value="sagawa">佐川急便</option>`;
       row.appendChild(sel);
     }
   }
@@ -425,12 +425,12 @@ fixedCarrierCheckboxDetail.onchange = () => {
         const newSel = document.createElement("select");
         newSel.innerHTML = `
           <option value="">運送会社選択してください</option>
-          <option value="sagawa">佐川急便</option>
           <option value="yamato">ヤマト運輸</option>
           <option value="fukutsu">福山通運</option>
           <option value="seino">西濃運輸</option>
           <option value="tonami">トナミ運輸</option>
-          <option value="hida">飛騨運輸</option>`;
+          <option value="hida">飛騨運輸</option>
+          <option value="sagawa">佐川急便</option>`;
         row.insertBefore(newSel, row.firstChild);
       }
     }
@@ -470,12 +470,12 @@ fixedCarrierCheckbox.onchange = () => {
         const newSel = document.createElement("select");
         newSel.innerHTML = `
           <option value="">運送会社選択してください</option>
-          <option value="sagawa">佐川急便</option>
           <option value="yamato">ヤマト運輸</option>
           <option value="fukutsu">福山通運</option>
           <option value="seino">西濃運輸</option>
           <option value="tonami">トナミ運輸</option>
-          <option value="hida">飛騨運輸</option>`;
+          <option value="hida">飛騨運輸</option>
+          <option value="sagawa">佐川急便</option>`;
         row.insertBefore(newSel, row.firstChild);
       }
     }
