@@ -155,6 +155,33 @@ if (isSessionExpired()) {
   clearLoginTime();
 }
 
+function showView(id){
+  document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
+  const target = document.getElementById(id);
+  if (target) target.style.display = "block";
+  // 画面ごとに最上部入力要素へフォーカス
+  switch(id){
+    case "add-case-view":
+      if(scanModeDiv.style.display !== "none"){
+//        caseBarcodeInput.focus();
+      } else if(manualModeDiv.style.display !== "none"){
+//        manualOrderIdInput.focus();
+      }
+      break;
+    case "search-view":
+//      searchInput.focus();
+      break;
+    case "case-detail-view":
+//      showAddTrackingBtn.focus();
+      break;
+  }
+}
+
+// ページロード直後にメール入力へフォーカス
+if(loginView.style.display !== "none"){
+//  emailInput.focus();
+}
+
 // --- 認証監視 ---
 auth.onAuthStateChanged(async user => {
   if (user) {
