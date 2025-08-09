@@ -1057,12 +1057,16 @@ cancelDetailAddBtn.onclick = () => {
 };
 
 // fetchStatus ヘルパー（Cloudflare Worker を利用）
-// ▼ここでAPI送信用に福山は末尾01を落とす
 async function fetchStatus(carrier, tracking) {
-  if (carrier === 'hida') return { status: '非対応', time: null };
-  const sendTracking = trackingForApi(carrier, tracking);
-  const url = `...?carrier=${encodeURIComponent(carrier)}&tracking=${encodeURIComponent(sendTracking)}`;
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const c = normalizeCarrier(carrier);
+  if (c === 'hida') return { status: '非対応', time: null };
+  const sendTracking = trackingForApi(c, tracking);
+  const url = `https://track-api.hr46-ksg.workers.dev/?carrier=${encodeURIComponent(c)}&tracking=${encodeURIComponent(sendTracking)}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const msg = await res.text().catch(()=> '');
+    throw new Error(`HTTP ${res.status} ${msg}`);
+  }
   return res.json();
 }
 
