@@ -1026,7 +1026,7 @@ async function showCaseDetail(orderId, obj){
     detailShipmentsUl.appendChild(li);
     try {
       // ▼API呼び出しは必要に応じて末尾01を除去して送る
-      const json = await fetchStatus(normalizeCarrier(it.carrier), it.tracking);
+      const json = await fetchStatus(it.carrier, it.tracking);
       const { status, time, location } = json;
       const seqNum = index++; // 連番
       a.textContent = formatShipmentText(seqNum, it.carrier, it.tracking, status, time, location);
@@ -1060,9 +1060,8 @@ cancelDetailAddBtn.onclick = () => {
 // ▼ここでAPI送信用に福山は末尾01を落とす
 async function fetchStatus(carrier, tracking) {
   if (carrier === 'hida') return { status: '非対応', time: null };
-  const c = normalizeCarrier(carrier);
-  const sendTracking = trackingForApi(c, tracking);
-  const url = `...?carrier=${encodeURIComponent(c)}&tracking=${encodeURIComponent(sendTracking)}`;  const res = await fetch(url);
+  const sendTracking = trackingForApi(carrier, tracking);
+  const url = `...?carrier=${encodeURIComponent(carrier)}&tracking=${encodeURIComponent(sendTracking)}`;
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
