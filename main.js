@@ -1156,7 +1156,7 @@ confirmDetailAddBtn.onclick = async () => {
     if (it.carrier === 'hida') a.href = carrierUrls[it.carrier];
     else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking); // リンクは保存済み番号（正規化後）
     a.target = "_blank";
-    a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…";
+    a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
     const li = document.createElement("li");
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
