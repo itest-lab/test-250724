@@ -237,3 +237,25 @@ nav button {
   background-color: #155fa0;
 }
 
+/* フォント統一（日本語優先の汎用スタック） */
+:root{
+  --app-font: -apple-system, BlinkMacSystemFont, "Segoe UI",
+              "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans",
+              "Meiryo", sans-serif;
+}
+
+/* 全体の既定フォント */
+html, body, button, input, select, textarea {
+  font-family: var(--app-font);
+}
+
+/* 追跡一覧とその子要素も明示的に固定 */
+#search-results,
+#search-results li,
+#search-results a,
+#detail-shipments,
+#detail-shipments li,
+#detail-shipments a {
+  font-family: var(--app-font);
+  letter-spacing: .02em;
+}
