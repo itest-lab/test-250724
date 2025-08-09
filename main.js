@@ -22,7 +22,7 @@ auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
 // キャリアラベル
 const carrierLabels = {
   yamato:  "ヤマト運輸",
-  fukutsu: "福山通運",
+  fukuyama: "福山通運",
   seino:   "西濃運輸",
   tonami:  "トナミ運輸",
   hida:    "飛騨運輸",
@@ -70,7 +70,7 @@ async function selectBackCamera() {
 
 // 表示専用：福山通運の追跡番号末尾 "01" を除去
 function formatTrackingForDisplay(carrier, tracking) {
-  if (carrier === "fukutsu" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
+  if (carrier === "fukuyama" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
     return tracking.slice(0, -2);
   }
   return tracking;
@@ -78,7 +78,7 @@ function formatTrackingForDisplay(carrier, tracking) {
 
 // API専用：福山通運の末尾 "01" を除去して叩く
 function trackingForApi(carrier, tracking) {
-  if (carrier === "fukutsu" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
+  if (carrier === "fukuyama" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
     return tracking.slice(0, -2);
   }
   return tracking;
@@ -86,7 +86,7 @@ function trackingForApi(carrier, tracking) {
 
 // ★保存専用：福山通運の末尾 "01" をDB保存前に除去
 function normalizeTrackingForSave(carrier, tracking) {
-  if (carrier === "fukutsu" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
+  if (carrier === "fukuyama" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
     return tracking.slice(0, -2);
   }
   return tracking;
@@ -479,7 +479,7 @@ function createTrackingRow(context="add"){
       sel.innerHTML = `
         <option value="">運送会社選択してください</option>
         <option value="yamato">ヤマト運輸</option>
-        <option value="fukutsu">福山通運</option>
+        <option value="fukuyama">福山通運</option>
         <option value="seino">西濃運輸</option>
         <option value="tonami">トナミ運輸</option>
         <option value="hida">飛騨運輸</option>
@@ -492,7 +492,7 @@ function createTrackingRow(context="add"){
       sel.innerHTML = `
         <option value="">運送会社選択してください</option>
         <option value="yamato">ヤマト運輸</option>
-        <option value="fukutsu">福山通運</option>
+        <option value="fukuyama">福山通運</option>
         <option value="seino">西濃運輸</option>
         <option value="tonami">トナミ運輸</option>
         <option value="hida">飛騨運輸</option>
@@ -568,7 +568,7 @@ fixedCarrierCheckboxDetail.onchange = () => {
       newSel.innerHTML = `
         <option value="">運送会社選択してください</option>
         <option value="yamato">ヤマト運輸</option>
-        <option value="fukutsu">福山通運</option>
+        <option value="fukuyama">福山通運</option>
         <option value="seino">西濃運輸</option>
         <option value="tonami">トナミ運輸</option>
         <option value="hida">飛騨運輸</option>
@@ -612,7 +612,7 @@ fixedCarrierCheckbox.onchange = () => {
         newSel.innerHTML = `
           <option value="">運送会社選択してください</option>
           <option value="yamato">ヤマト運輸</option>
-          <option value="fukutsu">福山通運</option>
+          <option value="fukuyama">福山通運</option>
           <option value="seino">西濃運輸</option>
           <option value="tonami">トナミ運輸</option>
           <option value="hida">飛騨運輸</option>
