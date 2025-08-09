@@ -68,6 +68,30 @@ async function selectBackCamera() {
   return null;
 }
 
+// 表示専用：福山通運の追跡番号末尾 "01" を除去
+function formatTrackingForDisplay(carrier, tracking) {
+  if (carrier === "fukutsu" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
+    return tracking.slice(0, -2);
+  }
+  return tracking;
+}
+
+// API専用：福山通運の末尾 "01" を除去して叩く
+function trackingForApi(carrier, tracking) {
+  if (carrier === "fukutsu" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
+    return tracking.slice(0, -2);
+  }
+  return tracking;
+}
+
+// CODABARのスタート/ストップ(A-D)を両端から除去
+function normalizeCodabar(value) {
+  if (!value || value.length < 2) return value || '';
+  const pre = value[0], suf = value[value.length - 1];
+  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) return value.substring(1, value.length - 1);
+  return value;
+}
+
 // スキャン開始
 async function startScanning(formats, inputId) {
   if (!isMobileDevice()) {
@@ -99,12 +123,13 @@ async function startScanning(formats, inputId) {
     experimentalFeatures: { useBarCodeDetectorIfSupported: true },
     useBarCodeDetectorIfSupported: true
   };
+
   const onSuccess = decoded => {
     try {
       const inputEl = document.getElementById(inputId);
       if (!inputEl) { stopScanning(); return; }
-  
-      // CODABAR の A/B/C/D を両端から除去
+
+      // CODABAR の A/B/C/D を両端から除去（必要時）
       let value = decoded;
       if (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
         if (decoded && decoded.length >= 2) {
@@ -113,13 +138,14 @@ async function startScanning(formats, inputId) {
           else return; // 正式なスタート/ストップでなければ無視
         }
       }
-  
+
       inputEl.value = value;
       inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-  
-      // ▼擬似Enter送信はやめる
+
+      // ▼擬似Enter送信はしない
+      // 案件バーコード入力欄の場合のみ自動確定処理を直接呼ぶ
       if (inputId === 'case-barcode') {
-        processCaseBarcode(value); // 案件だけは即確定
+        processCaseBarcode(value);
       }
       stopScanning();
     } catch (err) { console.error(err); stopScanning(); }
@@ -184,17 +210,6 @@ window.addEventListener('DOMContentLoaded', () => {
       caseCameraBtn.style.display = 'none';
     }
   }
-  const backToTopBtn = document.getElementById('back-to-top');
-  window.addEventListener('scroll', () => {
-    if (window.scrollY > 100) {
-      backToTopBtn.style.display = 'block';
-    } else {
-      backToTopBtn.style.display = 'none';
-    }
-  });
-  backToTopBtn.addEventListener('click', () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
 });
 
 let isAdmin = false;
@@ -379,12 +394,6 @@ navSearchBtn.addEventListener("click", () => {
 // ─────────────────────────────────────────────────────────────────
 // 画像／PDF から PDF417・CODABAR を抽出（PC / カメラ非対応向け）
 // ─────────────────────────────────────────────────────────────────
-function normalizeCodabar(value) {
-  if (!value || value.length < 2) return value || '';
-  const pre = value[0], suf = value[value.length - 1];
-  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) return value.substring(1, value.length - 1);
-  return value;
-}
 
 async function decodeWithBarcodeDetectorFromBitmap(bitmap){
   if (!('BarcodeDetector' in window)) return null;
@@ -451,7 +460,7 @@ async function scanFileForCodes(file){
   return normalizeCodabar(String(v));
 }
 
-// --- 追跡行の生成（既存のまま） ---
+// --- 追跡行の生成 ---
 function createTrackingRow(context="add"){
   const row = document.createElement("div");
   row.className = "tracking-row";
@@ -509,7 +518,7 @@ function createTrackingRow(context="add"){
   });
   row.appendChild(inp);
 
-  // 端末がモバイルならカメラボタンを付与（ファイル選択は削除方針）
+  // 端末がモバイルならカメラボタンを付与
   (function attachCaptureControls(){
     const canCamera = isMobileDevice() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
     if (canCamera) {
@@ -540,7 +549,7 @@ function createTrackingRow(context="add"){
   return row;
 }
 
-// --- 詳細画面：一括運送会社指定（既存） ---
+// --- 詳細画面：一括運送会社指定 ---
 fixedCarrierCheckboxDetail.onchange = () => {
   fixedCarrierSelectDetail.style.display = fixedCarrierCheckboxDetail.checked ? "inline-block" : "none";
   Array.from(detailTrackingRows.children).forEach(row => {
@@ -616,7 +625,7 @@ function normalizeDateString(s) {
   const nums = (s.match(/\d{1,4}/g) || []).map(n => parseInt(n, 10));
   if (nums.length >= 3) {
     let y = nums[0]; let m = nums[1]; let d = nums[2];
-    if (y < 100) y = 2000 + y; // 2桁年は 2000+ とする
+    if (y < 100) y = 2000 + y;
     m = Math.max(1, Math.min(12, m|0));
     d = Math.max(1, Math.min(31, d|0));
     const dt = new Date(Date.UTC(y, m-1, d));
@@ -641,6 +650,7 @@ function extractPlateDateField(text) {
   return normalizeDateString(val);
 }
 
+// --- 案件バーコード確定処理（関数化） ---
 function processCaseBarcode(raw){
   if(!raw) return;
   let text;
@@ -669,38 +679,7 @@ function processCaseBarcode(raw){
   caseDetailsDiv.style.display = "block";
 }
 
-// --- QR→テキスト展開＆表示（PDF417/QR 共通） ---
-caseBarcodeInput.addEventListener("keydown", e => {
-  if(e.key !== "Enter") return;
-  const raw = caseBarcodeInput.value.trim();
-  if(!raw) return;
-  let text;
-  try{
-    if(raw.startsWith("ZLIB64:")){
-      const b64 = raw.slice(7);
-      const bin = atob(b64);
-      const arr = new Uint8Array([...bin].map(c=>c.charCodeAt(0)));
-      const dec = pako.inflate(arr);
-      text = new TextDecoder().decode(dec);
-    } else {
-      text = raw;
-    }
-  }catch(err){
-    alert("QRデコード失敗: "+err.message);
-    return;
-  }
-  text = text.trim().replace(/「[^」]*」/g, "");
-  const matches = Array.from(text.matchAll(/"([^"]*)"/g), m=>m[1]);
-  detailOrderId.textContent  = matches[0] || "";
-  detailCustomer.textContent = matches[1] || "";
-  detailTitle.textContent    = matches[2] || "";
-  // ★ 追加：下版日抽出＆表示
-  const plate = extractPlateDateField(text);
-  detailPlateDate.textContent = plate;
-  scanModeDiv.style.display = "none";
-  caseDetailsDiv.style.display = "block";
-});
-
+// --- QR→テキスト展開＆表示（Enterで確定） ---
 caseBarcodeInput.addEventListener("keydown", e => {
   if(e.key !== "Enter") return;
   processCaseBarcode(caseBarcodeInput.value.trim());
@@ -716,7 +695,6 @@ manualConfirmBtn.onclick = () => {
   detailOrderId.textContent  = manualOrderIdInput.value.trim();
   detailCustomer.textContent = manualCustomerInput.value.trim();
   detailTitle.textContent    = manualTitleInput.value.trim();
-  // ★ 追加：手動入力した下版日を表示に反映
   detailPlateDate.textContent = manualPlateDateInput.value || "";
   manualModeDiv.style.display = "none";
   caseDetailsDiv.style.display = "block";
@@ -724,8 +702,6 @@ manualConfirmBtn.onclick = () => {
 
 // ================================================================
 //  暗号化ユーティリティ（AES-GCM + PBKDF2）
-//   - 平文は { 得意先, 品名, 下版日 } の JSON を暗号化して enc に格納
-//   - 検索・期間絞り込み用に createdAt と plateDateTs は平文で保持
 // ================================================================
 const PEPPER = "p9r7WqZ1-LocalPepper-ChangeIfNeeded";
 function b64(bytes){ return btoa(String.fromCharCode(...bytes)); }
@@ -796,6 +772,7 @@ confirmAddCaseBtn.onclick = async () => {
     const key = `${carrier}:${tn}`;
     if (existSet.has(key)) return;
     existSet.add(key);
+    // DB保存は元番号のまま
     items.push({ carrier, tracking: tn });
   });
 
@@ -809,11 +786,11 @@ confirmAddCaseBtn.onclick = async () => {
   await db.ref(`cases/${orderId}`).set({
     注番: orderId,
     createdAt: Date.now(),
-    plateDateTs: plateTs,  // 検索用（既定は下版日）
+    plateDateTs: plateTs,
     enc
   });
 
-  // 新規追跡を登録
+  // 新規追跡を登録（DBは元の番号）
   for (const it of items) {
     await db.ref(`shipments/${orderId}`).push({
       carrier: it.carrier,
@@ -968,7 +945,7 @@ deleteSelectedBtn.onclick = async () => {
 };
 
 // ================================================================
-// ステータス分類（追加）
+// ステータス分類
 // ================================================================
 function classifyStatus(status){
   const s = String(status || "");
@@ -1017,13 +994,15 @@ async function showCaseDetail(orderId, obj){
     const label = carrierLabels[it.carrier] || it.carrier;
     const a = document.createElement("a");
     if (it.carrier === 'hida') a.href = carrierUrls[it.carrier];
-    else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking); // リンクは元番号
     a.target = "_blank";
-    a.textContent = `${label}：${it.tracking}：読み込み中…`;
+    // 表示は福山のみ末尾01を除去
+    a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
     const li = document.createElement("li");
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
     try {
+      // ▼API呼び出しは福山のみ末尾01を除去して送る
       const json = await fetchStatus(it.carrier, it.tracking);
       const { status, time, location } = json;
       const seqNum = index++; // 連番
@@ -1031,7 +1010,7 @@ async function showCaseDetail(orderId, obj){
       li.className = "ship-" + classifyStatus(status);
     } catch (err) {
       console.error("fetchStatus error:", err);
-      a.textContent = `${label}：${it.tracking}：取得失敗`;
+      a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
       li.className = "ship-exception";
     }
   }
@@ -1039,7 +1018,7 @@ async function showCaseDetail(orderId, obj){
 
 backToSearchBtn.onclick = () => showView("search-view");
 
-// --- 追跡番号追加フォーム操作（既存） ---
+// --- 追跡番号追加フォーム操作 ---
 showAddTrackingBtn.onclick = () => {
   addTrackingDetail.style.display = "block";
   detailTrackingRows.innerHTML = "";
@@ -1054,16 +1033,18 @@ cancelDetailAddBtn.onclick = () => {
   showAddTrackingBtn.style.display = "inline-block";
 };
 
-// fetchStatus ヘルパー（既存の Cloudflare Worker を利用）
+// fetchStatus ヘルパー（Cloudflare Worker を利用）
+// ▼ここでAPI送信用に福山は末尾01を落とす
 async function fetchStatus(carrier, tracking) {
   if (carrier === 'hida') return { status: '非対応', time: null };
-  const url = `https://track-api.hr46-ksg.workers.dev/?carrier=${encodeURIComponent(carrier)}&tracking=${encodeURIComponent(tracking)}`;
+  const sendTracking = trackingForApi(carrier, tracking);
+  const url = `https://track-api.hr46-ksg.workers.dev/?carrier=${encodeURIComponent(carrier)}&tracking=${encodeURIComponent(sendTracking)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
-// 時間ラベルの生成（既存）
+// 時間ラベルの生成
 function getTimeLabel(carrier, status, time) {
   if (!time || time.includes('：')) return '';
   if (carrier === 'seino') {
@@ -1077,19 +1058,21 @@ function getTimeLabel(carrier, status, time) {
   if (status && status.includes('配達完了')) return '配達日時:';
   return '予定日時:';
 }
+
+// 表示用の文面整形（追跡番号は表示用に加工）
 function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
   const label = carrierLabels[carrier] || carrier;
-  const tl = getTimeLabel(carrier, status, time);
+  const displayTracking = formatTrackingForDisplay(carrier, tracking);
   if (carrier === 'hida') {
-    // hida はリンク先固定かつ API 非対応のため location/time は無視
-    return `${seqNum}：${label}：${tracking}：${status}`;
+    return `${seqNum}：${label}：${displayTracking}：${status}`;
   }
+  const tl = getTimeLabel(carrier, status, time);
   if (location && String(location).trim() !== "") {
-    if (time) return `${seqNum}：${label}：${tracking}：担当店名：${location}：${status}　${tl ? tl : ''}${time}`;
-    return `${seqNum}：${label}：${tracking}：担当店名：${location}：${status}`;
+    if (time) return `${seqNum}：${label}：${displayTracking}：担当店名：${location}：${status}　${tl ? tl : ''}${time}`;
+    return `${seqNum}：${label}：${displayTracking}：担当店名：${location}：${status}`;
   }
-  if (time) return `${seqNum}：${label}：${tracking}：${status}　${tl ? tl : ''}${time}`;
-  return `${seqNum}：${label}：${tracking}：${status}`;
+  if (time) return `${seqNum}：${label}：${displayTracking}：${status}　${tl ? tl : ''}${time}`;
+  return `${seqNum}：${label}：${displayTracking}：${status}`;
 }
 
 // --- セッションタイムアウト（10分） ---
@@ -1140,6 +1123,7 @@ confirmDetailAddBtn.onclick = async () => {
     const key = `${carrier}:${tn}`;
     if (existSet.has(key)) return;
     existSet.add(key);
+    // DB保存は元番号
     newItems.push({ carrier, tracking: tn });
   });
 
@@ -1154,9 +1138,9 @@ confirmDetailAddBtn.onclick = async () => {
     const label = carrierLabels[it.carrier] || it.carrier;
     const a = document.createElement("a");
     if (it.carrier === 'hida') a.href = carrierUrls[it.carrier];
-    else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+    else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking); // リンクは元番号
     a.target = "_blank";
-    a.textContent = `${label}：${it.tracking}：読み込み中…`;
+    a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
     const li = document.createElement("li");
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
@@ -1174,14 +1158,13 @@ confirmDetailAddBtn.onclick = async () => {
     fetchStatus(it.carrier, it.tracking)
       .then(json => {
         const { status, time, location } = json;
-        // 追加分の連番は当該追加内のインデックスで表示
         a.textContent = formatShipmentText(idx+1, it.carrier, it.tracking, status, time, location);
         li.className = "ship-" + classifyStatus(status);
       })
       .catch(err => {
         console.error("fetchStatus error:", err);
         const label = carrierLabels[it.carrier] || it.carrier;
-        a.textContent = `${label}：${it.tracking}：取得失敗`;
+        a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
         li.className = "ship-exception";
       });
   });
@@ -1209,6 +1192,5 @@ auth.onAuthStateChanged(async user => {
     loginView.style.display = "block";
     signupView.style.display = "none";
     mainView.style.display = "none";
-    clearLoginTime();
   }
 });
