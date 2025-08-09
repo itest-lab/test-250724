@@ -1060,9 +1060,16 @@ async function fetchStatus(carrier, tracking) {
   if (c === 'hida') return { status: '非対応', time: null };
   const sendTracking = trackingForApi(c, tracking);
   const url = `https://track-api.hr46-ksg.workers.dev/?carrier=${encodeURIComponent(c)}&tracking=${encodeURIComponent(sendTracking)}`;
-  const res = await fetch(url);
+  let res;
+  try {
+    res = await fetch(url);
+  } catch (e) {
+    console.error('fetch network error', { url, carrier: c, tracking: sendTracking, error: e });
+    throw e;
+  }
   if (!res.ok) {
     const msg = await res.text().catch(()=> '');
+    console.error('fetch http error', { url, status: res.status, body: msg });
     throw new Error(`HTTP ${res.status} ${msg}`);
   }
   return res.json();
