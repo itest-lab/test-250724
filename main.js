@@ -1058,7 +1058,7 @@ cancelDetailAddBtn.onclick = () => {
 
 // fetchStatus ヘルパー（Cloudflare Worker を利用）
 async function fetchStatus(carrier, tracking) {
-  const c = normalizeCarrier(carrier);
+  const c = carrier;
   if (c === 'hida') return { status: '非対応', time: null };
   const sendTracking = trackingForApi(c, tracking);
   const url = `https://track-api.hr46-ksg.workers.dev/?carrier=${encodeURIComponent(c)}&tracking=${encodeURIComponent(sendTracking)}`;
