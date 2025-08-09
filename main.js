@@ -32,7 +32,7 @@ const carrierLabels = {
 // 各社の追跡ページURL
 const carrierUrls = {
   yamato:  "https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
-  fukutsu: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
+  fukuyama: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
   seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
   tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
   // 飛騨運輸の追跡ページはAPI非対応のため固定URLに遷移させる
@@ -1015,7 +1015,7 @@ async function showCaseDetail(orderId, obj){
     detailShipmentsUl.appendChild(li);
     try {
       // ▼API呼び出しは必要に応じて末尾01を除去して送る
-      const json = await fetchStatus(it.carrier, it.tracking);
+      const json = await fetchStatus(normalizeCarrier(it.carrier), it.tracking);
       const { status, time, location } = json;
       const seqNum = index++; // 連番
       a.textContent = formatShipmentText(seqNum, it.carrier, it.tracking, status, time, location);
@@ -1049,9 +1049,9 @@ cancelDetailAddBtn.onclick = () => {
 // ▼ここでAPI送信用に福山は末尾01を落とす
 async function fetchStatus(carrier, tracking) {
   if (carrier === 'hida') return { status: '非対応', time: null };
-  const sendTracking = trackingForApi(carrier, tracking);
-  const url = `https://track-api.hr46-ksg.workers.dev/?carrier=${encodeURIComponent(carrier)}&tracking=${encodeURIComponent(sendTracking)}`;
-  const res = await fetch(url);
+  const c = normalizeCarrier(carrier);
+  const sendTracking = trackingForApi(c, tracking);
+  const url = `...?carrier=${encodeURIComponent(c)}&tracking=${encodeURIComponent(sendTracking)}`;  const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
