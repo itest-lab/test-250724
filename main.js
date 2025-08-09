@@ -84,6 +84,14 @@ function trackingForApi(carrier, tracking) {
   return tracking;
 }
 
+// ★保存専用：福山通運の末尾 "01" をDB保存前に除去
+function normalizeTrackingForSave(carrier, tracking) {
+  if (carrier === "fukutsu" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
+    return tracking.slice(0, -2);
+  }
+  return tracking;
+}
+
 // CODABARのスタート/ストップ(A-D)を両端から除去
 function normalizeCodabar(value) {
   if (!value || value.length < 2) return value || '';
@@ -765,14 +773,18 @@ confirmAddCaseBtn.onclick = async () => {
   Array.from(trackingRows.children).forEach(row => row.classList.remove('missing-carrier'));
 
   Array.from(trackingRows.children).forEach(row => {
-    const tn = row.querySelector("input").value.trim();
+    let tn = row.querySelector("input").value.trim();
     const carrier = fixedCarrierCheckbox.checked ? fixedCarrierSelect.value : row.querySelector("select")?.value;
     if (tn && !carrier) { missingCarrier = true; row.classList.add('missing-carrier'); }
     if (!tn || !carrier) return;
+
+    // ★ 保存前に福山の末尾01は除去
+    tn = normalizeTrackingForSave(carrier, tn);
+
     const key = `${carrier}:${tn}`;
     if (existSet.has(key)) return;
     existSet.add(key);
-    // DB保存は元番号のまま
+    // DB保存は正規化後の番号
     items.push({ carrier, tracking: tn });
   });
 
@@ -790,7 +802,7 @@ confirmAddCaseBtn.onclick = async () => {
     enc
   });
 
-  // 新規追跡を登録（DBは元の番号）
+  // 新規追跡を登録（DBは正規化後の番号）
   for (const it of items) {
     await db.ref(`shipments/${orderId}`).push({
       carrier: it.carrier,
@@ -994,15 +1006,15 @@ async function showCaseDetail(orderId, obj){
     const label = carrierLabels[it.carrier] || it.carrier;
     const a = document.createElement("a");
     if (it.carrier === 'hida') a.href = carrierUrls[it.carrier];
-    else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking); // リンクは元番号
+    else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking); // リンクは保存済み番号（正規化後）
     a.target = "_blank";
-    // 表示は福山のみ末尾01を除去
+    // 表示は福山のみ末尾01を除去（保存時に除去済みだが安全のため）
     a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
     const li = document.createElement("li");
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
     try {
-      // ▼API呼び出しは福山のみ末尾01を除去して送る
+      // ▼API呼び出しは必要に応じて末尾01を除去して送る
       const json = await fetchStatus(it.carrier, it.tracking);
       const { status, time, location } = json;
       const seqNum = index++; // 連番
@@ -1116,14 +1128,18 @@ confirmDetailAddBtn.onclick = async () => {
 
   detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => row.classList.remove('missing-carrier'));
   detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => {
-    const tn = row.querySelector("input").value.trim();
+    let tn = row.querySelector("input").value.trim();
     if (!tn) return;
     const carrier = fixedCarrierCheckboxDetail.checked ? fixedCarrierSelectDetail.value : row.querySelector("select")?.value;
     if (!carrier) { missingCarrier = true; row.classList.add('missing-carrier'); return; }
+
+    // ★ 保存前に福山の末尾01は除去
+    tn = normalizeTrackingForSave(carrier, tn);
+
     const key = `${carrier}:${tn}`;
     if (existSet.has(key)) return;
     existSet.add(key);
-    // DB保存は元番号
+    // DB保存は正規化後の番号
     newItems.push({ carrier, tracking: tn });
   });
 
@@ -1138,9 +1154,9 @@ confirmDetailAddBtn.onclick = async () => {
     const label = carrierLabels[it.carrier] || it.carrier;
     const a = document.createElement("a");
     if (it.carrier === 'hida') a.href = carrierUrls[it.carrier];
-    else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking); // リンクは元番号
+    else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking); // リンクは保存済み番号（正規化後）
     a.target = "_blank";
-    a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
+    a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…";
     const li = document.createElement("li");
     li.appendChild(a);
     detailShipmentsUl.appendChild(li);
