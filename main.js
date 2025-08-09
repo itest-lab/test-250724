@@ -218,17 +218,15 @@ window.addEventListener('DOMContentLoaded', () => {
       caseCameraBtn.style.display = 'none';
     }
   }
-  const backToTopBtn = document.getElementById('back-to-top');
-  window.addEventListener('scroll', () => {
-    if (window.scrollY > 100) {
-      backToTopBtn.style.display = 'block';
-    } else {
-      backToTopBtn.style.display = 'none';
-    }
-  });
-  backToTopBtn.addEventListener('click', () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
+   const backToTopBtn = document.getElementById('back-to-top');
+   if (backToTopBtn) {
+     window.addEventListener('scroll', () => {
+       backToTopBtn.style.display = window.scrollY > 100 ? 'block' : 'none';
+     });
+     backToTopBtn.addEventListener('click', () => {
+       window.scrollTo({ top: 0, behavior: 'smooth' });
+     });
+   }
 });
 
 let isAdmin = false;
