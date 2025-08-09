@@ -103,25 +103,28 @@ async function startScanning(formats, inputId) {
     try {
       const inputEl = document.getElementById(inputId);
       if (!inputEl) { stopScanning(); return; }
+  
       // CODABAR の A/B/C/D を両端から除去
+      let value = decoded;
       if (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
         if (decoded && decoded.length >= 2) {
           const pre = decoded[0], suf = decoded[decoded.length - 1];
-          if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) {
-            inputEl.value = decoded.substring(1, decoded.length - 1);
-            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-            inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-            stopScanning();
-          }
+          if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) value = decoded.substring(1, decoded.length - 1);
+          else return; // 正式なスタート/ストップでなければ無視
         }
-      } else {
-        inputEl.value = decoded;
-        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-        inputEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-        stopScanning();
       }
+  
+      inputEl.value = value;
+      inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+  
+      // ▼擬似Enter送信はやめる
+      if (inputId === 'case-barcode') {
+        processCaseBarcode(value); // 案件だけは即確定
+      }
+      stopScanning();
     } catch (err) { console.error(err); stopScanning(); }
   };
+
   try {
     await html5QrCode.start(constraints, config, onSuccess, () => {});
   } catch (e) {
@@ -181,6 +184,17 @@ window.addEventListener('DOMContentLoaded', () => {
       caseCameraBtn.style.display = 'none';
     }
   }
+  const backToTopBtn = document.getElementById('back-to-top');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 100) {
+      backToTopBtn.style.display = 'block';
+    } else {
+      backToTopBtn.style.display = 'none';
+    }
+  });
+  backToTopBtn.addEventListener('click', () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
 });
 
 let isAdmin = false;
@@ -627,6 +641,34 @@ function extractPlateDateField(text) {
   return normalizeDateString(val);
 }
 
+function processCaseBarcode(raw){
+  if(!raw) return;
+  let text;
+  try{
+    if(raw.startsWith("ZLIB64:")){
+      const b64 = raw.slice(7);
+      const bin = atob(b64);
+      const arr = new Uint8Array([...bin].map(c=>c.charCodeAt(0)));
+      const dec = pako.inflate(arr);
+      text = new TextDecoder().decode(dec);
+    } else {
+      text = raw;
+    }
+  }catch(err){
+    alert("QRデコード失敗: "+err.message);
+    return;
+  }
+  text = text.trim().replace(/「[^」]*」/g, "");
+  const matches = Array.from(text.matchAll(/"([^"]*)"/g), m=>m[1]);
+  detailOrderId.textContent  = matches[0] || "";
+  detailCustomer.textContent = matches[1] || "";
+  detailTitle.textContent    = matches[2] || "";
+  const plate = extractPlateDateField(text);
+  detailPlateDate.textContent = plate;
+  scanModeDiv.style.display = "none";
+  caseDetailsDiv.style.display = "block";
+}
+
 // --- QR→テキスト展開＆表示（PDF417/QR 共通） ---
 caseBarcodeInput.addEventListener("keydown", e => {
   if(e.key !== "Enter") return;
@@ -657,6 +699,11 @@ caseBarcodeInput.addEventListener("keydown", e => {
   detailPlateDate.textContent = plate;
   scanModeDiv.style.display = "none";
   caseDetailsDiv.style.display = "block";
+});
+
+caseBarcodeInput.addEventListener("keydown", e => {
+  if(e.key !== "Enter") return;
+  processCaseBarcode(caseBarcodeInput.value.trim());
 });
 
 // --- 手動確定 ---
