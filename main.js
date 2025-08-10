@@ -361,7 +361,8 @@ if (auth && auth.currentUser && isSessionExpired()) {
 
 // サブビュー切替
 function showView(id){
-  document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
+    if (id === 'case-detail-view' && typeof resetDetailAddForm === 'function') resetDetailAddForm();
+document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
   const target = document.getElementById(id);
   if (target) target.style.display = "block";
 }
@@ -1048,7 +1049,10 @@ function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
  *  - 最後の fetch が終わるまでホイール維持
  * ------------------------------ */
 async function showCaseDetail(orderId, obj){
-  showLoading();
+  
+  // 追跡番号追加UIを強制初期化
+  if (typeof resetDetailAddForm === 'function') resetDetailAddForm();
+showLoading();
   showView("case-detail-view");
 
   // 復号＋ヘッダ表示
@@ -1364,7 +1368,13 @@ function startSessionTimer() {
 // --- 追跡番号追加フォームのリセット（案件詳細用） ---
 function resetDetailAddForm(){
   if (!document.getElementById("case-detail-view")) return;
-  try { if (typeof stopScanning === 'function') stopScanning(); } catch(e){}
+  try { if (typeof stopScanning === 'function') stopScanning(); 
+  // ボタンの既定表示状態
+  try { if (typeof confirmDetailAddBtn !== 'undefined' && confirmDetailAddBtn) { confirmDetailAddBtn.style.display = 'inline-block'; confirmDetailAddBtn.disabled = false; } } catch(e){}
+  try { if (typeof cancelDetailAddBtn  !== 'undefined' && cancelDetailAddBtn)  { cancelDetailAddBtn.style.display  = 'inline-block'; cancelDetailAddBtn.disabled  = false; } } catch(e){}
+  try { if (typeof confirmAddCaseBtn   !== 'undefined' && confirmAddCaseBtn)   { confirmAddCaseBtn.style.display   = 'inline-block'; confirmAddCaseBtn.disabled   = false; } } catch(e){}
+
+} catch(e){}
   try { if (window.detailTrackingRows) detailTrackingRows.innerHTML = ""; } catch(e){}
   try { if (window.detailAddMsg) detailAddMsg.textContent = ""; } catch(e){}
   try { if (window.fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false; } catch(e){}
@@ -1475,4 +1485,11 @@ document.addEventListener('click', (e)=>{
     if (fixedChk) fixedChk.checked = false;
     if (fixedSel) { fixedSel.value = ''; fixedSel.style.display = 'none'; }
   }
+});
+
+
+// --- ケース遷移前の保険リセット（イベントデリゲーション） ---
+document.addEventListener('click', (e)=>{
+  const li = e.target && e.target.closest && e.target.closest('#search-results li');
+  if (li && typeof resetDetailAddForm === 'function') resetDetailAddForm();
 });
