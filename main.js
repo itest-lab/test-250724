@@ -1150,6 +1150,13 @@ cancelDetailAddBtn.onclick = () => {
   detailTrackingRows.innerHTML = "";
   detailAddMsg.textContent = "";
   showAddTrackingBtn.style.display = "inline-block";
+
+  // 固定キャリア初期化
+  if (fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
+  if (fixedCarrierSelectDetail) {
+    fixedCarrierSelectDetail.value = ""; // 運送会社選択してください を選択
+    fixedCarrierSelectDetail.style.display = "none";
+  }
 };
 
 function getFixedCarrierValue(){
@@ -1247,10 +1254,21 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (lastP) await lastP;
 
-      /* 正常終了UI　*/
+      // 追加登録完了時のUI処理
       detailAddMsg.textContent = "追加しました";
       if (detailAddWarn) detailAddWarn.textContent = "";
+      
+      // 固定キャリア状態をリセット
+      if (fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
+      if (fixedCarrierSelectDetail) {
+        fixedCarrierSelectDetail.value = ""; // 運送会社選択してください を選択
+        fixedCarrierSelectDetail.style.display = "none";
+      }
+      
+      // 追跡番号入力行をクリア
       detailTrackingRows.innerHTML = "";
+      
+      // 次回追加時も初期化状態で表示
       addTrackingDetail.style.display = "none";
       showAddTrackingBtn.style.display = "inline-block";
       
