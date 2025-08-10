@@ -1169,6 +1169,22 @@ function startSessionTimer() {
   }
 }
 
+// 固定キャリア解決（詳細画面用）
+function resolveFixedCarrierForDetail(row){
+  // 詳細画面側の固定ONを最優先（要素名は実際のIDに合わせてください）
+  if (typeof detailFixedCarrierCheckbox !== 'undefined' &&
+      detailFixedCarrierCheckbox?.checked) {
+    return detailFixedCarrierSelect?.value || "";
+  }
+  // 共通の固定（案件追加と共用している場合）
+  if (typeof fixedCarrierCheckbox !== 'undefined' &&
+      fixedCarrierCheckbox?.checked) {
+    return fixedCarrierSelect?.value || "";
+  }
+  // 行ごとの<select>
+  return row.querySelector("select")?.value || "";
+}
+
 // --- 詳細画面：追跡番号追加 登録 ---
 confirmDetailAddBtn.onclick = async () => {
   showLoading();                   // ← 開始時に表示
@@ -1178,37 +1194,48 @@ confirmDetailAddBtn.onclick = async () => {
   detailAddMsg.textContent = "";
 
   try {
-    // 既存の登録済みを取得して重複回避
-    const snap = await db.ref(`shipments/${currentOrderId}`).once("value");
-    const exist = snap.val() || {};
-    const existSet = new Set(Object.values(exist).map(v => `${v.carrier}:${v.tracking}`));
-
     // 入力行を収集
     const rows = Array.from(detailTrackingRows.querySelectorAll(".tracking-row"));
     let items = [];
     let missingCarrier = false;
-
+    
     // 行の強調リセット
     rows.forEach(r => r.classList.remove("missing-carrier"));
-
+    
+    // 固定ON時に選択なしなら即エラー
+    const fixedOn = (detailFixedCarrierCheckbox?.checked || fixedCarrierCheckbox?.checked) === true;
+    if (fixedOn) {
+      const fixedVal =
+        (detailFixedCarrierCheckbox?.checked ? detailFixedCarrierSelect?.value : fixedCarrierSelect?.value) || "";
+      if (!fixedVal) {
+        detailAddMsg.textContent = "固定の運送会社を選択してください";
+        hideLoading();
+        confirmDetailAddBtn.disabled = false;
+        detailAddRowBtn.disabled = false;
+        cancelDetailAddBtn.disabled = false;
+        return;
+      }
+    }
+    
     for (const r of rows) {
-      const sel = r.querySelector("select");
-      const inp = r.querySelector("input[type='text']");
-      const carrier = sel?.value || "";
-      let tracking  = (inp?.value || "").trim();
-
-      if (tracking && !carrier) { missingCarrier = true; r.classList.add("missing-carrier"); continue; }
-      if (!tracking || !carrier) continue;
-
-      // 保存用に正規化（福山末尾01など）
+      const carrier = resolveFixedCarrierForDetail(r);     // ← 固定を優先
+      let tracking  = (r.querySelector("input[type='text']")?.value || "").trim();
+    
+      if (!tracking) continue;               // 追跡空はスキップ
+      if (!carrier) {                        // キャリア未選択はエラー表示
+        missingCarrier = true;
+        r.classList.add("missing-carrier");
+        continue;
+      }
+    
       tracking = normalizeTrackingForSave(carrier, tracking);
-
+    
       const k = `${carrier}:${tracking}`;
       if (existSet.has(k)) continue;
       existSet.add(k);
       items.push({ carrier, tracking });
     }
-
+    
     if (missingCarrier) { detailAddMsg.textContent = "運送会社を選択してください"; return; }
     if (items.length === 0) { detailAddMsg.textContent = "追加対象がありません"; return; }
 
