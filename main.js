@@ -123,6 +123,7 @@ async function startScanning(formats, inputId) {
   // カメラ起動
   html5QrCode = new Html5Qrcode('video-container', false);
   const backId = await selectBackCamera();
+
   // ★端末側制約：連続AFとフレームレート控えめ
   const constraints = backId
     ? { video: { deviceId: { exact: backId }, focusMode: 'continuous', frameRate: { ideal: 24, max: 30 } } }
