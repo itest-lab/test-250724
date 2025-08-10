@@ -1078,7 +1078,8 @@ async function showCaseDetail(orderId, obj){
   if (cancelDetailAddBtn)  cancelDetailAddBtn.disabled = false;
 
   showAddTrackingBtn.style.display = "inline-block";
-
+  backToSearchBtn.style.display = "inline-block";
+  anotherCaseBtn2.style.display = "inline-block";
   try {
     // pushキー昇順（= 追加順）で取得
     const snap = await db.ref(`shipments/${orderId}`).orderByKey().once("value");
@@ -1143,13 +1144,15 @@ showAddTrackingBtn.onclick = () => {
   detailTrackingRows.innerHTML = "";
   for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail"));
   showAddTrackingBtn.style.display = "none";
-};
-detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); };
-cancelDetailAddBtn.onclick = () => {
+  };
+  detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); };
+  cancelDetailAddBtn.onclick = () => {
   addTrackingDetail.style.display = "none";
   detailTrackingRows.innerHTML = "";
   detailAddMsg.textContent = "";
   showAddTrackingBtn.style.display = "inline-block";
+  backToSearchBtn.style.display = "inline-block";
+  anotherCaseBtn2.style.display = "inline-block";
 
   // 固定キャリア初期化
   if (fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
@@ -1216,6 +1219,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (missingCarrier) {
         const msg = "運送会社を選択してください（固定または行ごとに選択）";
         detailAddMsg.textContent = msg;
+        detailAddWarn.textContent = msg;
         if (detailAddWarn) detailAddWarn.textContent = msg;
         return;
       }
@@ -1256,6 +1260,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // 追加登録完了時のUI処理
       detailAddMsg.textContent = "追加しました";
+      detailAddWarn.textContent = "追加しました";
       if (detailAddWarn) detailAddWarn.textContent = "";
       
       // 固定キャリア状態をリセット
@@ -1271,10 +1276,12 @@ document.addEventListener("DOMContentLoaded", () => {
       // 次回追加時も初期化状態で表示
       addTrackingDetail.style.display = "none";
       showAddTrackingBtn.style.display = "inline-block";
-      
+      backToSearchBtn.style.display = "inline-block";
+      anotherCaseBtn2.style.display = "inline-block";      
     } catch (e) {
       const msg = `追加に失敗しました: ${e.message || e}`;
       detailAddMsg.textContent = msg;
+      detailAddWarn.textContent = msg;
       const warn = document.getElementById("detailAddWarn");
       if (warn) warn.textContent = msg;
       console.error("追跡番号追加エラー:", e);
