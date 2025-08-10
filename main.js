@@ -384,41 +384,6 @@ auth.onAuthStateChanged(user => {
   statusContainer.textContent = user ? (user.email || '匿名') + ' でログイン中' : 'ログインしてください';
 });
 
-// --- モバイルメニューの表示制御 ---
-const mobileMenuBtn   = document.getElementById('mobile-menu-btn');
-const mobileMenuPanel = document.getElementById('mobile-menu-panel');
-const mobileMenuAdd   = document.getElementById('mobile-menu-add');
-const mobileMenuSearch= document.getElementById('mobile-menu-search');
-
-function updateMobileMenuVisibility(){
-  if (!isMobileDevice()) { mobileMenuBtn.style.display = 'none'; mobileMenuPanel.style.display = 'none'; return; }
-  // 上から少しスクロールしたら表示
-  mobileMenuBtn.style.display = (window.scrollY > 24) ? 'block' : 'none';
-  if (window.scrollY <= 24) mobileMenuPanel.style.display = 'none';
-}
-window.addEventListener('scroll', updateMobileMenuVisibility, { passive:true });
-window.addEventListener('resize', updateMobileMenuVisibility);
-updateMobileMenuVisibility();
-
-mobileMenuBtn.addEventListener('click', ()=>{
-  mobileMenuPanel.style.display = (mobileMenuPanel.style.display === 'none' || !mobileMenuPanel.style.display) ? 'block' : 'none';
-});
-document.addEventListener('click', (e)=>{
-  if (!mobileMenuPanel.contains(e.target) && e.target !== mobileMenuBtn) mobileMenuPanel.style.display = 'none';
-});
-
-mobileMenuAdd.addEventListener('click', ()=>{
-  mobileMenuPanel.style.display = 'none';
-  showView('add-case-view');
-  initAddCaseView();
-});
-mobileMenuSearch.addEventListener('click', ()=>{
-  mobileMenuPanel.style.display = 'none';
-  showView('search-view');
-  searchInput.value = ""; startDateInput.value = ""; endDateInput.value = "";
-  searchAll();
-});
-
 /* ------------------------------
  * 認証操作（ログイン/新規/匿名/再発行/サインアウト）
  * ------------------------------ */
@@ -1441,4 +1406,80 @@ function startSessionTimer() {
       } catch (_) {}
     }, 30 * 1000);
   }
+}
+
+// --- モバイルメニューの表示制御 [RE-ADD] ---
+const mobileMenuBtn   = document.getElementById('mobile-menu-btn');
+const mobileMenuPanel = document.getElementById('mobile-menu-panel');
+const mobileMenuAdd   = document.getElementById('mobile-menu-add');
+const mobileMenuSearch= document.getElementById('mobile-menu-search');
+
+function getAnyScrollY(){
+  try {
+    const w = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
+    const mv = (typeof mainView !== 'undefined' && mainView && mainView.scrollTop) ? mainView.scrollTop : 0;
+    let sv = 0;
+    try {
+      const active = document.querySelector('.subview[style*="display: block"], .subview[style*="display:block"]');
+      if (active && active.scrollTop) sv = active.scrollTop;
+    } catch(_) {}
+    return Math.max(w, mv, sv);
+  } catch(_) { return 0; }
+}
+
+function updateMobileMenuVisibility(){
+  try{
+    if (!isMobileDevice()) { 
+      if (mobileMenuBtn) mobileMenuBtn.style.display = 'none'; 
+      if (mobileMenuPanel) mobileMenuPanel.style.display = 'none'; 
+      return; 
+    }
+    const y = getAnyScrollY();
+    if (mobileMenuBtn) mobileMenuBtn.style.display = (y > 24) ? 'block' : 'none';
+    if (y <= 24 && mobileMenuPanel) mobileMenuPanel.style.display = 'none';
+  }catch(_){}
+}
+
+window.addEventListener('scroll', updateMobileMenuVisibility, { passive:true });
+document.addEventListener('scroll', updateMobileMenuVisibility, { passive:true, capture:true });
+document.addEventListener('touchmove', updateMobileMenuVisibility, { passive:true });
+window.addEventListener('resize', updateMobileMenuVisibility);
+try { if (typeof mainView !== 'undefined' && mainView) mainView.addEventListener('scroll', updateMobileMenuVisibility, { passive:true }); } catch(_){}
+try { document.querySelectorAll('.subview').forEach(el => el.addEventListener('scroll', updateMobileMenuVisibility, { passive:true })); } catch(_){}
+updateMobileMenuVisibility();
+
+if (mobileMenuBtn){
+  mobileMenuBtn.addEventListener('click', ()=>{
+    if (!mobileMenuPanel) return;
+    mobileMenuPanel.style.display = (mobileMenuPanel.style.display === 'none' || !mobileMenuPanel.style.display) ? 'block' : 'none';
+  });
+}
+document.addEventListener('click', (e)=>{
+  try{
+    if (!mobileMenuPanel || !mobileMenuBtn) return;
+    if (!mobileMenuPanel.contains(e.target) && e.target !== mobileMenuBtn) mobileMenuPanel.style.display = 'none';
+  }catch(_){}
+});
+
+if (mobileMenuAdd){
+  mobileMenuAdd.addEventListener('click', ()=>{
+    if (mobileMenuPanel) mobileMenuPanel.style.display = 'none';
+    if (typeof showView === 'function') showView('add-case-view');
+    if (typeof initAddCaseView === 'function') initAddCaseView();
+  });
+}
+if (mobileMenuSearch){
+  mobileMenuSearch.addEventListener('click', ()=>{
+    if (mobileMenuPanel) mobileMenuPanel.style.display = 'none';
+    if (typeof showView === 'function') showView('search-view');
+    try {
+      const searchInput = document.getElementById('search-input');
+      const startDateInput = document.getElementById('start-date');
+      const endDateInput = document.getElementById('end-date');
+      if (searchInput) searchInput.value = "";
+      if (startDateInput) startDateInput.value = "";
+      if (endDateInput) endDateInput.value = "";
+    } catch(_){}
+    if (typeof searchAll === 'function') searchAll();
+  });
 }
