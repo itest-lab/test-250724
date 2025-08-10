@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -23,7 +24,7 @@
   </div>
 
   <!-- ログインビュー -->
-  <div id="login-view">
+  <div id="login-view" style="display: block;">
     <h2>ログイン</h2>
     <input id="email"    type="text"     placeholder="メールアドレス">
     <input id="password" type="password" placeholder="パスワード">
@@ -47,7 +48,7 @@
   </div>
 
   <!-- メインビュー -->
-  <div id="main-view" style="display:none;">
+  <div id="main-view" style="display: none;">
     <button id="logout-btn">ログアウト</button>
     <nav>
       <button id="nav-add-btn">案件追加</button>
@@ -71,7 +72,7 @@
         <input id="manual-order-id"     placeholder="受注番号" required>
         <input id="manual-customer"     placeholder="得意先"   required>
         <input id="manual-title"        placeholder="品名"     required>
-        <!-- 下版日（日付入力） -->
+        <!-- ★ 追加: 下版日（日付入力） -->
         <label>下版日:<input id="manual-plate-date" type="date" placeholder="下版日"></label>
         <button id="manual-confirm-btn">入力確定</button>
         <button id="start-scan-btn">バーコード入力に切替</button>
@@ -82,7 +83,7 @@
         <div>受注番号: <span id="detail-order-id"></span></div>
         <div>得意先:   <span id="detail-customer"></span></div>
         <div>品名:     <span id="detail-title"></span></div>
-        <!-- 下版日の表示 -->
+        <!-- ★ 追加: 下版日の表示 -->
         <div>下版日:   <span id="detail-plate-date"></span></div>
 
         <h4>追跡番号リスト設定</h4>
@@ -115,7 +116,7 @@
     <div id="search-view" class="subview" style="display:none;">
       <h3>案件検索</h3>
       <input id="search-input" placeholder="キーワード（注番／得意先／タイトル）">
-      <!-- どの日時で絞るか選択（既定: 下版日） -->
+      <!-- ★ 追加: どの日時で絞るか選択（既定: 下版日） -->
       <label>日付基準:
         <select id="search-date-type">
           <option value="plate" selected>下版日</option>
@@ -191,7 +192,7 @@
   <button id="back-to-top" title="ページの先頭へ">▲</button>
   <script src="main.js"></script>
 
-  <!-- モバイル メニューボタン＋パネル -->
+  <!-- モバイル メニューボタン＋パネル（再挿入） -->
   <button id="mobile-menu-btn" aria-label="メニュー" style="display:none">☰</button>
   <div id="mobile-menu-panel" style="display:none">
     <button id="mobile-menu-add">案件追加</button>

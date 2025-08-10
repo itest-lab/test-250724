@@ -55,7 +55,6 @@ function isMobileDevice() {
   try {
     const ua = navigator.userAgent || navigator.vendor || "";
     if (/Android|iPhone|iPad|iPod|Windows Phone/i.test(ua)) return true;
-    // iPadOSのデスクトップUAや一部端末対策
     if (navigator.maxTouchPoints > 0 && window.matchMedia && window.matchMedia('(pointer:coarse)').matches) return true;
   } catch (_) {}
   return false;
@@ -64,6 +63,8 @@ let html5QrCode = null;
 let torchOn = false;
 function mmToPx(mm) { return mm * (96 / 25.4); }
 
+
+// 背面カメラ優先選択
 // 背面カメラ優先選択
 async function selectBackCamera() {
   try {
@@ -356,12 +357,6 @@ function markLoginTime()  { localStorage.setItem('loginTime', Date.now().toStrin
 function isSessionExpired(){
   const t = parseInt(localStorage.getItem('loginTime') || '0', 10);
   return (Date.now() - t) > SESSION_LIMIT_MS;
-}
-// ページ読込時に期限切れなら強制サインアウト
-if (auth && auth.currentUser && isSessionExpired()) {
-  auth.signOut().catch(err => console.warn("セッションタイムアウト時サインアウト失敗:", err));
-  try { localStorage.removeItem('loginTime'); } catch (_) {}
-  clearLoginTime();
 }
 
 // サブビュー切替
@@ -1353,6 +1348,7 @@ document.addEventListener("DOMContentLoaded", () => {
  * 初期表示（ログイン状態に応じてビュー切替）
  * ------------------------------ */
 auth.onAuthStateChanged(async user => {
+  try { if (user && isSessionExpired()) { await auth.signOut(); localStorage.removeItem('loginTime'); return; } } catch(_) {}
   if (user) {
     try {
       const snap = await db.ref(`admins/${user.uid}`).once("value");
