@@ -1170,71 +1170,95 @@ function startSessionTimer() {
 
 // --- 詳細画面：追跡番号追加 登録 ---
 confirmDetailAddBtn.onclick = async () => {
-  if (!currentOrderId) return;
-  const snap = await db.ref(`shipments/${currentOrderId}`).once("value");
-  const existObj = snap.val() || {};
-  const existSet = new Set(Object.values(existObj).map(it => `${it.carrier}:${it.tracking}`));
-  const newItems = [];
-  let missingCarrier = false;
+  showLoading();                   // ← 開始時に表示
+  confirmDetailAddBtn.disabled = true;
+  detailAddRowBtn.disabled = true;
+  cancelDetailAddBtn.disabled = true;
+  detailAddMsg.textContent = "";
 
-  detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => row.classList.remove('missing-carrier'));
-  detailTrackingRows.querySelectorAll(".tracking-row").forEach(row => {
-    let tn = row.querySelector("input").value.trim();
-    if (!tn) return;
-    const carrier = fixedCarrierCheckboxDetail.checked ? fixedCarrierSelectDetail.value : row.querySelector("select")?.value;
-    if (!carrier) { missingCarrier = true; row.classList.add('missing-carrier'); return; }
+  try {
+    // 既存の登録済みを取得して重複回避
+    const snap = await db.ref(`shipments/${currentOrderId}`).once("value");
+    const exist = snap.val() || {};
+    const existSet = new Set(Object.values(exist).map(v => `${v.carrier}:${v.tracking}`));
 
-    // ★ 保存前に福山の末尾01は除去
-    tn = normalizeTrackingForSave(carrier, tn);
+    // 入力行を収集
+    const rows = Array.from(detailTrackingRows.querySelectorAll(".tracking-row"));
+    let items = [];
+    let missingCarrier = false;
 
-    const key = `${carrier}:${tn}`;
-    if (existSet.has(key)) return;
-    existSet.add(key);
-    // DB保存は正規化後の番号
-    newItems.push({ carrier, tracking: tn });
-  });
+    // 行の強調リセット
+    rows.forEach(r => r.classList.remove("missing-carrier"));
 
-  if (missingCarrier) { detailAddMsg.textContent = "運送会社を選択してください"; return; }
-  if (newItems.length === 0) { alert("新規の追跡番号がありません（既に登録済み）"); return; }
+    for (const r of rows) {
+      const sel = r.querySelector("select");
+      const inp = r.querySelector("input[type='text']");
+      const carrier = sel?.value || "";
+      let tracking  = (inp?.value || "").trim();
 
-  for (const it of newItems) {
-    await db.ref(`shipments/${currentOrderId}`).push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() });
+      if (tracking && !carrier) { missingCarrier = true; r.classList.add("missing-carrier"); continue; }
+      if (!tracking || !carrier) continue;
+
+      // 保存用に正規化（福山末尾01など）
+      tracking = normalizeTrackingForSave(carrier, tracking);
+
+      const k = `${carrier}:${tracking}`;
+      if (existSet.has(k)) continue;
+      existSet.add(k);
+      items.push({ carrier, tracking });
+    }
+
+    if (missingCarrier) { detailAddMsg.textContent = "運送会社を選択してください"; return; }
+    if (items.length === 0) { detailAddMsg.textContent = "追加対象がありません"; return; }
+
+    // 追加登録
+    const ref = db.ref(`shipments/${currentOrderId}`);
+    for (const it of items) {
+      await ref.push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() });
+    }
+
+    // 画面に即時反映＋ステータス取得
+    let seqBase = detailShipmentsUl.children.length;
+    let lastPromise = null;
+    for (const it of items) {
+      const li = document.createElement("li");
+      const label = carrierLabels[it.carrier] || it.carrier;
+      const a = document.createElement("a");
+      a.target = "_blank";
+      a.href = it.carrier === "hida" ? carrierUrls[it.carrier] : (carrierUrls[it.carrier] + encodeURIComponent(it.tracking));
+      a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
+      li.appendChild(a);
+      detailShipmentsUl.appendChild(li);
+
+      const p = fetchStatus(it.carrier, it.tracking)
+        .then(({ status, time, location }) => {
+          const seq = ++seqBase;
+          a.textContent = formatShipmentText(seq, it.carrier, it.tracking, status, time, location);
+          li.className = "ship-" + classifyStatus(status);
+        })
+        .catch(e => {
+          console.error(e);
+          a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
+          li.className = "ship-exception";
+        });
+
+      lastPromise = p;
+    }
+
+    if (lastPromise) await lastPromise;  // ← 最後のステータス取得まで待機
+    detailAddMsg.textContent = "追加しました";
+    // 入力行クリア
+    detailTrackingRows.innerHTML = "";
+    addTrackingDetail.style.display = "none";
+  } catch (e) {
+    console.error(e);
+    detailAddMsg.textContent = "追加に失敗しました";
+  } finally {
+    hideLoading();                  // ← 終了時に非表示
+    confirmDetailAddBtn.disabled = false;
+    detailAddRowBtn.disabled = false;
+    cancelDetailAddBtn.disabled = false;
   }
-
-  const anchorEls = newItems.map(it => {
-    const label = carrierLabels[it.carrier] || it.carrier;
-    const a = document.createElement("a");
-    if (it.carrier === 'hida') a.href = carrierUrls[it.carrier];
-    else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking); // リンクは保存済み番号（正規化後）
-    a.target = "_blank";
-    a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
-    const li = document.createElement("li");
-    li.appendChild(a);
-    detailShipmentsUl.appendChild(li);
-    return a;
-  });
-
-  addTrackingDetail.style.display  = "none";
-  detailTrackingRows.innerHTML     = "";
-  showAddTrackingBtn.style.display = "inline-block";
-  detailAddMsg.textContent         = "追加しました";
-
-  newItems.forEach((it, idx) => {
-    const a = anchorEls[idx];
-    const li = a.parentElement;
-    fetchStatus(it.carrier, it.tracking)
-      .then(json => {
-        const { status, time, location } = json;
-        a.textContent = formatShipmentText(idx+1, it.carrier, it.tracking, status, time, location);
-        li.className = "ship-" + classifyStatus(status);
-      })
-      .catch(err => {
-        console.error("fetchStatus error:", err);
-        const label = carrierLabels[it.carrier] || it.carrier;
-        a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
-        li.className = "ship-exception";
-      });
-  });
 };
 
 // --- 画面初期表示 ---
