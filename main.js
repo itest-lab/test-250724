@@ -373,15 +373,17 @@ auth.onAuthStateChanged(user => {
 });
 
 function ensureDetailNavButtonsVisible() {
-  if (backToSearchBtn) {
-    backToSearchBtn.classList.remove("hidden");
-    backToSearchBtn.style.display = "inline-block";
-    backToSearchBtn.disabled = false;
+  const back = document.getElementById("back-to-search-btn");
+  const another = document.getElementById("another-case-btn-2");
+  if (back) {
+    back.classList.remove("hidden");
+    back.style.display = "inline-block";
+    back.disabled = false;
   }
-  if (anotherCaseBtn2) {
-    anotherCaseBtn2.classList.remove("hidden");
-    anotherCaseBtn2.style.display = "inline-block";
-    anotherCaseBtn2.disabled = false;
+  if (another) {
+    another.classList.remove("hidden");
+    another.style.display = "inline-block";
+    another.disabled = false;
   }
 }
 
@@ -452,6 +454,7 @@ navSearchBtn.addEventListener("click", () => {
   if (anotherCaseBtn2 && anotherCaseBtn2.style.display === "none") anotherCaseBtn2.style.display = "";
 
   searchAll();
+  ensureDetailNavButtonsVisible();
 });
 
 /* ------------------------------
@@ -1101,8 +1104,7 @@ async function showCaseDetail(orderId, obj){
   if (cancelDetailAddBtn)  cancelDetailAddBtn.disabled = false;
 
   showAddTrackingBtn.style.display = "inline-block";
-  backToSearchBtn.style.display = "inline-block";
-  anotherCaseBtn2.style.display = "inline-block";
+  ensureDetailNavButtonsVisible();
   try {
     // pushキー昇順（= 追加順）で取得
     const snap = await db.ref(`shipments/${orderId}`).orderByKey().once("value");
@@ -1300,8 +1302,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // 次回追加時も初期化状態で表示
       addTrackingDetail.style.display = "none";
       showAddTrackingBtn.style.display = "inline-block";
-      backToSearchBtn.style.display = "inline-block";
-      anotherCaseBtn2.style.display = "inline-block";      
+      ensureDetailNavButtonsVisible();
     } catch (e) {
       const msg = `追加に失敗しました: ${e.message || e}`;
       detailAddMsg.textContent = msg;
