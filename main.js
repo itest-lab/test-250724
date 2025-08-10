@@ -387,6 +387,44 @@ function ensureDetailNavButtonsVisible() {
   }
 }
 
+function mountDetailActionButtons(){
+  const view = document.getElementById("case-detail-view");
+  if (!view) return;
+
+  // アクションバーを用意（なければ作成）
+  let bar = document.getElementById("case-detail-actions");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "case-detail-actions";
+    bar.style.margin = "8px 0";
+    // 詳細情報のすぐ上に置きたい場合は detailInfoDiv の前、なければ先頭
+    if (window.detailInfoDiv && view.contains(detailInfoDiv)) {
+      view.insertBefore(bar, detailInfoDiv);
+    } else {
+      view.insertBefore(bar, view.firstChild);
+    }
+  }
+
+  // ボタンを add-tracking-detail 配下などから退避して常時表示側へ移設
+  const back = document.getElementById("back-to-search-btn");
+  const another = document.getElementById("another-case-btn-2");
+  if (back && back.parentElement !== bar) bar.appendChild(back);
+  if (another && another.parentElement !== bar) bar.appendChild(another);
+
+  // クリックハンドラを安全に付与（DOMがまだ無かったケースにも対応）
+  if (back && !back.__mounted) {
+    back.onclick = () => showView("search-view");
+    back.__mounted = true;
+  }
+  if (another && !another.__mounted) {
+    another.onclick = () => { showView("add-case-view"); initAddCaseView(); };
+    another.__mounted = true;
+  }
+
+  // 最後に必ず可視化
+  ensureDetailNavButtonsVisible();
+}
+
 /* ------------------------------
  * 認証操作（ログイン/新規/匿名/再発行/サインアウト）
  * ------------------------------ */
@@ -1073,7 +1111,7 @@ function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
 async function showCaseDetail(orderId, obj){
   showLoading();
   showView("case-detail-view");
-
+  mountDetailActionButtons();
   ensureDetailNavButtonsVisible();
 
   // 復号＋ヘッダ表示
