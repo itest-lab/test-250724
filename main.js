@@ -1141,10 +1141,15 @@ backToSearchBtn.onclick = () => showView("search-view");
  * ------------------------------ */
 showAddTrackingBtn.onclick = () => {
   addTrackingDetail.style.display = "block";
-  detailTrackingRows.innerHTML = "";
+  
+  // 追跡追加パネルを表示し、各ボタンを必ず表示
+  if (confirmAddCaseBtn)      { confirmAddCaseBtn.style.display = 'inline-block'; confirmAddCaseBtn.disabled = false; }
+  if (confirmDetailAddBtn)    { confirmDetailAddBtn.style.display = 'inline-block'; confirmDetailAddBtn.disabled = false; }
+  if (cancelDetailAddBtn)     { cancelDetailAddBtn.style.display = 'inline-block'; cancelDetailAddBtn.disabled = false; }
+detailTrackingRows.innerHTML = "";
   for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail"));
   showAddTrackingBtn.style.display = "none";
-};
+}
 detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); };
 cancelDetailAddBtn.onclick = () => {
   addTrackingDetail.style.display = "none";
@@ -1443,7 +1448,7 @@ document.addEventListener('click', (e)=>{
     }
     const btn = document.getElementById('show-add-tracking-btn');
     if (btn) btn.style.display = 'none';
-    if (typeof confirmAddCaseBtn !== 'undefined' && confirmAddCaseBtn) confirmAddCaseBtn.style.display = 'none';
+    if (typeof confirmAddCaseBtn !== 'undefined' && confirmAddCaseBtn) { confirmAddCaseBtn.style.display = 'inline-block'; confirmAddCaseBtn.disabled = false; }
   }
   if (id === 'cancel-detail-add-btn') {
     const panel = document.getElementById('add-tracking-detail');
