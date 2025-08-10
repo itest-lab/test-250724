@@ -123,13 +123,25 @@ async function startScanning(formats, inputId) {
   // カメラ起動
   html5QrCode = new Html5Qrcode('video-container', false);
   const backId = await selectBackCamera();
-  const constraints = backId ? { deviceId: { exact: backId } } : { facingMode: { exact: 'environment' } };
+  // ★端末側制約：連続AFとフレームレート控えめ
+  const constraints = backId
+    ? { video: { deviceId: { exact: backId }, focusMode: 'continuous', frameRate: { ideal: 24, max: 30 } } }
+    : { video: { facingMode: { exact: 'environment' }, focusMode: 'continuous', frameRate: { ideal: 24, max: 30 } } };
+
+  // ★読取り設定
+  const isCodabarOnly = (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR);
   const config = {
-    fps: 10,
+    fps: 8, // ← 下げて安定化
     formatsToSupport: formats,
-    experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-    useBarCodeDetectorIfSupported: true
+    // CODABARは BarCodeDetector を使わない方が安定
+    useBarCodeDetectorIfSupported: isCodabarOnly ? false : true,
+    // スキャン窓（横長）。PCでもモバイルでも過負荷を避ける
+    qrbox: isCodabarOnly
+      ? { width: Math.min(window.innerWidth - 40, 320), height: 120 }
+      : { width: Math.min(window.innerWidth - 40, 320), height: Math.min(window.innerWidth - 40, 320) }
   };
+
+  const onSuccess = decoded => {
 
   // デコード成功時のハンドラ
   const onSuccess = decoded => {
@@ -156,8 +168,19 @@ async function startScanning(formats, inputId) {
     } catch (err) { console.error(err); stopScanning(); }
   };
 
-  try { await html5QrCode.start(constraints, config, onSuccess, () => {}); }
-  catch (e) { console.error(e); alert('カメラ起動に失敗しました'); stopScanning(); }
+  try {
+    await html5QrCode.start(constraints, config, onSuccess, () => {});
+    // ★起動直後にAFを一度だけ強制（対応端末のみ）
+    setTimeout(() => {
+      if (html5QrCode) {
+        html5QrCode.applyVideoConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(()=>{});
+      }
+    }, 200);
+  } catch (e) {
+    console.error(e);
+    alert('カメラ起動に失敗しました');
+    stopScanning();
+  }
 
   // ワンタップAF（対応端末）
   const videoContainer = document.getElementById('video-container');
@@ -1055,6 +1078,8 @@ async function showCaseDetail(orderId, obj){
   if (confirmDetailAddBtn) confirmDetailAddBtn.disabled = false;
   if (cancelDetailAddBtn)  cancelDetailAddBtn.disabled = false;
 
+  showAddTrackingBtn.style.display = "inline-block";
+
   try {
     // pushキー昇順（= 追加順）で取得
     const snap = await db.ref(`shipments/${orderId}`).orderByKey().once("value");
@@ -1228,6 +1253,8 @@ document.addEventListener("DOMContentLoaded", () => {
       if (detailAddWarn) detailAddWarn.textContent = "";
       detailTrackingRows.innerHTML = "";
       addTrackingDetail.style.display = "none";
+      showAddTrackingBtn.style.display = "inline-block";
+      
     } catch (e) {
       const msg = `追加に失敗しました: ${e.message || e}`;
       detailAddMsg.textContent = msg;
