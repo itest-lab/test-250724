@@ -1170,9 +1170,9 @@ function startSessionTimer() {
 
 // --- 詳細画面：追跡番号追加 登録 ---
 function getFixedCarrierValue(){
-  const detailOn = !!(window.detailFixedCarrierCheckbox && detailFixedCarrierCheckbox.checked);
+  const detailOn = !!(window.fixedCarrierCheckboxDetail && fixedCarrierCheckboxDetail.checked);
   const commonOn = !!(window.fixedCarrierCheckbox && fixedCarrierCheckbox.checked);
-  if (detailOn)  return (window.detailFixedCarrierSelect && detailFixedCarrierSelect.value) || "";
+  if (detailOn)  return (window.fixedCarrierSelectDetail && fixedCarrierSelectDetail.value) || "";
   if (commonOn)  return (window.fixedCarrierSelect && fixedCarrierSelect.value) || "";
   return "";
 }
@@ -1206,7 +1206,7 @@ document.addEventListener("DOMContentLoaded", () => {
   
       // 固定キャリア取得
       const fixedVal = getFixedCarrierValue();
-      const fixedCheckboxOn = !!(window.detailFixedCarrierCheckbox?.checked || window.fixedCarrierCheckbox?.checked);
+      const fixedCheckboxOn = !!(window.fixedCarrierCheckboxDetail?.checked || window.fixedCarrierCheckbox?.checked);
       if (fixedCheckboxOn && !fixedVal) {
         const msg = "固定の運送会社を選択してください";
         detailAddMsg.textContent = msg;
