@@ -1428,3 +1428,37 @@ document.addEventListener('DOMContentLoaded', function(){
     });
   }
 });
+
+
+// --- 追跡番号追加UI：イベントデリゲーションで確実に動作させる ---
+document.addEventListener('click', (e)=>{
+  const id = (e.target && e.target.id) || '';
+  if (id === 'show-add-tracking-btn') {
+    const panel = document.getElementById('add-tracking-detail');
+    const rows  = document.getElementById('detail-tracking-rows');
+    if (panel) panel.style.display = 'block';
+    if (rows) {
+      rows.innerHTML = '';
+      for (let i = 0; i < 5; i++) rows.appendChild(createTrackingRow('detail'));
+    }
+    const btn = document.getElementById('show-add-tracking-btn');
+    if (btn) btn.style.display = 'none';
+    if (typeof confirmAddCaseBtn !== 'undefined' && confirmAddCaseBtn) confirmAddCaseBtn.style.display = 'none';
+  }
+  if (id === 'cancel-detail-add-btn') {
+    const panel = document.getElementById('add-tracking-detail');
+    const rows  = document.getElementById('detail-tracking-rows');
+    const msg   = document.getElementById('detail-add-msg');
+    if (panel) panel.style.display = 'none';
+    if (rows) rows.innerHTML = '';
+    if (msg)  msg.textContent = '';
+    const btn = document.getElementById('show-add-tracking-btn');
+    if (btn) btn.style.display = 'inline-block';
+    if (typeof confirmAddCaseBtn !== 'undefined' && confirmAddCaseBtn) confirmAddCaseBtn.style.display = 'inline-block';
+    // 固定キャリア初期化
+    const fixedChk = document.getElementById('fixed-carrier-checkbox-detail');
+    const fixedSel = document.getElementById('fixed-carrier-select-detail');
+    if (fixedChk) fixedChk.checked = false;
+    if (fixedSel) { fixedSel.value = ''; fixedSel.style.display = 'none'; }
+  }
+});
