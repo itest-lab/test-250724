@@ -430,6 +430,14 @@ navSearchBtn.addEventListener("click", () => {
   searchInput.value = "";
   startDateInput.value = "";
   endDateInput.value = "";
+
+  // ← 次回の詳細表示で非表示が残らないよう即リセット
+  backToSearchBtn?.classList.remove("hidden");
+  anotherCaseBtn2?.classList.remove("hidden");
+  // display の残留も念のため解除
+  if (backToSearchBtn && backToSearchBtn.style.display === "none") backToSearchBtn.style.display = "";
+  if (anotherCaseBtn2 && anotherCaseBtn2.style.display === "none") anotherCaseBtn2.style.display = "";
+
   searchAll();
 });
 
@@ -1049,6 +1057,18 @@ function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
 async function showCaseDetail(orderId, obj){
   showLoading();
   showView("case-detail-view");
+
+  // ← これを最初に入れる
+  if (backToSearchBtn) {
+    backToSearchBtn.classList.remove("hidden");
+    backToSearchBtn.style.display = "inline-block";
+    backToSearchBtn.disabled = false;
+  }
+  if (anotherCaseBtn2) {
+    anotherCaseBtn2.classList.remove("hidden");
+    anotherCaseBtn2.style.display = "inline-block";
+    anotherCaseBtn2.disabled = false;
+  }
 
   // 復号＋ヘッダ表示
   let view = { 注番: orderId, 得意先: "", 品名: "", 下版日: "", plateDateTs: obj?.plateDateTs, createdAt: obj?.createdAt };
