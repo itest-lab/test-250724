@@ -1,6 +1,17 @@
-// main.js
+/**
+* main.js
+ * 概要: 受注案件の登録・検索・詳細表示・追跡番号管理（固定キャリア対応）
+ * 技術要素: Firebase Authentication / Realtime Database, Barcode/QR 読取, AES-GCM 端末復号, 進捗ホイール
+ * 留意点:
+ *  - ID不一致での null 代入を避けるため、DOM取得は一箇所で統一
+ *  - 「運送会社を固定」有効時は行<select>を排除し、固定値を使用
+ *  - 福山通運の末尾"01"は保存時・API時・表示時のそれぞれで整合性を持って扱う
+ *  - 進捗ホイールは「案件詳細の最後のステータス取得まで」オン
+ */
 
-// --- Firebase 初期化 ---
+/* ------------------------------
+ * Firebase 初期化
+ * ------------------------------ */
 const firebaseConfig = {
   apiKey:            "AIzaSyArSM1XI5MLkZDiDdzkLJxBwvjM4xGWS70",
   authDomain:        "test-250724.firebaseapp.com",
@@ -15,11 +26,11 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 
-// セッション永続化をブラウザのセッション単位に設定
+// セッション永続化: ブラウザのタブ単位（閉じると失効）
 auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
   .catch(err => console.error("永続化設定エラー:", err));
 
-// キャリアラベル
+// 事業者名ラベルと各社の追跡ページURL
 const carrierLabels = {
   yamato:  "ヤマト運輸",
   fukuyama: "福山通運",
@@ -28,36 +39,28 @@ const carrierLabels = {
   hida:    "飛騨運輸",
   sagawa:  "佐川急便"
 };
-
-// 各社の追跡ページURL
 const carrierUrls = {
   yamato:  "https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
   fukuyama: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
   seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
   tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
-  // 飛騨運輸の追跡ページはAPI非対応のため固定URLに遷移させる
+  // 飛騨運輸: 追跡API非対応のため固定URL
   hida:    "http://www.hida-unyu.co.jp/WP_HIDAUNYU_WKSHO_GUEST/KW_UD04015.do?_Action_=a_srcAction",
   sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo="
 };
 
-// ================================================================
-//  スマホ向けカメラ読み取り機能（html5-qrcode）
-// ================================================================
-
-// モバイル端末判定関数
+/* ------------------------------
+ * モバイル用カメラ読取（html5-qrcode）
+ * ------------------------------ */
 function isMobileDevice() {
   const ua = navigator.userAgent || navigator.vendor || window.opera;
   return /android|iPad|iPhone|iPod/i.test(ua);
 }
-
-// html5-qrcode 用の変数
 let html5QrCode = null;
 let torchOn = false;
-
-// mm→px
 function mmToPx(mm) { return mm * (96 / 25.4); }
 
-// 背面カメラを選択（複数ある場合は 2 番目を優先）
+// 背面カメラ優先選択
 async function selectBackCamera() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -68,23 +71,21 @@ async function selectBackCamera() {
   return null;
 }
 
-// 表示専用：福山通運の追跡番号末尾 "01" を除去
+/* ------------------------------
+ * 追跡番号のフォーマット/正規化（福山の末尾01対応）
+ * ------------------------------ */
 function formatTrackingForDisplay(carrier, tracking) {
   if (carrier === "fukuyama" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
     return tracking.slice(0, -2);
   }
   return tracking;
 }
-
-// API専用：福山通運の末尾 "01" を除去して叩く
 function trackingForApi(carrier, tracking) {
   if (carrier === "fukuyama" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
     return tracking.slice(0, -2);
   }
   return tracking;
 }
-
-// ★保存専用：福山通運の末尾 "01" をDB保存前に除去
 function normalizeTrackingForSave(carrier, tracking) {
   if (carrier === "fukuyama" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
     return tracking.slice(0, -2);
@@ -92,7 +93,9 @@ function normalizeTrackingForSave(carrier, tracking) {
   return tracking;
 }
 
-// CODABARのスタート/ストップ(A-D)を両端から除去
+/* ------------------------------
+ * CODABAR の A/B/C/D を両端から除去（ラベル部）
+ * ------------------------------ */
 function normalizeCodabar(value) {
   if (!value || value.length < 2) return value || '';
   const pre = value[0], suf = value[value.length - 1];
@@ -100,18 +103,14 @@ function normalizeCodabar(value) {
   return value;
 }
 
-// スキャン開始
+/* ------------------------------
+ * カメラ読取開始（PCは無効）
+ * ------------------------------ */
 async function startScanning(formats, inputId) {
-  if (!isMobileDevice()) {
-    alert('このデバイスではカメラ機能を利用できません');
-    return;
-  }
-  if (html5QrCode) {
-    try { await html5QrCode.stop(); html5QrCode.clear(); } catch (_) {}
-    html5QrCode = null;
-  }
+  if (!isMobileDevice()) { alert('このデバイスではカメラ機能を利用できません'); return; }
+  if (html5QrCode) { try { await html5QrCode.stop(); html5QrCode.clear(); } catch (_) {} html5QrCode = null; }
 
-  // オーバーレイサイズ調整
+  // 画面オーバーレイのリサイズ
   const margin = mmToPx(5) * 2;
   const vw = window.innerWidth, vh = window.innerHeight, ratio = 9/16;
   let w = vw - margin, h = vh - margin;
@@ -122,6 +121,7 @@ async function startScanning(formats, inputId) {
   const overlay = document.getElementById('scanner-overlay');
   if (overlay) { overlay.style.display = 'flex'; document.body.style.overflow = 'hidden'; }
 
+  // カメラ起動
   html5QrCode = new Html5Qrcode('video-container', false);
   const backId = await selectBackCamera();
   const constraints = backId ? { deviceId: { exact: backId } } : { facingMode: { exact: 'environment' } };
@@ -132,64 +132,49 @@ async function startScanning(formats, inputId) {
     useBarCodeDetectorIfSupported: true
   };
 
+  // デコード成功時のハンドラ
   const onSuccess = decoded => {
     try {
       const inputEl = document.getElementById(inputId);
       if (!inputEl) { stopScanning(); return; }
 
-      // CODABAR の A/B/C/D を両端から除去（必要時）
+      // CODABARのスタート/ストップ文字除去
       let value = decoded;
       if (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
         if (decoded && decoded.length >= 2) {
           const pre = decoded[0], suf = decoded[decoded.length - 1];
           if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) value = decoded.substring(1, decoded.length - 1);
-          else return; // 正式なスタート/ストップでなければ無視
+          else return; // 正しい開始/終了でなければ無視
         }
       }
 
       inputEl.value = value;
       inputEl.dispatchEvent(new Event('input', { bubbles: true }));
 
-      // ▼擬似Enter送信はしない
-      // 案件バーコード入力欄の場合のみ自動確定処理を直接呼ぶ
-      if (inputId === 'case-barcode') {
-        processCaseBarcode(value);
-      }
+      // 案件バーコード欄のみ自動確定
+      if (inputId === 'case-barcode') processCaseBarcode(value);
       stopScanning();
     } catch (err) { console.error(err); stopScanning(); }
   };
 
-  try {
-    await html5QrCode.start(constraints, config, onSuccess, () => {});
-  } catch (e) {
-    console.error(e);
-    alert('カメラ起動に失敗しました');
-    stopScanning();
-  }
+  try { await html5QrCode.start(constraints, config, onSuccess, () => {}); }
+  catch (e) { console.error(e); alert('カメラ起動に失敗しました'); stopScanning(); }
 
+  // ワンタップAF（対応端末）
   const videoContainer = document.getElementById('video-container');
   if (videoContainer) {
     videoContainer.addEventListener('click', async () => {
-      if (html5QrCode) {
-        try { await html5QrCode.applyVideoConstraints({ advanced: [{ focusMode: 'single-shot' }] }); } catch (_) {}
-      }
+      if (html5QrCode) { try { await html5QrCode.applyVideoConstraints({ advanced: [{ focusMode: 'single-shot' }] }); } catch (_) {} }
     });
   }
 }
-
-// スキャン停止
 async function stopScanning() {
-  if (html5QrCode) {
-    try { await html5QrCode.stop(); html5QrCode.clear(); } catch (_) {}
-    html5QrCode = null;
-  }
+  if (html5QrCode) { try { await html5QrCode.stop(); html5QrCode.clear(); } catch (_) {} html5QrCode = null; }
   const overlay = document.getElementById('scanner-overlay');
   if (overlay) overlay.style.display = 'none';
   document.body.style.overflow = '';
   torchOn = false;
 }
-
-// ライトON/OFF
 async function toggleTorch() {
   if (!html5QrCode) return;
   try {
@@ -200,7 +185,7 @@ async function toggleTorch() {
   } catch (e) { console.warn(e); }
 }
 
-// DOMContentLoaded: カメラボタン初期化
+// カメラUIの初期化（DOMContentLoaded）
 window.addEventListener('DOMContentLoaded', () => {
   const closeBtn = document.getElementById('close-button');
   if (closeBtn) closeBtn.addEventListener('click', () => stopScanning());
@@ -218,25 +203,31 @@ window.addEventListener('DOMContentLoaded', () => {
       caseCameraBtn.style.display = 'none';
     }
   }
-   const backToTopBtn = document.getElementById('back-to-top');
-   if (backToTopBtn) {
-     window.addEventListener('scroll', () => {
-       backToTopBtn.style.display = window.scrollY > 100 ? 'block' : 'none';
-     });
-     backToTopBtn.addEventListener('click', () => {
-       window.scrollTo({ top: 0, behavior: 'smooth' });
-     });
-   }
+  // ページ上部へ戻るボタン
+  const backToTopBtn = document.getElementById('back-to-top');
+  if (backToTopBtn) {
+    window.addEventListener('scroll', () => {
+      backToTopBtn.style.display = window.scrollY > 100 ? 'block' : 'none';
+    });
+    backToTopBtn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
 });
 
+/* ------------------------------
+ * 画面共通状態・DOM参照
+ * ------------------------------ */
 let isAdmin = false;
 let sessionTimer;
 let currentOrderId = null;
 
-// --- DOM取得 ---
+// 主要ビュー
 const loginView             = document.getElementById("login-view");
 const mainView              = document.getElementById("main-view");
 const loginErrorEl          = document.getElementById("login-error");
+
+// ログインフォーム
 const emailInput            = document.getElementById("email");
 const passwordInput         = document.getElementById("password");
 const loginBtn              = document.getElementById("login-btn");
@@ -245,7 +236,7 @@ const guestBtn              = document.getElementById("guest-btn");
 const resetBtn              = document.getElementById("reset-btn");
 const logoutBtn             = document.getElementById("logout-btn");
 
-// 新規登録ビュー関連
+// 新規登録ビュー
 const signupView            = document.getElementById("signup-view");
 const signupEmail           = document.getElementById("signup-email");
 const signupPassword        = document.getElementById("signup-password");
@@ -254,9 +245,11 @@ const signupConfirmBtn      = document.getElementById("signup-confirm-btn");
 const backToLoginBtn        = document.getElementById("back-to-login-btn");
 const signupErrorEl         = document.getElementById("signup-error");
 
+// ナビゲーション
 const navAddBtn             = document.getElementById("nav-add-btn");
 const navSearchBtn          = document.getElementById("nav-search-btn");
 
+// 追加画面（QR/手動）
 const scanModeDiv           = document.getElementById("scan-mode");
 const manualModeDiv         = document.getElementById("manual-mode");
 const startManualBtn        = document.getElementById("start-manual-btn");
@@ -268,12 +261,14 @@ const manualPlateDateInput  = document.getElementById("manual-plate-date");
 const manualConfirmBtn      = document.getElementById("manual-confirm-btn");
 const startScanBtn          = document.getElementById("start-scan-btn");
 
+// QR展開後の表示ブロック
 const caseDetailsDiv        = document.getElementById("case-details");
 const detailOrderId         = document.getElementById("detail-order-id");
 const detailCustomer        = document.getElementById("detail-customer");
 const detailTitle           = document.getElementById("detail-title");
 const detailPlateDate       = document.getElementById("detail-plate-date");
 
+// 追跡番号入力（案件追加画面）
 const fixedCarrierCheckbox  = document.getElementById("fixed-carrier-checkbox");
 const fixedCarrierSelect    = document.getElementById("fixed-carrier-select");
 const trackingRows          = document.getElementById("tracking-rows");
@@ -282,6 +277,7 @@ const confirmAddCaseBtn     = document.getElementById("confirm-add-case-btn");
 const addCaseMsg            = document.getElementById("add-case-msg");
 const anotherCaseBtn        = document.getElementById("another-case-btn");
 
+// 検索ビュー
 const searchView            = document.getElementById("search-view");
 const searchInput           = document.getElementById("search-input");
 const searchDateType        = document.getElementById("search-date-type");
@@ -292,11 +288,9 @@ const listAllBtn            = document.getElementById("list-all-btn");
 const searchResults         = document.getElementById("search-results");
 const deleteSelectedBtn     = document.getElementById("delete-selected-btn");
 
-// 一覧表示用 全選択チェックボックス関連
+// 一覧の全選択
 const selectAllContainer    = document.getElementById("select-all-container");
 const selectAllCheckbox     = document.getElementById("select-all-checkbox");
-
-// 全選択チェックボックスの挙動
 if (selectAllCheckbox) {
   selectAllCheckbox.onchange = () => {
     const check = selectAllCheckbox.checked;
@@ -305,6 +299,7 @@ if (selectAllCheckbox) {
   };
 }
 
+// 詳細ビュー
 const caseDetailView        = document.getElementById("case-detail-view");
 const detailInfoDiv         = document.getElementById("detail-info");
 const detailShipmentsUl     = document.getElementById("detail-shipments");
@@ -320,13 +315,14 @@ const fixedCarrierSelectDetail   = document.getElementById("fixed-carrier-select
 const backToSearchBtn       = document.getElementById("back-to-search-btn");
 const anotherCaseBtn2       = document.getElementById("another-case-btn-2");
 
+// 進捗ホイール
 const loadingOverlay = document.getElementById("loadingOverlay");
 function showLoading(){ if (loadingOverlay) loadingOverlay.classList.remove("hidden"); }
 function hideLoading(){ if (loadingOverlay) loadingOverlay.classList.add("hidden"); }
 
-const confirmDetailAddBtn = document.getElementById("confirm-detail-add-btn");
-
-// --- セッションタイムスタンプ管理 ---
+/* ------------------------------
+ * セッションタイムアウト制御（10分）
+ * ------------------------------ */
 const SESSION_LIMIT_MS = 10 * 60 * 1000;
 function clearLoginTime() { localStorage.removeItem('loginTime'); }
 function markLoginTime()  { localStorage.setItem('loginTime', Date.now().toString()); }
@@ -334,40 +330,37 @@ function isSessionExpired(){
   const t = parseInt(localStorage.getItem('loginTime') || '0', 10);
   return (Date.now() - t) > SESSION_LIMIT_MS;
 }
-
-// ページ読み込み時にセッション期限切れならサインアウト（ログイン中のみ）
+// ページ読込時に期限切れなら強制サインアウト
 if (auth && auth.currentUser && isSessionExpired()) {
   auth.signOut().catch(err => console.warn("セッションタイムアウト時サインアウト失敗:", err));
   try { localStorage.removeItem('loginTime'); } catch (_) {}
   clearLoginTime();
 }
 
+// サブビュー切替
 function showView(id){
   document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
   const target = document.getElementById(id);
   if (target) target.style.display = "block";
 }
 
-// ログイン状態ラベル
+// ヘッダのログイン状態ラベル更新
 auth.onAuthStateChanged(user => {
   const statusContainer = document.getElementById('login-status-container');
   statusContainer.textContent = '';
-  if (user) statusContainer.textContent = (user.email || '匿名') + ' でログイン中';
-  else statusContainer.textContent = 'ログインしてください';
+  statusContainer.textContent = user ? (user.email || '匿名') + ' でログイン中' : 'ログインしてください';
 });
 
-// --- 認証操作 ---
+/* ------------------------------
+ * 認証操作（ログイン/新規/匿名/再発行/サインアウト）
+ * ------------------------------ */
 loginBtn.onclick = async () => {
   const email = emailInput.value.trim();
   const password = passwordInput.value;
   loginErrorEl.textContent = "";
   clearLoginTime();
-  try {
-    await auth.signInWithEmailAndPassword(email, password);
-    markLoginTime();
-  } catch (e) {
-    loginErrorEl.textContent = e.message;
-  }
+  try { await auth.signInWithEmailAndPassword(email, password); markLoginTime(); }
+  catch (e) { loginErrorEl.textContent = e.message; }
 };
 signupBtn.onclick = () => {
   loginView.style.display = "none";
@@ -389,7 +382,9 @@ logoutBtn.onclick = async () => {
   emailInput.value = ""; passwordInput.value = ""; clearLoginTime(); localStorage.clear();
 };
 
-// 新規登録処理
+/* ------------------------------
+ * 新規登録処理
+ * ------------------------------ */
 signupConfirmBtn.onclick = async () => {
   const email = signupEmail.value.trim();
   const pass  = signupPassword.value;
@@ -397,14 +392,17 @@ signupConfirmBtn.onclick = async () => {
   signupErrorEl.textContent = "";
   if (!email || !pass || !confirmPass) { signupErrorEl.textContent = "全て入力してください"; return; }
   if (pass !== confirmPass) { signupErrorEl.textContent = "パスワードが一致しません"; return; }
-  try { await auth.createUserWithEmailAndPassword(email, pass); markLoginTime(); } catch (e) { signupErrorEl.textContent = e.message; }
+  try { await auth.createUserWithEmailAndPassword(email, pass); markLoginTime(); }
+  catch (e) { signupErrorEl.textContent = e.message; }
 };
 backToLoginBtn.onclick = () => {
   signupView.style.display = "none"; loginView.style.display  = "block";
   signupErrorEl.textContent = ""; loginErrorEl.textContent = "";
 };
 
-// --- ナビゲーション ---
+/* ------------------------------
+ * ナビゲーション
+ * ------------------------------ */
 navAddBtn.addEventListener("click", () => { showView("add-case-view"); initAddCaseView(); });
 navSearchBtn.addEventListener("click", () => {
   showView("search-view");
@@ -414,10 +412,9 @@ navSearchBtn.addEventListener("click", () => {
   searchAll();
 });
 
-// ─────────────────────────────────────────────────────────────────
-// 画像／PDF から PDF417・CODABAR を抽出（PC / カメラ非対応向け）
-// ─────────────────────────────────────────────────────────────────
-
+/* ------------------------------
+ * 画像/PDF から PDF417・CODABAR を抽出（PC補助）
+ * ------------------------------ */
 async function decodeWithBarcodeDetectorFromBitmap(bitmap){
   if (!('BarcodeDetector' in window)) return null;
   try {
@@ -444,6 +441,7 @@ async function decodeFromImage(fileOrBlob){
   }
   return null;
 }
+// pdf.js を遅延ロード
 async function ensurePdfJsLoaded() {
   if (window.pdfjsLib) return;
   await new Promise((resolve, reject) => {
@@ -483,11 +481,14 @@ async function scanFileForCodes(file){
   return normalizeCodabar(String(v));
 }
 
-// --- 追跡行の生成 ---
+/* ------------------------------
+ * 追跡番号入力行の生成（add/detailで挙動が異なる）
+ * ------------------------------ */
 function createTrackingRow(context="add"){
   const row = document.createElement("div");
   row.className = "tracking-row";
-  // 運送会社セレクト
+
+  // 運送会社<select>（固定ON時は非表示）
   if (context === "add") {
     if (!fixedCarrierCheckbox.checked) {
       const sel = document.createElement("select");
@@ -515,13 +516,17 @@ function createTrackingRow(context="add"){
       row.appendChild(sel);
     }
   }
+
+  // 追跡番号入力 <input>
   const inp = document.createElement("input");
   inp.type = "text";
   inp.placeholder = "追跡番号を入力してください";
   inp.inputMode = "numeric";
   const uniqueId = `tracking-${Date.now()}-${Math.floor(Math.random()*1000)}`;
   inp.id = uniqueId;
-  inp.addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, ""); });
+  inp.addEventListener("input", e => { e.target.value = e.target.value.replace(/\\D/g, ""); });
+
+  // Enter/Tab で次行へ。最終行なら新規行を自動追加
   inp.addEventListener("keydown", e => {
     if(e.key === "Enter" || e.key === "Tab"){
       e.preventDefault();
@@ -541,7 +546,7 @@ function createTrackingRow(context="add"){
   });
   row.appendChild(inp);
 
-  // 端末がモバイルならカメラボタンを付与
+  // モバイルならカメラボタンを添付
   (function attachCaptureControls(){
     const canCamera = isMobileDevice() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
     if (canCamera) {
@@ -556,7 +561,7 @@ function createTrackingRow(context="add"){
     }
   })();
 
-  // 運送会社未選択の強調
+  // 行強調: 追跡入力済みなのにキャリア未選択なら強調
   function updateMissingHighlight() {
     const tnVal = inp.value.trim();
     let carrierVal;
@@ -572,7 +577,9 @@ function createTrackingRow(context="add"){
   return row;
 }
 
-// --- 詳細画面：一括運送会社指定 ---
+/* ------------------------------
+ * 詳細画面：固定キャリア切替（行<select>の付け外し）
+ * ------------------------------ */
 fixedCarrierCheckboxDetail.onchange = () => {
   fixedCarrierSelectDetail.style.display = fixedCarrierCheckboxDetail.checked ? "inline-block" : "none";
   Array.from(detailTrackingRows.children).forEach(row => {
@@ -593,7 +600,9 @@ fixedCarrierCheckboxDetail.onchange = () => {
   });
 };
 
-// --- 初期化：案件追加 ---
+/* ------------------------------
+ * 追加画面の初期化
+ * ------------------------------ */
 function initAddCaseView(){
   scanModeDiv.style.display     = "block";
   manualModeDiv.style.display   = "none";
@@ -611,7 +620,7 @@ function initAddCaseView(){
   for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow());
 }
 
-// --- 行追加・固定キャリア切替 ---
+// 追跡行の追加と固定キャリアON/OFF切替（追加画面）
 addTrackingRowBtn.onclick = () => {
   for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow());
 };
@@ -638,14 +647,15 @@ fixedCarrierCheckbox.onchange = () => {
   });
 };
 
-// --- IME無効化 ---
+// IME無効（QR欄）
 caseBarcodeInput.addEventListener("compositionstart", e => e.preventDefault());
 
-// ★ ヘルパー：日付文字列を YYYY-MM-DD に正規化
+/* ------------------------------
+ * 日付の緩い正規化（YYYY-MM-DD）と下版日抽出
+ * ------------------------------ */
 function normalizeDateString(s) {
   if (!s) return "";
-  // 「YYYY年MM月DD日」や「YYYY/MM/DD」「YYYY-MM-DD」「YYYY.MM.DD」などを許容
-  const nums = (s.match(/\d{1,4}/g) || []).map(n => parseInt(n, 10));
+  const nums = (s.match(/\\d{1,4}/g) || []).map(n => parseInt(n, 10));
   if (nums.length >= 3) {
     let y = nums[0]; let m = nums[1]; let d = nums[2];
     if (y < 100) y = 2000 + y;
@@ -658,22 +668,18 @@ function normalizeDateString(s) {
   }
   return "";
 }
-
-// ★ ヘルパー：解凍後の配列から「下版日」を抽出
 function extractPlateDateField(text) {
-  // まずは "xxx" で囲まれた項目を優先
-  let fields = Array.from(text.matchAll(/"([^"]*)"/g), m=>m[1]);
-  if (fields.length === 0) {
-    // カンマ/タブ/改行区切りでも試す
-    fields = text.split(/[\,\t\r\n]+/).map(s => s.trim()).filter(Boolean);
-  }
+  let fields = Array.from(text.matchAll(/\"([^\"]*)\"/g), m=>m[1]);
+  if (fields.length === 0) fields = text.split(/[\\,\\t\\r\\n]+/).map(s => s.trim()).filter(Boolean);
   let val = "";
   if (fields.length === 4) val = fields[3];
   else if (fields.length >= 10) val = fields[9];
   return normalizeDateString(val);
 }
 
-// --- 案件バーコード確定処理（関数化） ---
+/* ------------------------------
+ * 案件バーコード確定処理（ZLIB64対応）
+ * ------------------------------ */
 function processCaseBarcode(raw){
   if(!raw) return;
   let text;
@@ -692,7 +698,7 @@ function processCaseBarcode(raw){
     return;
   }
   text = text.trim().replace(/「[^」]*」/g, "");
-  const matches = Array.from(text.matchAll(/"([^"]*)"/g), m=>m[1]);
+  const matches = Array.from(text.matchAll(/\"([^\"]*)\"/g), m=>m[1]);
   detailOrderId.textContent  = matches[0] || "";
   detailCustomer.textContent = matches[1] || "";
   detailTitle.textContent    = matches[2] || "";
@@ -702,13 +708,13 @@ function processCaseBarcode(raw){
   caseDetailsDiv.style.display = "block";
 }
 
-// --- QR→テキスト展開＆表示（Enterで確定） ---
+// EnterでQR欄確定
 caseBarcodeInput.addEventListener("keydown", e => {
   if(e.key !== "Enter") return;
   processCaseBarcode(caseBarcodeInput.value.trim());
 });
 
-// --- 手動確定 ---
+// 手動入力モードと往復
 startManualBtn.onclick = () => { scanModeDiv.style.display = "none"; manualModeDiv.style.display = "block"; };
 startScanBtn.onclick   = () => { manualModeDiv.style.display = "none"; scanModeDiv.style.display  = "block"; };
 manualConfirmBtn.onclick = () => {
@@ -723,9 +729,10 @@ manualConfirmBtn.onclick = () => {
   caseDetailsDiv.style.display = "block";
 };
 
-// ================================================================
-//  暗号化ユーティリティ（AES-GCM + PBKDF2）
-// ================================================================
+/* ------------------------------
+ * 暗号化ユーティリティ（AES-GCM + PBKDF2）
+ *  - データベースには復号不能な enc を保存し、表示時に端末側で復号
+ * ------------------------------ */
 const PEPPER = "p9r7WqZ1-LocalPepper-ChangeIfNeeded";
 function b64(bytes){ return btoa(String.fromCharCode(...bytes)); }
 function b64dec(str){ return new Uint8Array([...atob(str)].map(c=>c.charCodeAt(0))); }
@@ -764,7 +771,9 @@ async function decryptForUser(uid, encObj){
   return JSON.parse(new TextDecoder().decode(new Uint8Array(pt)));
 }
 
-// --- 登録（案件＋追跡） ---
+/* ------------------------------
+ * 案件登録（案件情報 + 追跡）
+ * ------------------------------ */
 confirmAddCaseBtn.onclick = async () => {
   const orderId  = detailOrderId.textContent.trim();
   const customer = detailCustomer.textContent.trim();
@@ -772,81 +781,78 @@ confirmAddCaseBtn.onclick = async () => {
   const plateStr = (detailPlateDate.textContent || "").trim();
   const plateTs  = plateStr ? new Date(plateStr).getTime() : null;
 
-  if (!orderId || !customer || !title) {
-    addCaseMsg.textContent = "情報不足";
-    return;
-  }
+  if (!orderId || !customer || !title) { addCaseMsg.textContent = "情報不足"; return; }
 
-  // ここから処理中表示＋多重実行防止
   showLoading();
   confirmAddCaseBtn.disabled = true;
   anotherCaseBtn.disabled = true;
 
   try {
-    // 追加順で取得（createdAt ソート）
-    const snap = await db.ref(`shipments/${orderId}`).orderByChild('createdAt').once('value');
-  
-    // 追跡が無い場合のUI
-    if (!snap.exists()) {
-      const li = document.createElement("li");
-      li.textContent = "追跡が登録されていません";
-      li.className = "ship-empty";
-      detailShipmentsUl.appendChild(li);
-      return; // finally でホイールを閉じる
-    }
-  
-    let lastStatusPromise = null;
-    let rowSeq = 1;
-  
-    snap.forEach(child => {
-      const it = child.val();
-      const label = carrierLabels[it.carrier] || it.carrier;
-  
-      // 表示要素
-      const seqNum = rowSeq++; // 画面上の順番を先に確定
-      const a = document.createElement("a");
-      a.href = it.carrier === 'hida'
-        ? carrierUrls[it.carrier]
-        : (carrierUrls[it.carrier] + encodeURIComponent(it.tracking));
-      a.target = "_blank";
-      a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
-  
-      const li = document.createElement("li");
-      li.appendChild(a);
-      detailShipmentsUl.appendChild(li);
-  
-      // ステータス取得
-      const p = fetchStatus(it.carrier, it.tracking)
-        .then(({ status, time, location }) => {
-          a.textContent = formatShipmentText(seqNum, it.carrier, it.tracking, status, time, location);
-          li.className = "ship-" + classifyStatus(status);
-        })
-        .catch(err => {
-          console.error("fetchStatus error:", { orderId, it, err });
-          a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
-          li.className = "ship-exception";
-        });
-  
-      lastStatusPromise = p;
+    // 既存追跡の重複抑止セット
+    const snap = await db.ref(`shipments/${orderId}`).once("value");
+    const existObj = snap.val() || {};
+    const existSet = new Set(Object.values(existObj).map(it => `${it.carrier}:${it.tracking}`));
+    const items = [];
+    let missingCarrier = false;
+
+    // 行強調リセット
+    Array.from(trackingRows.children).forEach(row => row.classList.remove('missing-carrier'));
+
+    // 入力走査
+    Array.from(trackingRows.children).forEach(row => {
+      let tn = row.querySelector("input").value.trim();
+      const carrier = fixedCarrierCheckbox.checked ? fixedCarrierSelect.value : row.querySelector("select")?.value;
+      if (tn && !carrier) { missingCarrier = true; row.classList.add('missing-carrier'); }
+      if (!tn || !carrier) return;
+
+      tn = normalizeTrackingForSave(carrier, tn);
+      const key = `${carrier}:${tn}`;
+      if (existSet.has(key)) return;
+      existSet.add(key);
+      items.push({ carrier, tracking: tn });
     });
-  
-    if (lastStatusPromise) await lastStatusPromise;
-  } catch (e) {
-    console.error("shipments 読み込み失敗:", { orderId, error: e });
-    const li = document.createElement("li");
-    li.textContent = "読み込みに失敗しました。権限設定またはネットワークを確認してください。";
-    li.className = "ship-exception";
-    detailShipmentsUl.appendChild(li);
+
+    if (missingCarrier) { addCaseMsg.textContent = "運送会社を選択してください"; return; }
+    if (items.length === 0) { alert("新規追跡なし"); return; }
+
+    // 案件情報を暗号化し保存
+    const uid = (auth.currentUser && auth.currentUser.uid) || "guest";
+    const enc = await encryptForUser(uid, { 得意先: customer, 品名: title, 下版日: plateStr || null });
+
+    await db.ref(`cases/${orderId}`).set({
+      注番: orderId,
+      createdAt: Date.now(),
+      plateDateTs: plateTs,
+      enc
+    });
+
+    // 追跡を追加
+    for (const it of items) {
+      await db.ref(`shipments/${orderId}`).push({
+        carrier: it.carrier,
+        tracking: it.tracking,
+        createdAt: Date.now()
+      });
+    }
+
+    addCaseMsg.textContent = "登録完了";
+    await showCaseDetail(orderId, { 注番: orderId, enc, plateDateTs: plateTs });
+  } catch (err) {
+    console.error(err);
+    addCaseMsg.textContent = "登録に失敗しました";
   } finally {
     hideLoading();
+    confirmAddCaseBtn.disabled = false;
+    anotherCaseBtn.disabled = false;
   }
 };
 
-// --- 別案件追加ボタン ---
+/* ------------------------------
+ * 検索結果描画と全選択状態更新
+ * ------------------------------ */
 anotherCaseBtn.onclick = () => { showView("add-case-view"); initAddCaseView(); };
-anotherCaseBtn2.onclick = () => { showView("add-case-view"); initAddCaseView(); };
+anotherCaseBtn2 && (anotherCaseBtn2.onclick = () => { showView("add-case-view"); initAddCaseView(); });
 
-// --- 検索結果描画 ---
 function renderSearchResults(list){
   searchResults.innerHTML = "";
   list.forEach(item => {
@@ -875,8 +881,6 @@ function renderSearchResults(list){
   boxes.forEach(cb => { cb.onchange = updateSelectAllState; });
   updateSelectAllState();
 }
-
-// 全選択チェックボックスの状態を更新
 function updateSelectAllState() {
   if (!isAdmin) return;
   const boxes = searchResults.querySelectorAll(".select-case-checkbox");
@@ -884,7 +888,9 @@ function updateSelectAllState() {
   selectAllCheckbox.checked = (boxes.length > 0 && boxes.length === checked.length);
 }
 
-// --- 検索／全件（既定：下版日で絞り込み） ---
+/* ------------------------------
+ * 検索／全件一覧（createdAt or plateDateTs）
+ * ------------------------------ */
 function searchAll(kw=""){
   db.ref("cases").once("value").then(async snap => {
     const data = snap.val() || {};
@@ -900,7 +906,6 @@ function searchAll(kw=""){
     const uid = (auth.currentUser && auth.currentUser.uid) || "guest";
 
     for (const [orderId, obj] of Object.entries(data)) {
-      // 期間絞り込み（選択基準）
       const baseTs = obj[basis] ?? obj.createdAt ?? 0;
       if (startTs !== null && baseTs < startTs) continue;
       if (endTs   !== null && baseTs > endTs)   continue;
@@ -914,31 +919,28 @@ function searchAll(kw=""){
           view.品名   = dec?.品名   || "";
           view.下版日 = dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
         } catch(_) {
-          // 旧データ互換または復号失敗時
           view.得意先 = obj.得意先 || "";
           view.品名   = obj.品名   || "";
           view.下版日 = obj.下版日 || "";
         }
       } else {
-        // 旧データ互換
         view.得意先 = obj.得意先 || "";
         view.品名   = obj.品名   || "";
         view.下版日 = obj.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
       }
 
-      // キーワード一致判定（注番/得意先/品名）
       const matchKw = !kw || orderId.includes(kw) || (view.得意先 || "").includes(kw) || (view.品名 || "").includes(kw);
       if (!matchKw) continue;
-
       res.push(view);
     }
 
-    // 新→古順（登録日基準）
+    // 登録日の新→古
     res.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
     renderSearchResults(res);
   });
 }
 
+// 検索UI
 searchBtn.onclick = () => {
   const kw = searchInput.value.trim();
   const hasKw = kw.length > 0;
@@ -961,7 +963,9 @@ listAllBtn.onclick = () => {
   searchAll();
 };
 
-// 選択削除（管理者のみ）
+/* ------------------------------
+ * 管理者のみ：選択削除（cases と shipments の両方削除）
+ * ------------------------------ */
 deleteSelectedBtn.onclick = async () => {
   const checkboxes = searchResults.querySelectorAll(".select-case-checkbox:checked");
   const count = checkboxes.length;
@@ -983,9 +987,9 @@ deleteSelectedBtn.onclick = async () => {
   updateSelectAllState();
 };
 
-// ================================================================
-// ステータス分類
-// ================================================================
+/* ------------------------------
+ * 追跡ステータス分類と表記生成
+ * ------------------------------ */
 function classifyStatus(status){
   const s = String(status || "");
   if (/(配達完了|お届け完了|配達済みです|配達済み)/.test(s)) return "delivered";
@@ -995,11 +999,55 @@ function classifyStatus(status){
   return "unknown";
 }
 
-// --- 詳細＋ステータス取得（表示時に復号も行う） ---
+// Cloudflare Worker 経由でステータス取得
+async function fetchStatus(carrier, tracking) {
+  const c = carrier;
+  if (c === 'hida') return { status: '非対応', time: null };
+  const sendTracking = trackingForApi(c, tracking);
+  const url = `https://track-api.hr46-ksg.workers.dev/?carrier=${encodeURIComponent(c)}&tracking=${encodeURIComponent(sendTracking)}`;
+  let res;
+  try { res = await fetch(url); }
+  catch (e) { console.error('fetch network error', { url, carrier: c, tracking: sendTracking, error: e }); throw e; }
+  if (!res.ok) {
+    const msg = await res.text().catch(()=> '');
+    console.error('fetch http error', { url, status: res.status, body: msg });
+    throw new Error(`HTTP ${res.status} ${msg}`);
+  }
+  return res.json();
+}
+function getTimeLabel(carrier, status, time) {
+  if (!time || time.includes('：')) return '';
+  if (carrier === 'seino') return (status === '配達済みです') ? '配達日時:' : '最新日時:';
+  if (carrier === 'yamato' || carrier === 'tonami') {
+    if (status === '配達完了' || status === 'お届け完了' || status === '配達済み') return '配達日時:';
+    return '予定日時:';
+  }
+  if (status && status.includes('配達完了')) return '配達日時:';
+  return '予定日時:';
+}
+function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
+  const label = carrierLabels[carrier] || carrier;
+  const displayTracking = formatTrackingForDisplay(carrier, tracking);
+  if (carrier === 'hida') return `${seqNum}：${label}：${displayTracking}：${status}`;
+  const tl = getTimeLabel(carrier, status, time);
+  if (location && String(location).trim() !== "") {
+    if (time) return `${seqNum}：${label}：${displayTracking}：担当店名：${location}：${status}　${tl ? tl : ''}${time}`;
+    return `${seqNum}：${label}：${displayTracking}：担当店名：${location}：${status}`;
+  }
+  if (time) return `${seqNum}：${label}：${displayTracking}：${status}　${tl ? tl : ''}${time}`;
+  return `${seqNum}：${label}：${displayTracking}：${status}`;
+}
+
+/* ------------------------------
+ * 案件詳細＋ステータス取得
+ *  - pushキー昇順で描画し、非同期でもラベル連番を固定
+ *  - 最後の fetch が終わるまでホイール維持
+ * ------------------------------ */
 async function showCaseDetail(orderId, obj){
-  showLoading(); // ← 開始時にホイール表示
+  showLoading();
   showView("case-detail-view");
 
+  // 復号＋ヘッダ表示
   let view = { 注番: orderId, 得意先: "", 品名: "", 下版日: "", plateDateTs: obj?.plateDateTs, createdAt: obj?.createdAt };
   try {
     if (obj && obj.enc) {
@@ -1013,46 +1061,53 @@ async function showCaseDetail(orderId, obj){
       view.下版日 = obj?.下版日 || (obj?.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
     }
   } catch(_) {}
-
   const plateView = view.下版日 || (view.plateDateTs ? new Date(view.plateDateTs).toLocaleDateString('ja-JP') : "");
   detailInfoDiv.innerHTML = `<div>受注番号: ${orderId}</div><div>得意先: ${view.得意先}</div><div>品名: ${view.品名}</div><div>下版日: ${plateView}</div>`;
 
+  // 追跡一覧の初期化
   detailShipmentsUl.innerHTML = "";
   currentOrderId = orderId;
   addTrackingDetail.style.display = "none";
   detailTrackingRows.innerHTML = "";
   detailAddMsg.textContent = "";
-  detailAddRowBtn.disabled = false;
-  confirmDetailAddBtn.disabled = false;
-  cancelDetailAddBtn.disabled = false;
+  if (detailAddRowBtn)     detailAddRowBtn.disabled = false;
+  if (confirmDetailAddBtn) confirmDetailAddBtn.disabled = false;
+  if (cancelDetailAddBtn)  cancelDetailAddBtn.disabled = false;
 
   try {
-    // キー順で取得（DB追加順）
+    // pushキー昇順（= 追加順）で取得
     const snap = await db.ref(`shipments/${orderId}`).orderByKey().once("value");
-  
+
+    if (!snap.exists()) {
+      const li = document.createElement("li");
+      li.textContent = "追跡が登録されていません";
+      li.className = "ship-empty";
+      detailShipmentsUl.appendChild(li);
+      return;
+    }
+
     let lastStatusPromise = null;
-    let rowSeq = 1; // 画面上の順番用
-  
+    let rowSeq = 1; // 画面上の連番
+
     snap.forEach(child => {
       const it = child.val();
       const label = carrierLabels[it.carrier] || it.carrier;
-  
-      const seqNum = rowSeq++; // ← ここで確定して保持
-  
+
+      const seqNum = rowSeq++; // ここで確定しクロージャへ渡す
+
       const a = document.createElement("a");
       a.href = it.carrier === 'hida'
         ? carrierUrls[it.carrier]
         : (carrierUrls[it.carrier] + encodeURIComponent(it.tracking));
       a.target = "_blank";
       a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
-  
+
       const li = document.createElement("li");
       li.appendChild(a);
       detailShipmentsUl.appendChild(li);
-  
+
       const p = fetchStatus(it.carrier, it.tracking)
         .then(({ status, time, location }) => {
-          // 非同期でも seqNum はループ順で固定
           a.textContent = formatShipmentText(seqNum, it.carrier, it.tracking, status, time, location);
           li.className = "ship-" + classifyStatus(status);
         })
@@ -1061,10 +1116,10 @@ async function showCaseDetail(orderId, obj){
           a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
           li.className = "ship-exception";
         });
-  
+
       lastStatusPromise = p;
     });
-  
+
     if (lastStatusPromise) await lastStatusPromise;
   } finally {
     hideLoading();
@@ -1073,7 +1128,11 @@ async function showCaseDetail(orderId, obj){
 
 backToSearchBtn.onclick = () => showView("search-view");
 
-// --- 追跡番号追加フォーム操作 ---
+/* ------------------------------
+ * 追跡番号追加（詳細画面）
+ *  - 固定キャリアが有効なら必須。無効なら各行<select>から取得
+ *  - 追加後は最後のステータス反映までホイール維持
+ * ------------------------------ */
 showAddTrackingBtn.onclick = () => {
   addTrackingDetail.style.display = "block";
   detailTrackingRows.innerHTML = "";
@@ -1088,89 +1147,7 @@ cancelDetailAddBtn.onclick = () => {
   showAddTrackingBtn.style.display = "inline-block";
 };
 
-// fetchStatus ヘルパー（Cloudflare Worker を利用）
-async function fetchStatus(carrier, tracking) {
-  const c = carrier;
-  if (c === 'hida') return { status: '非対応', time: null };
-  const sendTracking = trackingForApi(c, tracking);
-  const url = `https://track-api.hr46-ksg.workers.dev/?carrier=${encodeURIComponent(c)}&tracking=${encodeURIComponent(sendTracking)}`;
-  let res;
-  try {
-    res = await fetch(url);
-  } catch (e) {
-    console.error('fetch network error', { url, carrier: c, tracking: sendTracking, error: e });
-    throw e;
-  }
-  if (!res.ok) {
-    const msg = await res.text().catch(()=> '');
-    console.error('fetch http error', { url, status: res.status, body: msg });
-    throw new Error(`HTTP ${res.status} ${msg}`);
-  }
-  return res.json();
-}
-
-// 時間ラベルの生成
-function getTimeLabel(carrier, status, time) {
-  if (!time || time.includes('：')) return '';
-  if (carrier === 'seino') {
-    if (status === '配達済みです') return '配達日時:';
-    return '最新日時:';
-  }
-  if (carrier === 'yamato' || carrier === 'tonami') {
-    if (status === '配達完了' || status === 'お届け完了' || status === '配達済み') return '配達日時:';
-    return '予定日時:';
-  }
-  if (status && status.includes('配達完了')) return '配達日時:';
-  return '予定日時:';
-}
-
-// 表示用の文面整形（追跡番号は表示用に加工）
-function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
-  const label = carrierLabels[carrier] || carrier;
-  const displayTracking = formatTrackingForDisplay(carrier, tracking);
-  if (carrier === 'hida') {
-    return `${seqNum}：${label}：${displayTracking}：${status}`;
-  }
-  const tl = getTimeLabel(carrier, status, time);
-  if (location && String(location).trim() !== "") {
-    if (time) return `${seqNum}：${label}：${displayTracking}：担当店名：${location}：${status}　${tl ? tl : ''}${time}`;
-    return `${seqNum}：${label}：${displayTracking}：担当店名：${location}：${status}`;
-  }
-  if (time) return `${seqNum}：${label}：${displayTracking}：${status}　${tl ? tl : ''}${time}`;
-  return `${seqNum}：${label}：${displayTracking}：${status}`;
-}
-
-// --- セッションタイムアウト（10分） ---
-function resetSessionTimer() {
-  try { markLoginTime(); } catch (_) {}
-  clearTimeout(sessionTimer);
-  sessionTimer = setTimeout(() => {
-    alert('セッションが10分を超えました。再度ログインしてください。');
-    try { if (auth && auth.currentUser) auth.signOut(); } catch (_) {}
-    try { if (emailInput) emailInput.value = ""; } catch (_) {}
-    try { if (passwordInput) passwordInput.value = ""; } catch (_) {}
-    try { localStorage.removeItem('loginTime'); } catch (_) {}
-  }, SESSION_LIMIT_MS);
-}
-function startSessionTimer() {
-  resetSessionTimer();
-  ['click','keydown','touchstart','input','change'].forEach(evt => 
-    document.addEventListener(evt, resetSessionTimer, true));
-  if (!window.__inactivityInterval) {
-    window.__inactivityInterval = setInterval(() => {
-      try {
-        if (auth && auth.currentUser && isSessionExpired()) {
-          alert('セッションが10分を超えました。再度ログインしてください。');
-          auth.signOut().catch(()=>{});
-          clearInterval(window.__inactivityInterval);
-          window.__inactivityInterval = null;
-        }
-      } catch (_) {}
-    }, 30 * 1000);
-  }
-}
-
-// --- 詳細画面：追跡番号追加 登録 ---
+// Worker 経由のステータス取得は上に定義済み
 function getFixedCarrierValue(){
   const detailOn = !!(window.fixedCarrierCheckboxDetail && fixedCarrierCheckboxDetail.checked);
   const commonOn = !!(window.fixedCarrierCheckbox && fixedCarrierCheckbox.checked);
@@ -1179,15 +1156,10 @@ function getFixedCarrierValue(){
   return "";
 }
 
-function qs(id){ return document.getElementById(id); }
-
+// 追跡番号追加 確定（DOMContentLoaded 後に一度だけバインド）
 document.addEventListener("DOMContentLoaded", () => {
-  if (!confirmDetailAddBtn) {
-    console.error("#confirm-detail-add-btn が見つかりません");
-    return;
-  }
-  
-  // 追跡番号追加 確定
+  if (!confirmDetailAddBtn) { console.error("#confirm-detail-add-btn が見つかりません"); return; }
+
   confirmDetailAddBtn.onclick = async () => {
     showLoading();
     confirmDetailAddBtn.disabled = true;
@@ -1196,60 +1168,59 @@ document.addEventListener("DOMContentLoaded", () => {
     detailAddMsg.textContent = "";
     const detailAddWarn = document.getElementById("detailAddWarn");
     if (detailAddWarn) detailAddWarn.textContent = "";
-  
+
     try {
       if (!currentOrderId) throw new Error("currentOrderId 未設定");
-  
-      // 既存重複セット
+
+      // 既存重複の抑止
       const snap = await db.ref(`shipments/${currentOrderId}`).once("value");
       const exist = snap.val() || {};
       const existSet = new Set(Object.values(exist).map(v => `${v.carrier}:${v.tracking}`));
-  
-      // 固定キャリア取得
+
+      // 固定キャリアの取得と必須チェック
       const fixedVal = getFixedCarrierValue();
       const fixedCheckboxOn = !!(window.fixedCarrierCheckboxDetail?.checked || window.fixedCarrierCheckbox?.checked);
       if (fixedCheckboxOn && !fixedVal) {
         const msg = "固定の運送会社を選択してください";
         detailAddMsg.textContent = msg;
-        if (detailAddWarn) detailAddWarn.textContent = msg;   // ← ボタン上にも表示
+        if (detailAddWarn) detailAddWarn.textContent = msg;
         return;
       }
-  
-      // 入力収集
+
+      // 入力集約
       const rows = Array.from(detailTrackingRows.querySelectorAll(".tracking-row"));
       rows.forEach(r => r.classList.remove("missing-carrier"));
-  
+
       const items = [];
       let missingCarrier = false;
-  
+
       for (const r of rows) {
-        // 固定が有効なら全行これを使う。無効時のみ行<select>
         const carrier = fixedVal || (r.querySelector("select")?.value || "");
         let tracking  = (r.querySelector('input[type="text"]')?.value || "").trim();
-  
+
         if (!tracking) continue;
         if (!carrier) { missingCarrier = true; r.classList.add("missing-carrier"); continue; }
-  
+
         tracking = normalizeTrackingForSave(carrier, tracking);
         const k = `${carrier}:${tracking}`;
         if (existSet.has(k)) continue;
         existSet.add(k);
         items.push({ carrier, tracking });
       }
-  
+
       if (missingCarrier) {
         const msg = "運送会社を選択してください";
         detailAddMsg.textContent = msg;
-        if (detailAddWarn) detailAddWarn.textContent = msg;   // ← ボタン上にも表示
+        if (detailAddWarn) detailAddWarn.textContent = msg;
         return;
       }
       if (items.length === 0) { detailAddMsg.textContent = "追加対象がありません"; return; }
-  
-      // 登録
+
+      // DB 登録（並列）
       const ref = db.ref(`shipments/${currentOrderId}`);
       await Promise.all(items.map(it => ref.push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() })));
-  
-      // 画面反映＋最後までホイール維持
+
+      // 即時描画＋ステータス反映
       let seqBase = detailShipmentsUl.children.length;
       let lastP = null;
       for (const it of items) {
@@ -1261,7 +1232,7 @@ document.addEventListener("DOMContentLoaded", () => {
         a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
         li.appendChild(a);
         detailShipmentsUl.appendChild(li);
-  
+
         const p = fetchStatus(it.carrier, it.tracking)
           .then(({ status, time, location }) => {
             const seq = ++seqBase;
@@ -1273,11 +1244,12 @@ document.addEventListener("DOMContentLoaded", () => {
             a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
             li.className = "ship-exception";
           });
-  
+
         lastP = p;
       }
       if (lastP) await lastP;
-  
+
+      // 正常終了UI
       detailAddMsg.textContent = "追加しました";
       if (detailAddWarn) detailAddWarn.textContent = "";
       detailTrackingRows.innerHTML = "";
@@ -1285,6 +1257,7 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       const msg = `追加に失敗しました: ${e.message || e}`;
       detailAddMsg.textContent = msg;
+      const detailAddWarn = document.getElementById("detailAddWarn");
       if (detailAddWarn) detailAddWarn.textContent = msg;
       console.error("追跡番号追加エラー:", e);
     } finally {
@@ -1296,7 +1269,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 });
 
-// --- 画面初期表示 ---
+/* ------------------------------
+ * 初期表示（ログイン状態に応じてビュー切替）
+ * ------------------------------ */
 auth.onAuthStateChanged(async user => {
   if (user) {
     try {
@@ -1320,3 +1295,35 @@ auth.onAuthStateChanged(async user => {
     mainView.style.display = "none";
   }
 });
+
+/* ------------------------------
+ * セッション延長タイマー
+ * ------------------------------ */
+function resetSessionTimer() {
+  try { markLoginTime(); } catch (_) {}
+  clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(() => {
+    alert('セッションが10分を超えました。再度ログインしてください。');
+    try { if (auth && auth.currentUser) auth.signOut(); } catch (_) {}
+    try { if (emailInput) emailInput.value = ""; } catch (_) {}
+    try { if (passwordInput) passwordInput.value = ""; } catch (_) {}
+    try { localStorage.removeItem('loginTime'); } catch (_) {}
+  }, SESSION_LIMIT_MS);
+}
+function startSessionTimer() {
+  resetSessionTimer();
+  ['click','keydown','touchstart','input','change'].forEach(evt =>
+    document.addEventListener(evt, resetSessionTimer, true));
+  if (!window.__inactivityInterval) {
+    window.__inactivityInterval = setInterval(() => {
+      try {
+        if (auth && auth.currentUser && isSessionExpired()) {
+          alert('セッションが10分を超えました。再度ログインしてください。');
+          auth.signOut().catch(()=>{});
+          clearInterval(window.__inactivityInterval);
+          window.__inactivityInterval = null;
+        }
+      } catch (_) {}
+    }, 30 * 1000);
+  }
+}
