@@ -387,25 +387,29 @@ function ensureDetailNavButtonsVisible() {
   }
 }
 
-function mountActionButtons(viewId){
-  const view = document.getElementById(viewId);
+function mountDetailActionButtons(){
+  const view = document.getElementById("case-detail-view");
   if (!view) return;
 
   // アクションバー（なければ作成）
-  let bar = document.getElementById(`${viewId}-actions`);
+  let bar = document.getElementById("case-detail-actions");
   if (!bar) {
     bar = document.createElement("div");
-    bar.id = `${viewId}-actions`;
-    bar.style.marginTop = "16px";
-    bar.style.textAlign = "center";
-    view.appendChild(bar); // 一番下に追加
+    bar.id = "case-detail-actions";
+    bar.style.marginTop = "16px"; // 下部に余白
+    bar.style.textAlign = "center"; // 中央寄せ（任意）
+
+    // 一番下に置く
+    view.appendChild(bar);
   }
 
+  // ボタンを add-tracking-detail 配下などから退避してバーへ移動
   const back = document.getElementById("back-to-search-btn");
   const another = document.getElementById("another-case-btn-2");
   if (back && back.parentElement !== bar) bar.appendChild(back);
   if (another && another.parentElement !== bar) bar.appendChild(another);
 
+  // ハンドラ設定（重複防止用フラグ付き）
   if (back && !back.__mounted) {
     back.onclick = () => showView("search-view");
     back.__mounted = true;
@@ -485,7 +489,6 @@ navSearchBtn.addEventListener("click", () => {
   if (anotherCaseBtn2 && anotherCaseBtn2.style.display === "none") anotherCaseBtn2.style.display = "";
 
   searchAll();
-  mountActionButtons("search-view");
   ensureDetailNavButtonsVisible();
 });
 
@@ -1010,7 +1013,6 @@ searchBtn.onclick = () => {
     startDateInput.value = "";
     endDateInput.value = "";
     searchAll();
-    mountActionButtons("search-view");
   } else {
     searchAll(kw);
   }
@@ -1106,7 +1108,7 @@ function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
 async function showCaseDetail(orderId, obj){
   showLoading();
   showView("case-detail-view");
-  mountActionButtons("case-detail-view");
+  mountDetailActionButtons();
   ensureDetailNavButtonsVisible();
 
   // 復号＋ヘッダ表示
