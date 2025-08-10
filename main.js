@@ -996,8 +996,9 @@ function classifyStatus(status){
 
 // --- 詳細＋ステータス取得（表示時に復号も行う） ---
 async function showCaseDetail(orderId, obj){
+  showLoading(); // ← 開始時にホイール表示
   showView("case-detail-view");
-  // obj が暗号化のみの場合は復号
+
   let view = { 注番: orderId, 得意先: "", 品名: "", 下版日: "", plateDateTs: obj?.plateDateTs, createdAt: obj?.createdAt };
   try {
     if (obj && obj.enc) {
@@ -1024,33 +1025,47 @@ async function showCaseDetail(orderId, obj){
   confirmDetailAddBtn.disabled = false;
   cancelDetailAddBtn.disabled = false;
 
-  const snap = await db.ref(`shipments/${orderId}`).once("value");
-  const list = snap.val() || {};
-  let index = 1;
-  for (const key of Object.keys(list)) {
-    const it = list[key];
-    const label = carrierLabels[it.carrier] || it.carrier;
-    const a = document.createElement("a");
-    if (it.carrier === 'hida') a.href = carrierUrls[it.carrier];
-    else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking); // リンクは保存済み番号（正規化後）
-    a.target = "_blank";
-    // 表示は福山のみ末尾01を除去（保存時に除去済みだが安全のため）
-    a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
-    const li = document.createElement("li");
-    li.appendChild(a);
-    detailShipmentsUl.appendChild(li);
-    try {
-      // ▼API呼び出しは必要に応じて末尾01を除去して送る
-      const json = await fetchStatus(it.carrier, it.tracking);
-      const { status, time, location } = json;
-      const seqNum = index++; // 連番
-      a.textContent = formatShipmentText(seqNum, it.carrier, it.tracking, status, time, location);
-      li.className = "ship-" + classifyStatus(status);
-    } catch (err) {
-      console.error("fetchStatus error:", err);
-      a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
-      li.className = "ship-exception";
+  try {
+    const snap = await db.ref(`shipments/${orderId}`).once("value");
+    const list = snap.val() || {};
+    let index = 1;
+    let lastStatusPromise = null;
+
+    for (const key of Object.keys(list)) {
+      const it = list[key];
+      const label = carrierLabels[it.carrier] || it.carrier;
+      const a = document.createElement("a");
+      if (it.carrier === 'hida') a.href = carrierUrls[it.carrier];
+      else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+      a.target = "_blank";
+      a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
+
+      const li = document.createElement("li");
+      li.appendChild(a);
+      detailShipmentsUl.appendChild(li);
+
+      const statusPromise = fetchStatus(it.carrier, it.tracking)
+        .then(json => {
+          const { status, time, location } = json;
+          const seqNum = index++;
+          a.textContent = formatShipmentText(seqNum, it.carrier, it.tracking, status, time, location);
+          li.className = "ship-" + classifyStatus(status);
+        })
+        .catch(err => {
+          console.error("fetchStatus error:", err);
+          a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
+          li.className = "ship-exception";
+        });
+
+      lastStatusPromise = statusPromise; // 最後のPromiseを更新
     }
+
+    // 最後の追跡番号取得まで待つ
+    if (lastStatusPromise) {
+      await lastStatusPromise;
+    }
+  } finally {
+    hideLoading(); // ← 最後にホイール非表示
   }
 }
 
