@@ -342,6 +342,41 @@ const loadingOverlay = document.getElementById("loadingOverlay");
 function showLoading(){ if (loadingOverlay) loadingOverlay.classList.remove("hidden"); }
 function hideLoading(){ if (loadingOverlay) loadingOverlay.classList.add("hidden"); }
 
+// --- モバイルメニューの表示制御 ---
+const mobileMenuBtn   = document.getElementById('mobile-menu-btn');
+const mobileMenuPanel = document.getElementById('mobile-menu-panel');
+const mobileMenuAdd   = document.getElementById('mobile-menu-add');
+const mobileMenuSearch= document.getElementById('mobile-menu-search');
+
+function updateMobileMenuVisibility(){
+  if (!isMobileDevice()) { mobileMenuBtn.style.display = 'none'; mobileMenuPanel.style.display = 'none'; return; }
+  // 上から少しスクロールしたら表示
+  mobileMenuBtn.style.display = (window.scrollY > 24) ? 'block' : 'none';
+  if (window.scrollY <= 24) mobileMenuPanel.style.display = 'none';
+}
+window.addEventListener('scroll', updateMobileMenuVisibility, { passive:true });
+window.addEventListener('resize', updateMobileMenuVisibility);
+updateMobileMenuVisibility();
+
+mobileMenuBtn.addEventListener('click', ()=>{
+  mobileMenuPanel.style.display = (mobileMenuPanel.style.display === 'none' || !mobileMenuPanel.style.display) ? 'block' : 'none';
+});
+document.addEventListener('click', (e)=>{
+  if (!mobileMenuPanel.contains(e.target) && e.target !== mobileMenuBtn) mobileMenuPanel.style.display = 'none';
+});
+
+mobileMenuAdd.addEventListener('click', ()=>{
+  mobileMenuPanel.style.display = 'none';
+  showView('add-case-view');
+  initAddCaseView();
+});
+mobileMenuSearch.addEventListener('click', ()=>{
+  mobileMenuPanel.style.display = 'none';
+  showView('search-view');
+  searchInput.value = ""; startDateInput.value = ""; endDateInput.value = "";
+  searchAll();
+});
+
 /* ------------------------------
  * セッションタイムアウト制御（10分）
  * ------------------------------ */
@@ -361,6 +396,10 @@ if (auth && auth.currentUser && isSessionExpired()) {
 
 // サブビュー切替
 function showView(id){
+  // 案件詳細から離れるタイミングで追跡番号追加の入力を必ずリセット
+  const wasDetailOpen = document.getElementById("case-detail-view")?.style.display === "block";
+  if (wasDetailOpen && id !== "case-detail-view") resetDetailAddForm();
+
   document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
   const target = document.getElementById(id);
   if (target) target.style.display = "block";
@@ -583,6 +622,23 @@ function createTrackingRow(context="add"){
   inp.addEventListener('input', updateMissingHighlight);
   sel.addEventListener('change', updateMissingHighlight);
   return row;
+}
+// --- 追跡番号追加フォームのリセット（案件詳細用） ---
+function resetDetailAddForm(){
+  if (!document.getElementById("case-detail-view")) return;
+  // 入力領域クリア
+  if (typeof stopScanning === 'function') stopScanning();
+  if (window.detailTrackingRows) detailTrackingRows.innerHTML = "";
+  if (window.detailAddMsg) detailAddMsg.textContent = "";
+  // 固定キャリア OFF + セレクト初期化
+  if (window.fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
+  if (window.fixedCarrierSelectDetail) {
+    fixedCarrierSelectDetail.value = "";
+    fixedCarrierSelectDetail.style.display = "none";
+  }
+  // 追加UIを閉じる／トグル初期化
+  if (window.addTrackingDetail) addTrackingDetail.style.display = "none";
+  if (window.showAddTrackingBtn) showAddTrackingBtn.style.display = "inline-block";
 }
 
 /* ------------------------------
