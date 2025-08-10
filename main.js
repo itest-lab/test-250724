@@ -1153,6 +1153,7 @@ async function showCaseDetail(orderId, obj){
   } finally {
     hideLoading();
   }
+  ensureDetailNavButtonsVisible();
 }
 
 backToSearchBtn.onclick = () => showView("search-view");
