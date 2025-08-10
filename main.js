@@ -781,63 +781,62 @@ confirmAddCaseBtn.onclick = async () => {
   anotherCaseBtn.disabled = true;
 
   try {
-    // 既存データ取得
-    const snap = await db.ref(`shipments/${orderId}`).once("value");
-    const existObj = snap.val() || {};
-    const existSet = new Set(Object.values(existObj).map(it => `${it.carrier}:${it.tracking}`));
-    const items = [];
-    let missingCarrier = false;
-
-    // 行ごとの強調を初期化
-    Array.from(trackingRows.children).forEach(row => row.classList.remove('missing-carrier'));
-
-    Array.from(trackingRows.children).forEach(row => {
-      let tn = row.querySelector("input").value.trim();
-      const carrier = fixedCarrierCheckbox.checked ? fixedCarrierSelect.value : row.querySelector("select")?.value;
-      if (tn && !carrier) { missingCarrier = true; row.classList.add('missing-carrier'); }
-      if (!tn || !carrier) return;
-
-      // 保存前に福山の末尾01は除去
-      tn = normalizeTrackingForSave(carrier, tn);
-
-      const key = `${carrier}:${tn}`;
-      if (existSet.has(key)) return;
-      existSet.add(key);
-      items.push({ carrier, tracking: tn });
-    });
-
-    if (missingCarrier) { addCaseMsg.textContent = "運送会社を選択してください"; return; }
-    if (items.length === 0) { alert("新規追跡なし"); return; }
-
-    // ケース情報を暗号化して保存
-    const uid = (auth.currentUser && auth.currentUser.uid) || "guest";
-    const enc = await encryptForUser(uid, { 得意先: customer, 品名: title, 下版日: plateStr || null });
-
-    await db.ref(`cases/${orderId}`).set({
-      注番: orderId,
-      createdAt: Date.now(),
-      plateDateTs: plateTs,
-      enc
-    });
-
-    // 新規追跡を登録
-    for (const it of items) {
-      await db.ref(`shipments/${orderId}`).push({
-        carrier: it.carrier,
-        tracking: it.tracking,
-        createdAt: Date.now()
-      });
+    // 追加順で取得（createdAt ソート）
+    const snap = await db.ref(`shipments/${orderId}`).orderByChild('createdAt').once('value');
+  
+    // 追跡が無い場合のUI
+    if (!snap.exists()) {
+      const li = document.createElement("li");
+      li.textContent = "追跡が登録されていません";
+      li.className = "ship-empty";
+      detailShipmentsUl.appendChild(li);
+      return; // finally でホイールを閉じる
     }
-
-    addCaseMsg.textContent = "登録完了";
-    await showCaseDetail(orderId, { 注番: orderId, enc, plateDateTs: plateTs });
-  } catch (err) {
-    console.error(err);
-    addCaseMsg.textContent = "登録に失敗しました";
+  
+    let lastStatusPromise = null;
+    let rowSeq = 1;
+  
+    snap.forEach(child => {
+      const it = child.val();
+      const label = carrierLabels[it.carrier] || it.carrier;
+  
+      // 表示要素
+      const seqNum = rowSeq++; // 画面上の順番を先に確定
+      const a = document.createElement("a");
+      a.href = it.carrier === 'hida'
+        ? carrierUrls[it.carrier]
+        : (carrierUrls[it.carrier] + encodeURIComponent(it.tracking));
+      a.target = "_blank";
+      a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
+  
+      const li = document.createElement("li");
+      li.appendChild(a);
+      detailShipmentsUl.appendChild(li);
+  
+      // ステータス取得
+      const p = fetchStatus(it.carrier, it.tracking)
+        .then(({ status, time, location }) => {
+          a.textContent = formatShipmentText(seqNum, it.carrier, it.tracking, status, time, location);
+          li.className = "ship-" + classifyStatus(status);
+        })
+        .catch(err => {
+          console.error("fetchStatus error:", { orderId, it, err });
+          a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
+          li.className = "ship-exception";
+        });
+  
+      lastStatusPromise = p;
+    });
+  
+    if (lastStatusPromise) await lastStatusPromise;
+  } catch (e) {
+    console.error("shipments 読み込み失敗:", { orderId, error: e });
+    const li = document.createElement("li");
+    li.textContent = "読み込みに失敗しました。権限設定またはネットワークを確認してください。";
+    li.className = "ship-exception";
+    detailShipmentsUl.appendChild(li);
   } finally {
     hideLoading();
-    confirmAddCaseBtn.disabled = false;
-    anotherCaseBtn.disabled = false;
   }
 };
 
