@@ -255,6 +255,41 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// --- モバイルメニューの表示制御 ---
+const mobileMenuBtn   = document.getElementById('mobile-menu-btn');
+const mobileMenuPanel = document.getElementById('mobile-menu-panel');
+const mobileMenuAdd   = document.getElementById('mobile-menu-add');
+const mobileMenuSearch= document.getElementById('mobile-menu-search');
+
+function updateMobileMenuVisibility(){
+  if (!isMobileDevice()) { mobileMenuBtn.style.display = 'none'; mobileMenuPanel.style.display = 'none'; return; }
+  // 上から少しスクロールしたら表示
+  mobileMenuBtn.style.display = (window.scrollY > 24) ? 'block' : 'none';
+  if (window.scrollY <= 24) mobileMenuPanel.style.display = 'none';
+}
+window.addEventListener('scroll', updateMobileMenuVisibility, { passive:true });
+window.addEventListener('resize', updateMobileMenuVisibility);
+updateMobileMenuVisibility();
+
+mobileMenuBtn.addEventListener('click', ()=>{
+  mobileMenuPanel.style.display = (mobileMenuPanel.style.display === 'none' || !mobileMenuPanel.style.display) ? 'block' : 'none';
+});
+document.addEventListener('click', (e)=>{
+  if (!mobileMenuPanel.contains(e.target) && e.target !== mobileMenuBtn) mobileMenuPanel.style.display = 'none';
+});
+
+mobileMenuAdd.addEventListener('click', ()=>{
+  mobileMenuPanel.style.display = 'none';
+  showView('add-case-view');
+  initAddCaseView();
+});
+mobileMenuSearch.addEventListener('click', ()=>{
+  mobileMenuPanel.style.display = 'none';
+  showView('search-view');
+  searchInput.value = ""; startDateInput.value = ""; endDateInput.value = "";
+  searchAll();
+});
+
 /* ------------------------------
  * 画面共通状態・DOM参照
  * ------------------------------ */
