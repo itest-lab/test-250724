@@ -141,8 +141,6 @@ async function startScanning(formats, inputId) {
       : { width: Math.min(window.innerWidth - 40, 320), height: Math.min(window.innerWidth - 40, 320) }
   };
 
-  const onSuccess = decoded => {
-
   // デコード成功時のハンドラ
   const onSuccess = decoded => {
     try {
