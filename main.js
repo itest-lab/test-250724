@@ -418,6 +418,17 @@ function mountDetailActionButtons(){
     another.onclick = () => { showView("add-case-view"); initAddCaseView(); };
     another.__mounted = true;
   }
+  
+  // ★ 追跡番号追加ボタンも一緒に下に配置（案件詳細のときだけ）
+  const view = document.getElementById(viewId);
+  if (viewId === "case-detail-view") {
+    const addBtn = document.getElementById("show-add-tracking-btn");
+    if (addBtn && addBtn.parentElement !== bar) bar.appendChild(addBtn);
+    if (addBtn) {
+      addBtn.style.display = "inline-block"; // 強制表示
+      addBtn.disabled = false;
+    }
+  }
 
   ensureDetailNavButtonsVisible();
 }
