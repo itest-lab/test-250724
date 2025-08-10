@@ -1026,29 +1026,32 @@ async function showCaseDetail(orderId, obj){
   cancelDetailAddBtn.disabled = false;
 
   try {
+    // キー順で取得（DB追加順）
     const snap = await db.ref(`shipments/${orderId}`).orderByKey().once("value");
-    const list = snap.val() || {};
-    let index = 1;
+  
     let lastStatusPromise = null;
-
+    let rowSeq = 1; // 画面上の順番用
+  
     snap.forEach(child => {
       const it = child.val();
       const label = carrierLabels[it.carrier] || it.carrier;
-
+  
+      const seqNum = rowSeq++; // ← ここで確定して保持
+  
       const a = document.createElement("a");
       a.href = it.carrier === 'hida'
         ? carrierUrls[it.carrier]
         : (carrierUrls[it.carrier] + encodeURIComponent(it.tracking));
       a.target = "_blank";
       a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
-
+  
       const li = document.createElement("li");
       li.appendChild(a);
       detailShipmentsUl.appendChild(li);
-
+  
       const p = fetchStatus(it.carrier, it.tracking)
         .then(({ status, time, location }) => {
-          const seqNum = index++; // 追加順で連番
+          // 非同期でも seqNum はループ順で固定
           a.textContent = formatShipmentText(seqNum, it.carrier, it.tracking, status, time, location);
           li.className = "ship-" + classifyStatus(status);
         })
@@ -1057,11 +1060,11 @@ async function showCaseDetail(orderId, obj){
           a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
           li.className = "ship-exception";
         });
-
+  
       lastStatusPromise = p;
     });
-
-    if (lastStatusPromise) await lastStatusPromise; // ホイール制御
+  
+    if (lastStatusPromise) await lastStatusPromise;
   } finally {
     hideLoading();
   }
