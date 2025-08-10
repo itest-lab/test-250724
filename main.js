@@ -52,8 +52,13 @@ const carrierUrls = {
  * モバイル用カメラ読取（html5-qrcode）
  * ------------------------------ */
 function isMobileDevice() {
-  const ua = navigator.userAgent || navigator.vendor || window.opera;
-  return /android|iPad|iPhone|iPod/i.test(ua);
+  try {
+    const ua = navigator.userAgent || navigator.vendor || "";
+    if (/Android|iPhone|iPad|iPod|Windows Phone/i.test(ua)) return true;
+    // iPadOSのデスクトップUAや一部端末対策
+    if (navigator.maxTouchPoints > 0 && window.matchMedia && window.matchMedia('(pointer:coarse)').matches) return true;
+  } catch (_) {}
+  return false;
 }
 let html5QrCode = null;
 let torchOn = false;
@@ -362,7 +367,9 @@ if (auth && auth.currentUser && isSessionExpired()) {
 // サブビュー切替
 function showView(id){
     // 案件詳細から他画面へ遷移する際は強制初期化
-  try { if (document.getElementById('case-detail-view')?.style.display === 'block' && id !== 'case-detail-view') resetDetailAddForm(); } catch(e){}
+  try { if (document.getElementById('case-detail-view')?.style.display === 'block' && id !== 'case-detail-view') resetDetailAddForm(); 
+  try { updateMobileMenuVisibility(); } catch(_) {}
+} catch(e){}
   // 案件詳細へ入る直前にも初期化（同一画面再表示対策）
   try { if (id === 'case-detail-view') resetDetailAddForm(); } catch(e){}
 document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
@@ -1400,28 +1407,3 @@ function startSessionTimer() {
     }, 30 * 1000);
   }
 }
-
-
-// === 行追加ボタンのイベントを委譲で補強 ===
-document.addEventListener('click', (e) => {
-  const t = e.target;
-  if (!t || !t.id) return;
-
-  // 案件詳細側：＋追跡番号行を追加
-  if (t.id === 'detail-add-tracking-row-btn') {
-    try {
-      if (typeof detailTrackingRows !== 'undefined' && detailTrackingRows) {
-        for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow('detail'));
-      }
-    } catch (err) { console.error('detail-add-tracking-row-btn failed:', err); }
-  }
-
-  // 案件追加側：＋追跡番号行を追加
-  if (t.id === 'add-tracking-row-btn') {
-    try {
-      if (typeof trackingRows !== 'undefined' && trackingRows) {
-        for (let i = 0; i < 10; i++) trackingRows.appendChild(createTrackingRow('add'));
-      }
-    } catch (err) { console.error('add-tracking-row-btn failed:', err); }
-  }
-});
