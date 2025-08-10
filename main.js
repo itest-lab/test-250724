@@ -324,6 +324,8 @@ const loadingOverlay = document.getElementById("loadingOverlay");
 function showLoading(){ if (loadingOverlay) loadingOverlay.classList.remove("hidden"); }
 function hideLoading(){ if (loadingOverlay) loadingOverlay.classList.add("hidden"); }
 
+const confirmDetailAddBtn = document.getElementById("confirm-detail-add-btn");
+
 // --- セッションタイムスタンプ管理 ---
 const SESSION_LIMIT_MS = 10 * 60 * 1000;
 function clearLoginTime() { localStorage.removeItem('loginTime'); }
@@ -1180,9 +1182,8 @@ function getFixedCarrierValue(){
 function qs(id){ return document.getElementById(id); }
 
 document.addEventListener("DOMContentLoaded", () => {
-  const confirmDetailAddBtn = document.getElementById("confirm-detail-add-btn");
   if (!confirmDetailAddBtn) {
-    console.error("confirmDetailAddBtn が見つかりません");
+    console.error("#confirm-detail-add-btn が見つかりません");
     return;
   }
   
