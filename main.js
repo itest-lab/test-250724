@@ -422,26 +422,6 @@ function mountDetailActionButtons(){
   ensureDetailNavButtonsVisible();
 }
 
-  // ボタンを add-tracking-detail 配下などから退避して常時表示側へ移設
-  const back = document.getElementById("back-to-search-btn");
-  const another = document.getElementById("another-case-btn-2");
-  if (back && back.parentElement !== bar) bar.appendChild(back);
-  if (another && another.parentElement !== bar) bar.appendChild(another);
-
-  // クリックハンドラを安全に付与（DOMがまだ無かったケースにも対応）
-  if (back && !back.__mounted) {
-    back.onclick = () => showView("search-view");
-    back.__mounted = true;
-  }
-  if (another && !another.__mounted) {
-    another.onclick = () => { showView("add-case-view"); initAddCaseView(); };
-    another.__mounted = true;
-  }
-
-  // 最後に必ず可視化
-  ensureDetailNavButtonsVisible();
-}
-
 /* ------------------------------
  * 認証操作（ログイン/新規/匿名/再発行/サインアウト）
  * ------------------------------ */
