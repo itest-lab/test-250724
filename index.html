@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -72,7 +71,7 @@
         <input id="manual-order-id"     placeholder="受注番号" required>
         <input id="manual-customer"     placeholder="得意先"   required>
         <input id="manual-title"        placeholder="品名"     required>
-        <!-- ★ 追加: 下版日（日付入力） -->
+        <!-- 下版日（日付入力） -->
         <label>下版日:<input id="manual-plate-date" type="date" placeholder="下版日"></label>
         <button id="manual-confirm-btn">入力確定</button>
         <button id="start-scan-btn">バーコード入力に切替</button>
@@ -83,7 +82,7 @@
         <div>受注番号: <span id="detail-order-id"></span></div>
         <div>得意先:   <span id="detail-customer"></span></div>
         <div>品名:     <span id="detail-title"></span></div>
-        <!-- ★ 追加: 下版日の表示 -->
+        <!-- 下版日の表示 -->
         <div>下版日:   <span id="detail-plate-date"></span></div>
 
         <h4>追跡番号リスト設定</h4>
@@ -95,7 +94,7 @@
           <select id="fixed-carrier-select" style="display:none;">
             <option value="">運送会社選択してください</option>
             <option value="yamato">ヤマト運輸</option>
-            <option value="fukuyama">福山通運</option>
+            <option value="fukutsu">福山通運</option>
             <option value="seino">西濃運輸</option>
             <option value="tonami">トナミ運輸</option>
             <option value="hida">飛騨運輸</option>
@@ -116,7 +115,7 @@
     <div id="search-view" class="subview" style="display:none;">
       <h3>案件検索</h3>
       <input id="search-input" placeholder="キーワード（注番／得意先／タイトル）">
-      <!-- ★ 追加: どの日時で絞るか選択（既定: 下版日） -->
+      <!-- どの日時で絞るか選択（既定: 下版日） -->
       <label>日付基準:
         <select id="search-date-type">
           <option value="plate" selected>下版日</option>
@@ -145,7 +144,7 @@
       <h4>追跡情報</h4>
       <ul id="detail-shipments"></ul>
 
-
+      <div id="detail-add-msg"></div>
 
       <button id="show-add-tracking-btn">追跡番号追加</button>
       <div id="add-tracking-detail" style="display:none; margin-top:1em;">
@@ -160,7 +159,7 @@
           <select id="fixed-carrier-select-detail" style="display:none;">
             <option value="">運送会社選択してください</option>
             <option value="yamato">ヤマト運輸</option>
-            <option value="fukuyama">福山通運</option>
+            <option value="fukutsu">福山通運</option>
             <option value="seino">西濃運輸</option>
             <option value="tonami">トナミ運輸</option>
             <option value="hida">飛騨運輸</option>
@@ -170,10 +169,11 @@
 
         <div id="detail-tracking-rows"></div>
         <button id="detail-add-tracking-row-btn">＋追跡番号行を追加</button>
-        <div id="detail-add-msg"></div>
+        <div id="add-tracking-detail" style="display:none; margin-top:1em;">
         <button id="confirm-detail-add-btn">追加登録</button>
         <p id="detail-add-msg"></p>
         <button id="cancel-detail-add-btn">キャンセル</button>
+      </div>
 
     </div>
     <button id="back-to-search-btn">検索に戻る</button>
@@ -190,11 +190,12 @@
   </div>
   <button id="back-to-top" title="ページの先頭へ">▲</button>
   <script src="main.js"></script>
-<!-- モバイル メニューボタン＋パネル -->
-<button id="mobile-menu-btn" aria-label="メニュー" style="display:none">☰</button>
-<div id="mobile-menu-panel" style="display:none">
-  <button id="mobile-menu-add">案件追加</button>
-  <button id="mobile-menu-search">案件検索</button>
-</div>
+
+  <!-- モバイル メニューボタン＋パネル -->
+  <button id="mobile-menu-btn" aria-label="メニュー" style="display:none">☰</button>
+  <div id="mobile-menu-panel" style="display:none">
+    <button id="mobile-menu-add">案件追加</button>
+    <button id="mobile-menu-search">案件検索</button>
+  </div>
 </body>
 </html>
