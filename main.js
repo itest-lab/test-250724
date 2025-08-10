@@ -391,19 +391,36 @@ function mountDetailActionButtons(){
   const view = document.getElementById("case-detail-view");
   if (!view) return;
 
-  // アクションバーを用意（なければ作成）
+  // アクションバー（なければ作成）
   let bar = document.getElementById("case-detail-actions");
   if (!bar) {
     bar = document.createElement("div");
     bar.id = "case-detail-actions";
-    bar.style.margin = "8px 0";
-    // 詳細情報のすぐ上に置きたい場合は detailInfoDiv の前、なければ先頭
-    if (window.detailInfoDiv && view.contains(detailInfoDiv)) {
-      view.insertBefore(bar, detailInfoDiv);
-    } else {
-      view.insertBefore(bar, view.firstChild);
-    }
+    bar.style.marginTop = "16px"; // 下部に余白
+    bar.style.textAlign = "center"; // 中央寄せ（任意）
+
+    // 一番下に置く
+    view.appendChild(bar);
   }
+
+  // ボタンを add-tracking-detail 配下などから退避してバーへ移動
+  const back = document.getElementById("back-to-search-btn");
+  const another = document.getElementById("another-case-btn-2");
+  if (back && back.parentElement !== bar) bar.appendChild(back);
+  if (another && another.parentElement !== bar) bar.appendChild(another);
+
+  // ハンドラ設定（重複防止用フラグ付き）
+  if (back && !back.__mounted) {
+    back.onclick = () => showView("search-view");
+    back.__mounted = true;
+  }
+  if (another && !another.__mounted) {
+    another.onclick = () => { showView("add-case-view"); initAddCaseView(); };
+    another.__mounted = true;
+  }
+
+  ensureDetailNavButtonsVisible();
+}
 
   // ボタンを add-tracking-detail 配下などから退避して常時表示側へ移設
   const back = document.getElementById("back-to-search-btn");
