@@ -342,41 +342,6 @@ const loadingOverlay = document.getElementById("loadingOverlay");
 function showLoading(){ if (loadingOverlay) loadingOverlay.classList.remove("hidden"); }
 function hideLoading(){ if (loadingOverlay) loadingOverlay.classList.add("hidden"); }
 
-// --- モバイルメニューの表示制御 ---
-const mobileMenuBtn   = document.getElementById('mobile-menu-btn');
-const mobileMenuPanel = document.getElementById('mobile-menu-panel');
-const mobileMenuAdd   = document.getElementById('mobile-menu-add');
-const mobileMenuSearch= document.getElementById('mobile-menu-search');
-
-function updateMobileMenuVisibility(){
-  if (!isMobileDevice()) { mobileMenuBtn.style.display = 'none'; mobileMenuPanel.style.display = 'none'; return; }
-  // 上から少しスクロールしたら表示
-  mobileMenuBtn.style.display = (window.scrollY > 24) ? 'block' : 'none';
-  if (window.scrollY <= 24) mobileMenuPanel.style.display = 'none';
-}
-window.addEventListener('scroll', updateMobileMenuVisibility, { passive:true });
-window.addEventListener('resize', updateMobileMenuVisibility);
-updateMobileMenuVisibility();
-
-mobileMenuBtn.addEventListener('click', ()=>{
-  mobileMenuPanel.style.display = (mobileMenuPanel.style.display === 'none' || !mobileMenuPanel.style.display) ? 'block' : 'none';
-});
-document.addEventListener('click', (e)=>{
-  if (!mobileMenuPanel.contains(e.target) && e.target !== mobileMenuBtn) mobileMenuPanel.style.display = 'none';
-});
-
-mobileMenuAdd.addEventListener('click', ()=>{
-  mobileMenuPanel.style.display = 'none';
-  showView('add-case-view');
-  initAddCaseView();
-});
-mobileMenuSearch.addEventListener('click', ()=>{
-  mobileMenuPanel.style.display = 'none';
-  showView('search-view');
-  searchInput.value = ""; startDateInput.value = ""; endDateInput.value = "";
-  searchAll();
-});
-
 /* ------------------------------
  * セッションタイムアウト制御（10分）
  * ------------------------------ */
@@ -396,10 +361,6 @@ if (auth && auth.currentUser && isSessionExpired()) {
 
 // サブビュー切替
 function showView(id){
-  // 案件詳細から離れるタイミングで追跡番号追加の入力を必ずリセット
-  const wasDetailOpen = document.getElementById("case-detail-view")?.style.display === "block";
-  if (wasDetailOpen && id !== "case-detail-view") resetDetailAddForm();
-
   document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
   const target = document.getElementById(id);
   if (target) target.style.display = "block";
@@ -622,24 +583,6 @@ function createTrackingRow(context="add"){
   inp.addEventListener('input', updateMissingHighlight);
   sel.addEventListener('change', updateMissingHighlight);
   return row;
-}
-// --- 追跡番号追加フォームのリセット（案件詳細用） ---
-function resetDetailAddForm(){
-  if (!document.getElementById("case-detail-view")) return;
-  // 入力領域クリア
-  if (typeof stopScanning === 'function') stopScanning();
-  if (window.detailTrackingRows) detailTrackingRows.innerHTML = "";
-  if (window.detailAddMsg) detailAddMsg.textContent = "";
-  // 固定キャリア OFF + セレクト初期化
-  if (window.fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
-  if (window.fixedCarrierSelectDetail) {
-    fixedCarrierSelectDetail.value = "";
-    fixedCarrierSelectDetail.style.display = "none";
-  }
-  // 追加UIを閉じる／トグル初期化
-  if (window.addTrackingDetail) addTrackingDetail.style.display = "none";
-  if (window.showAddTrackingBtn) showAddTrackingBtn.style.display = "inline-block";
-  if (confirmAddCaseBtn) confirmAddCaseBtn.style.display = "inline-block";
 }
 
 /* ------------------------------
@@ -1136,7 +1079,6 @@ async function showCaseDetail(orderId, obj){
   if (cancelDetailAddBtn)  cancelDetailAddBtn.disabled = false;
 
   showAddTrackingBtn.style.display = "inline-block";
-  confirmAddCaseBtn.style.display = "inline-block";
 
   try {
     // pushキー昇順（= 追加順）で取得
@@ -1202,7 +1144,6 @@ showAddTrackingBtn.onclick = () => {
   detailTrackingRows.innerHTML = "";
   for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail"));
   showAddTrackingBtn.style.display = "none";
-  if (confirmAddCaseBtn) confirmAddCaseBtn.style.display = 'none';
 };
 detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); };
 cancelDetailAddBtn.onclick = () => {
@@ -1210,7 +1151,6 @@ cancelDetailAddBtn.onclick = () => {
   detailTrackingRows.innerHTML = "";
   detailAddMsg.textContent = "";
   showAddTrackingBtn.style.display = "inline-block";
-  confirmAddCaseBtn.style.display = "inline-block";
 
   // 固定キャリア初期化
   if (fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
@@ -1406,3 +1346,85 @@ function startSessionTimer() {
     }, 30 * 1000);
   }
 }
+
+// --- 追跡番号追加フォームのリセット（案件詳細用） ---
+function resetDetailAddForm(){
+  if (!document.getElementById("case-detail-view")) return;
+  try { if (typeof stopScanning === 'function') stopScanning(); } catch(e){}
+  try { if (window.detailTrackingRows) detailTrackingRows.innerHTML = ""; } catch(e){}
+  try { if (window.detailAddMsg) detailAddMsg.textContent = ""; } catch(e){}
+  try { if (window.fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false; } catch(e){}
+  try { 
+    if (window.fixedCarrierSelectDetail) {
+      fixedCarrierSelectDetail.value = "";
+      fixedCarrierSelectDetail.style.display = "none";
+    }
+  } catch(e){}
+  try { if (window.addTrackingDetail) addTrackingDetail.style.display = "none"; } catch(e){}
+  try { if (window.showAddTrackingBtn) showAddTrackingBtn.style.display = "inline-block"; } catch(e){}
+}
+
+// --- showView パッチ：遷移時に案件詳細の追跡追加UIを初期化 ---
+(function patchShowView(){
+  if (typeof window.showView === 'function') {
+    const _orig = window.showView;
+    window.showView = function(id){
+      const wasDetailOpen = document.getElementById("case-detail-view")?.style.display === "block";
+      if (wasDetailOpen && id !== "case-detail-view") resetDetailAddForm();
+      _orig(id);
+    };
+  }
+})();
+
+// --- モバイルメニューの表示制御とアクション ---
+document.addEventListener('DOMContentLoaded', function(){
+  const mobileMenuBtn    = document.getElementById('mobile-menu-btn');
+  const mobileMenuPanel  = document.getElementById('mobile-menu-panel');
+  const mobileMenuAdd    = document.getElementById('mobile-menu-add');
+  const mobileMenuSearch = document.getElementById('mobile-menu-search');
+
+  if (!mobileMenuBtn || !mobileMenuPanel) return;
+
+  function updateMobileMenuVisibility(){
+    if (!window.isMobileDevice()) { 
+      mobileMenuBtn.style.display = 'none'; 
+      mobileMenuPanel.style.display = 'none'; 
+      return; 
+    }
+    mobileMenuBtn.style.display = (window.scrollY > 24) ? 'block' : 'none';
+    if (window.scrollY <= 24) mobileMenuPanel.style.display = 'none';
+  }
+  window.addEventListener('scroll', updateMobileMenuVisibility, { passive:true });
+  window.addEventListener('resize', updateMobileMenuVisibility);
+  updateMobileMenuVisibility();
+
+  mobileMenuBtn.addEventListener('click', ()=>{
+    mobileMenuPanel.style.display = (mobileMenuPanel.style.display === 'none' || !mobileMenuPanel.style.display) ? 'block' : 'none';
+  });
+  document.addEventListener('click', (e)=>{
+    if (!mobileMenuPanel.contains(e.target) && e.target !== mobileMenuBtn) mobileMenuPanel.style.display = 'none';
+  });
+
+  if (mobileMenuAdd) {
+    mobileMenuAdd.addEventListener('click', ()=>{
+      mobileMenuPanel.style.display = 'none';
+      if (typeof window.showView === 'function') window.showView('add-case-view');
+      if (typeof window.initAddCaseView === 'function') window.initAddCaseView();
+    });
+  }
+  if (mobileMenuSearch) {
+    mobileMenuSearch.addEventListener('click', ()=>{
+      mobileMenuPanel.style.display = 'none';
+      if (typeof window.showView === 'function') window.showView('search-view');
+      try {
+        const searchInput = document.getElementById('search-input');
+        const startDateInput = document.getElementById('start-date');
+        const endDateInput = document.getElementById('end-date');
+        if (searchInput) searchInput.value = "";
+        if (startDateInput) startDateInput.value = "";
+        if (endDateInput) endDateInput.value = "";
+      } catch(e){}
+      if (typeof window.searchAll === 'function') window.searchAll();
+    });
+  }
+});
