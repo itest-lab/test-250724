@@ -1026,17 +1026,19 @@ async function showCaseDetail(orderId, obj){
   cancelDetailAddBtn.disabled = false;
 
   try {
-    const snap = await db.ref(`shipments/${orderId}`).once("value");
+    const snap = await db.ref(`shipments/${orderId}`).orderByKey().once("value");
     const list = snap.val() || {};
     let index = 1;
     let lastStatusPromise = null;
 
-    for (const key of Object.keys(list)) {
-      const it = list[key];
+    snap.forEach(child => {
+      const it = child.val();
       const label = carrierLabels[it.carrier] || it.carrier;
+
       const a = document.createElement("a");
-      if (it.carrier === 'hida') a.href = carrierUrls[it.carrier];
-      else a.href = carrierUrls[it.carrier] + encodeURIComponent(it.tracking);
+      a.href = it.carrier === 'hida'
+        ? carrierUrls[it.carrier]
+        : (carrierUrls[it.carrier] + encodeURIComponent(it.tracking));
       a.target = "_blank";
       a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
 
@@ -1044,10 +1046,9 @@ async function showCaseDetail(orderId, obj){
       li.appendChild(a);
       detailShipmentsUl.appendChild(li);
 
-      const statusPromise = fetchStatus(it.carrier, it.tracking)
-        .then(json => {
-          const { status, time, location } = json;
-          const seqNum = index++;
+      const p = fetchStatus(it.carrier, it.tracking)
+        .then(({ status, time, location }) => {
+          const seqNum = index++; // 追加順で連番
           a.textContent = formatShipmentText(seqNum, it.carrier, it.tracking, status, time, location);
           li.className = "ship-" + classifyStatus(status);
         })
@@ -1057,15 +1058,12 @@ async function showCaseDetail(orderId, obj){
           li.className = "ship-exception";
         });
 
-      lastStatusPromise = statusPromise; // 最後のPromiseを更新
-    }
+      lastStatusPromise = p;
+    });
 
-    // 最後の追跡番号取得まで待つ
-    if (lastStatusPromise) {
-      await lastStatusPromise;
-    }
+    if (lastStatusPromise) await lastStatusPromise; // ホイール制御
   } finally {
-    hideLoading(); // ← 最後にホイール非表示
+    hideLoading();
   }
 }
 
