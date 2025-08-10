@@ -361,7 +361,8 @@ if (auth && auth.currentUser && isSessionExpired()) {
 
 // サブビュー切替
 function showView(id){
-    if (id === 'case-detail-view' && typeof resetDetailAddForm === 'function') resetDetailAddForm();
+      if (id === 'add-case-view') { try { resetFixedCarrierUI('add'); } catch(e){} }
+if (id === 'case-detail-view' && typeof resetDetailAddForm === 'function') resetDetailAddForm();
 document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
   const target = document.getElementById(id);
   if (target) target.style.display = "block";
@@ -586,6 +587,42 @@ function createTrackingRow(context="add"){
   return row;
 }
 
+
+// --- 固定キャリアUIを強制初期化（詳細/追加の両方を対象） ---
+function resetFixedCarrierUI(context){
+  // 詳細側
+  if (!context || context === 'detail'){
+    try { if (typeof fixedCarrierCheckboxDetail !== 'undefined' && fixedCarrierCheckboxDetail) { 
+      fixedCarrierCheckboxDetail.checked = false; 
+      fixedCarrierCheckboxDetail.dispatchEvent(new Event('change', {bubbles:true}));
+    }} catch(e){}
+    try { if (typeof fixedCarrierSelectDetail !== 'undefined' && fixedCarrierSelectDetail) { 
+      fixedCarrierSelectDetail.value = ''; 
+      fixedCarrierSelectDetail.style.display = 'none';
+      fixedCarrierSelectDetail.dispatchEvent(new Event('change', {bubbles:true}));
+    }} catch(e){}
+    try { if (typeof detailTrackingRows !== 'undefined' && detailTrackingRows) {
+      detailTrackingRows.querySelectorAll('select').forEach(s => { s.value = ''; s.dispatchEvent(new Event('change', {bubbles:true})); });
+      detailTrackingRows.querySelectorAll('.tracking-row').forEach(r => r.classList.remove('missing-carrier'));
+    }} catch(e){}
+  }
+  // 追加側
+  if (!context || context === 'add'){
+    try { if (typeof fixedCarrierCheckbox !== 'undefined' && fixedCarrierCheckbox) { 
+      fixedCarrierCheckbox.checked = false; 
+      fixedCarrierCheckbox.dispatchEvent(new Event('change', {bubbles:true}));
+    }} catch(e){}
+    try { if (typeof fixedCarrierSelect !== 'undefined' && fixedCarrierSelect) { 
+      fixedCarrierSelect.value = ''; 
+      fixedCarrierSelect.style.display = 'none';
+      fixedCarrierSelect.dispatchEvent(new Event('change', {bubbles:true}));
+    }} catch(e){}
+    try { if (typeof trackingRows !== 'undefined' && trackingRows) {
+      trackingRows.querySelectorAll('select').forEach(s => { s.value = ''; s.dispatchEvent(new Event('change', {bubbles:true})); });
+      trackingRows.querySelectorAll('.tracking-row').forEach(r => r.classList.remove('missing-carrier'));
+    }} catch(e){}
+  }
+}
 /* ------------------------------
  * 詳細画面：固定キャリア切替（行<select>は消さない）
  *  - 固定ON/変更時に「未選択」の行だけ固定値を適用
@@ -632,7 +669,8 @@ if (fixedCarrierSelect) {
  * 追加画面の初期化
  * ------------------------------ */
 function initAddCaseView(){
-  scanModeDiv.style.display     = "block";
+    resetFixedCarrierUI('add');
+scanModeDiv.style.display     = "block";
   manualModeDiv.style.display   = "none";
   caseDetailsDiv.style.display  = "none";
   caseBarcodeInput.value        = "";
@@ -1145,7 +1183,8 @@ backToSearchBtn.onclick = () => showView("search-view");
  * ------------------------------ */
 showAddTrackingBtn.onclick = () => {
     
-  // 追跡番号追加パネルを初期化して開く
+    resetFixedCarrierUI('detail');
+// 追跡番号追加パネルを初期化して開く
   if (addTrackingDetail) addTrackingDetail.style.display = "block";
   // メッセージと警告をクリア
   if (typeof detailAddMsg !== 'undefined' && detailAddMsg) detailAddMsg.textContent = "";
@@ -1367,7 +1406,8 @@ function startSessionTimer() {
 
 // --- 追跡番号追加フォームのリセット（案件詳細用） ---
 function resetDetailAddForm(){
-  if (!document.getElementById("case-detail-view")) return;
+    try { resetFixedCarrierUI('detail'); } catch(e){}
+if (!document.getElementById("case-detail-view")) return;
   try { if (typeof stopScanning === 'function') stopScanning(); 
   // ボタンの既定表示状態
   try { if (typeof confirmDetailAddBtn !== 'undefined' && confirmDetailAddBtn) { confirmDetailAddBtn.style.display = 'inline-block'; confirmDetailAddBtn.disabled = false; } } catch(e){}
