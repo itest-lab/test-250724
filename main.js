@@ -124,11 +124,12 @@ async function startScanning(formats, inputId) {
   html5QrCode = new Html5Qrcode('video-container', false);
   const backId = await selectBackCamera();
 
+  // ★端末側制約：連続AFとフレームレート控えめ
   // html5-qrcode の cameraConfig は video ラッパーなし
   const cameraConfig = backId
     ? { deviceId: { exact: backId } }
     : { facingMode: "environment" };
-
+  
   // ★読取り設定
   const isCodabarOnly = (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR);
   const config = {
@@ -372,67 +373,6 @@ auth.onAuthStateChanged(user => {
   statusContainer.textContent = user ? (user.email || '匿名') + ' でログイン中' : 'ログインしてください';
 });
 
-function ensureDetailNavButtonsVisible() {
-  const back = document.getElementById("back-to-search-btn");
-  const another = document.getElementById("another-case-btn-2");
-  if (back) {
-    back.classList.remove("hidden");
-    back.style.display = "inline-block";
-    back.disabled = false;
-  }
-  if (another) {
-    another.classList.remove("hidden");
-    another.style.display = "inline-block";
-    another.disabled = false;
-  }
-}
-
-function mountDetailActionButtons(){
-  const view = document.getElementById("case-detail-view");
-  if (!view) return;
-
-  // アクションバー（なければ作成）
-  let bar = document.getElementById("case-detail-actions");
-  if (!bar) {
-    bar = document.createElement("div");
-    bar.id = "case-detail-actions";
-    bar.style.marginTop = "16px"; // 下部に余白
-    bar.style.textAlign = "center"; // 中央寄せ（任意）
-
-    // 一番下に置く
-    view.appendChild(bar);
-  }
-
-  // ボタンを add-tracking-detail 配下などから退避してバーへ移動
-  const back = document.getElementById("back-to-search-btn");
-  const another = document.getElementById("another-case-btn-2");
-  if (back && back.parentElement !== bar) bar.appendChild(back);
-  if (another && another.parentElement !== bar) bar.appendChild(another);
-
-  // ハンドラ設定（重複防止用フラグ付き）
-  if (back && !back.__mounted) {
-    back.onclick = () => showView("search-view");
-    back.__mounted = true;
-  }
-  if (another && !another.__mounted) {
-    another.onclick = () => { showView("add-case-view"); initAddCaseView(); };
-    another.__mounted = true;
-  }
-  
-  // ★ 追跡番号追加ボタンも一緒に下に配置（案件詳細のときだけ）
-  const view = document.getElementById(viewId);
-  if (viewId === "case-detail-view") {
-    const addBtn = document.getElementById("show-add-tracking-btn");
-    if (addBtn && addBtn.parentElement !== bar) bar.appendChild(addBtn);
-    if (addBtn) {
-      addBtn.style.display = "inline-block"; // 強制表示
-      addBtn.disabled = false;
-    }
-  }
-
-  ensureDetailNavButtonsVisible();
-}
-
 /* ------------------------------
  * 認証操作（ログイン/新規/匿名/再発行/サインアウト）
  * ------------------------------ */
@@ -491,16 +431,7 @@ navSearchBtn.addEventListener("click", () => {
   searchInput.value = "";
   startDateInput.value = "";
   endDateInput.value = "";
-
-  // ← 次回の詳細表示で非表示が残らないよう即リセット
-  backToSearchBtn?.classList.remove("hidden");
-  anotherCaseBtn2?.classList.remove("hidden");
-  // display の残留も念のため解除
-  if (backToSearchBtn && backToSearchBtn.style.display === "none") backToSearchBtn.style.display = "";
-  if (anotherCaseBtn2 && anotherCaseBtn2.style.display === "none") anotherCaseBtn2.style.display = "";
-
   searchAll();
-  ensureDetailNavButtonsVisible();
 });
 
 /* ------------------------------
@@ -1119,8 +1050,6 @@ function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
 async function showCaseDetail(orderId, obj){
   showLoading();
   showView("case-detail-view");
-  mountDetailActionButtons();
-  ensureDetailNavButtonsVisible();
 
   // 復号＋ヘッダ表示
   let view = { 注番: orderId, 得意先: "", 品名: "", 下版日: "", plateDateTs: obj?.plateDateTs, createdAt: obj?.createdAt };
@@ -1150,7 +1079,7 @@ async function showCaseDetail(orderId, obj){
   if (cancelDetailAddBtn)  cancelDetailAddBtn.disabled = false;
 
   showAddTrackingBtn.style.display = "inline-block";
-  ensureDetailNavButtonsVisible();
+
   try {
     // pushキー昇順（= 追加順）で取得
     const snap = await db.ref(`shipments/${orderId}`).orderByKey().once("value");
@@ -1201,7 +1130,6 @@ async function showCaseDetail(orderId, obj){
   } finally {
     hideLoading();
   }
-  ensureDetailNavButtonsVisible();
 }
 
 backToSearchBtn.onclick = () => showView("search-view");
@@ -1216,22 +1144,13 @@ showAddTrackingBtn.onclick = () => {
   detailTrackingRows.innerHTML = "";
   for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail"));
   showAddTrackingBtn.style.display = "none";
-  ensureDetailNavButtonsVisible();
-  };
-  detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); };
-  cancelDetailAddBtn.onclick = () => {
+};
+detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); };
+cancelDetailAddBtn.onclick = () => {
   addTrackingDetail.style.display = "none";
   detailTrackingRows.innerHTML = "";
   detailAddMsg.textContent = "";
   showAddTrackingBtn.style.display = "inline-block";
-  ensureDetailNavButtonsVisible();
-
-  // 固定キャリア初期化
-  if (fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
-  if (fixedCarrierSelectDetail) {
-    fixedCarrierSelectDetail.value = ""; // 運送会社選択してください を選択
-    fixedCarrierSelectDetail.style.display = "none";
-  }
 };
 
 function getFixedCarrierValue(){
@@ -1291,7 +1210,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (missingCarrier) {
         const msg = "運送会社を選択してください（固定または行ごとに選択）";
         detailAddMsg.textContent = msg;
-        detailAddWarn.textContent = msg;
         if (detailAddWarn) detailAddWarn.textContent = msg;
         return;
       }
@@ -1330,29 +1248,16 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       if (lastP) await lastP;
 
-      // 追加登録完了時のUI処理
+      /* 正常終了UI　*/
       detailAddMsg.textContent = "追加しました";
-      detailAddWarn.textContent = "追加しました";
       if (detailAddWarn) detailAddWarn.textContent = "";
-      
-      // 固定キャリア状態をリセット
-      if (fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
-      if (fixedCarrierSelectDetail) {
-        fixedCarrierSelectDetail.value = ""; // 運送会社選択してください を選択
-        fixedCarrierSelectDetail.style.display = "none";
-      }
-      
-      // 追跡番号入力行をクリア
       detailTrackingRows.innerHTML = "";
-      
-      // 次回追加時も初期化状態で表示
       addTrackingDetail.style.display = "none";
       showAddTrackingBtn.style.display = "inline-block";
-      ensureDetailNavButtonsVisible();
+      
     } catch (e) {
       const msg = `追加に失敗しました: ${e.message || e}`;
       detailAddMsg.textContent = msg;
-      detailAddWarn.textContent = msg;
       const warn = document.getElementById("detailAddWarn");
       if (warn) warn.textContent = msg;
       console.error("追跡番号追加エラー:", e);
