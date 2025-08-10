@@ -260,7 +260,6 @@ html, body, button, input, select, textarea {
   letter-spacing: .02em;
 }
 
-
 /* === モバイル メニュー === */
 #mobile-menu-btn{
   position: fixed;
@@ -286,4 +285,3 @@ html, body, button, input, select, textarea {
 }
 #mobile-menu-panel button + button{ border-top: 1px solid #eee; }
 #mobile-menu-panel button:active{ background:#f5f7fb; }
-
