@@ -639,6 +639,7 @@ function resetDetailAddForm(){
   // 追加UIを閉じる／トグル初期化
   if (window.addTrackingDetail) addTrackingDetail.style.display = "none";
   if (window.showAddTrackingBtn) showAddTrackingBtn.style.display = "inline-block";
+  if (confirmAddCaseBtn) confirmAddCaseBtn.style.display = "inline-block";
 }
 
 /* ------------------------------
@@ -1135,6 +1136,7 @@ async function showCaseDetail(orderId, obj){
   if (cancelDetailAddBtn)  cancelDetailAddBtn.disabled = false;
 
   showAddTrackingBtn.style.display = "inline-block";
+  confirmAddCaseBtn.style.display = "inline-block";
 
   try {
     // pushキー昇順（= 追加順）で取得
@@ -1200,6 +1202,7 @@ showAddTrackingBtn.onclick = () => {
   detailTrackingRows.innerHTML = "";
   for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail"));
   showAddTrackingBtn.style.display = "none";
+  if (confirmAddCaseBtn) confirmAddCaseBtn.style.display = 'none';
 };
 detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); };
 cancelDetailAddBtn.onclick = () => {
@@ -1207,6 +1210,7 @@ cancelDetailAddBtn.onclick = () => {
   detailTrackingRows.innerHTML = "";
   detailAddMsg.textContent = "";
   showAddTrackingBtn.style.display = "inline-block";
+  confirmAddCaseBtn.style.display = "inline-block";
 
   // 固定キャリア初期化
   if (fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
