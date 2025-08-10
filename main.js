@@ -372,6 +372,19 @@ auth.onAuthStateChanged(user => {
   statusContainer.textContent = user ? (user.email || '匿名') + ' でログイン中' : 'ログインしてください';
 });
 
+function ensureDetailNavButtonsVisible() {
+  if (backToSearchBtn) {
+    backToSearchBtn.classList.remove("hidden");
+    backToSearchBtn.style.display = "inline-block";
+    backToSearchBtn.disabled = false;
+  }
+  if (anotherCaseBtn2) {
+    anotherCaseBtn2.classList.remove("hidden");
+    anotherCaseBtn2.style.display = "inline-block";
+    anotherCaseBtn2.disabled = false;
+  }
+}
+
 /* ------------------------------
  * 認証操作（ログイン/新規/匿名/再発行/サインアウト）
  * ------------------------------ */
@@ -1058,17 +1071,7 @@ async function showCaseDetail(orderId, obj){
   showLoading();
   showView("case-detail-view");
 
-  // ← これを最初に入れる
-  if (backToSearchBtn) {
-    backToSearchBtn.classList.remove("hidden");
-    backToSearchBtn.style.display = "inline-block";
-    backToSearchBtn.disabled = false;
-  }
-  if (anotherCaseBtn2) {
-    anotherCaseBtn2.classList.remove("hidden");
-    anotherCaseBtn2.style.display = "inline-block";
-    anotherCaseBtn2.disabled = false;
-  }
+  ensureDetailNavButtonsVisible();
 
   // 復号＋ヘッダ表示
   let view = { 注番: orderId, 得意先: "", 品名: "", 下版日: "", plateDateTs: obj?.plateDateTs, createdAt: obj?.createdAt };
@@ -1164,6 +1167,7 @@ showAddTrackingBtn.onclick = () => {
   detailTrackingRows.innerHTML = "";
   for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail"));
   showAddTrackingBtn.style.display = "none";
+  ensureDetailNavButtonsVisible();
   };
   detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); };
   cancelDetailAddBtn.onclick = () => {
@@ -1171,8 +1175,7 @@ showAddTrackingBtn.onclick = () => {
   detailTrackingRows.innerHTML = "";
   detailAddMsg.textContent = "";
   showAddTrackingBtn.style.display = "inline-block";
-  backToSearchBtn.style.display = "inline-block";
-  anotherCaseBtn2.style.display = "inline-block";
+  ensureDetailNavButtonsVisible();
 
   // 固定キャリア初期化
   if (fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
