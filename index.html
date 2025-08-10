@@ -24,7 +24,7 @@
   </div>
 
   <!-- ログインビュー -->
-  <div id="login-view" style="display: block;">
+  <div id="login-view">
     <h2>ログイン</h2>
     <input id="email"    type="text"     placeholder="メールアドレス">
     <input id="password" type="password" placeholder="パスワード">
@@ -48,7 +48,7 @@
   </div>
 
   <!-- メインビュー -->
-  <div id="main-view" style="display: none;">
+  <div id="main-view" style="display:none;">
     <button id="logout-btn">ログアウト</button>
     <nav>
       <button id="nav-add-btn">案件追加</button>
@@ -170,11 +170,8 @@
 
         <div id="detail-tracking-rows"></div>
         <button id="detail-add-tracking-row-btn">＋追跡番号行を追加</button>
-        <div id="add-tracking-detail" style="display:none; margin-top:1em;">
-        <button id="confirm-detail-add-btn">追加登録</button>
-        <p id="detail-add-msg"></p>
-        <button id="cancel-detail-add-btn">キャンセル</button>
-      </div>
+<button id="confirm-detail-add-btn">追加登録</button><button id="cancel-detail-add-btn">キャンセル</button>
+      
 
     </div>
     <button id="back-to-search-btn">検索に戻る</button>
@@ -190,12 +187,6 @@
     </div>
   </div>
   <button id="back-to-top" title="ページの先頭へ">▲</button>
-  <!-- モバイル メニューボタン＋パネル（再挿入） -->
-  <button id="mobile-menu-btn" aria-label="メニュー" style="display:none">☰</button>
-  <div id="mobile-menu-panel" style="display:none">
-    <button id="mobile-menu-add">案件追加</button>
-    <button id="mobile-menu-search">案件検索</button>
   <script src="main.js"></script>
-  </div>
 </body>
 </html>
