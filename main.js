@@ -361,18 +361,20 @@ function isSessionExpired(){
 
 // サブビュー切替
 function showView(id){
-    // 案件詳細から他画面へ遷移する際は強制初期化
-  try { if (document.getElementById('case-detail-view')?.style.display === 'block' && id !== 'case-detail-view') resetDetailAddForm(); 
-  try { updateMobileMenuVisibility(); } catch(_) {}
-} catch(e){}
+  // 案件詳細から離れるタイミングで追跡番号追加の入力を必ずリセット
+  const wasDetailOpen = document.getElementById('case-detail-view')?.style.display === 'block';
+  if (wasDetailOpen && id !== 'case-detail-view') { try { resetDetailAddForm(); } catch(e){} }
+
   // 案件詳細へ入る直前にも初期化（同一画面再表示対策）
-  try { if (id === 'case-detail-view') resetDetailAddForm(); } catch(e){}
-document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
+  if (id === 'case-detail-view') { try { resetDetailAddForm(); } catch(e){} }
+
+  document.querySelectorAll('.subview').forEach(el => el.style.display = 'none');
   const target = document.getElementById(id);
-  if (target) target.style.display = "block";
+  if (target) target.style.display = 'block';
+
+  try { updateMobileMenuVisibility(); } catch(e){}
 }
 
-// ヘッダのログイン状態ラベル更新
 auth.onAuthStateChanged(user => {
   const statusContainer = document.getElementById('login-status-container');
   statusContainer.textContent = '';
@@ -593,32 +595,47 @@ function createTrackingRow(context="add"){
 
 
 // --- 固定キャリアと追跡追加UIの強制初期化ユーティリティ ---
+// --- 固定キャリアUIを強制初期化（詳細/追加の両方を対象） ---
 function resetFixedCarrierUI(context){
   // 詳細側
   if (!context || context === 'detail'){
-    try { if (window.fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;   try { if (typeof fixedCarrierCheckboxDetail !== 'undefined' && fixedCarrierCheckboxDetail) { fixedCarrierCheckboxDetail.checked = false; fixedCarrierCheckboxDetail.dispatchEvent(new Event('change', {bubbles:true  try { if (typeof fixedCarrierSelectDetail !== 'undefined' && fixedCarrierSelectDetail) { fixedCarrierSelectDetail.value = ''; fixedCarrierSelectDetail.style.display = 'none'; fixedCarrierSelectDetail.dispatchEvent(new Event('change', {bubbles:true  try { if (typeof detailTrackingRows !== 'undefined' && detailTrackingRows) { detailTrackingRows.querySelectorAll('select').forEach(s=>{ s.value=''; s.dispatchEvent(new Event('change', {bubbles:true})); }); detailTrackingRows.querySelectorAll('.tracking-row').forEach(r=> r.classList.remove('missing-carrier')); } } catch(e){}
-})); } } catch(e){}
-})); } } catch(e){}
-} catch(e){}
-    try { if (window.fixedCarrierSelectDetail) { fixedCarrierSelectDetail.value = ''; fixedCarrierSelectDetail.style.display = 'none'; } } catch(e){}
-    try { if (window.detailTrackingRows) { 
-      detailTrackingRows.querySelectorAll('select').forEach(s=> s.value=''); 
-      detailTrackingRows.querySelectorAll('input[type="text"]').forEach(i=> i.value=''); 
-      detailTrackingRows.querySelectorAll('.tracking-row').forEach(r=> r.classList.remove('missing-carrier'));
+    try { if (typeof fixedCarrierCheckboxDetail !== 'undefined' && fixedCarrierCheckboxDetail) { 
+      fixedCarrierCheckboxDetail.checked = false; 
+      fixedCarrierCheckboxDetail.dispatchEvent(new Event('change', {bubbles:true}));
     } } catch(e){}
+    try { if (typeof fixedCarrierSelectDetail !== 'undefined' && fixedCarrierSelectDetail) { 
+      fixedCarrierSelectDetail.value = ''; 
+      fixedCarrierSelectDetail.style.display = 'none';
+      fixedCarrierSelectDetail.dispatchEvent(new Event('change', {bubbles:true}));
+    } } catch(e){}
+    try {
+      if (typeof detailTrackingRows !== 'undefined' && detailTrackingRows) {
+        detailTrackingRows.querySelectorAll('select').forEach(s => { s.value = ''; s.dispatchEvent(new Event('change', {bubbles:true})); });
+        detailTrackingRows.querySelectorAll('input[type="text"]').forEach(i => i.value = '');
+        detailTrackingRows.querySelectorAll('.tracking-row').forEach(r => r.classList.remove('missing-carrier'));
+      }
+    } catch(e){}
   }
   // 追加側
   if (!context || context === 'add'){
-    try { if (window.fixedCarrierCheckbox) fixedCarrierCheckbox.checked = false; } catch(e){}
-    try { if (window.fixedCarrierSelect) { fixedCarrierSelect.value = ''; fixedCarrierSelect.style.display = 'none'; } } catch(e){}
-    try { if (window.trackingRows) { 
-      trackingRows.querySelectorAll('select').forEach(s=> s.value=''); 
-      trackingRows.querySelectorAll('input[type="text"]').forEach(i=> i.value=''); 
-      trackingRows.querySelectorAll('.tracking-row').forEach(r=> r.classList.remove('missing-carrier'));
+    try { if (typeof fixedCarrierCheckbox !== 'undefined' && fixedCarrierCheckbox) { 
+      fixedCarrierCheckbox.checked = false; 
+      fixedCarrierCheckbox.dispatchEvent(new Event('change', {bubbles:true}));
     } } catch(e){}
+    try { if (typeof fixedCarrierSelect !== 'undefined' && fixedCarrierSelect) { 
+      fixedCarrierSelect.value = ''; 
+      fixedCarrierSelect.style.display = 'none';
+      fixedCarrierSelect.dispatchEvent(new Event('change', {bubbles:true}));
+    } } catch(e){}
+    try {
+      if (typeof trackingRows !== 'undefined' && trackingRows) {
+        trackingRows.querySelectorAll('select').forEach(s => { s.value = ''; s.dispatchEvent(new Event('change', {bubbles:true})); });
+        trackingRows.querySelectorAll('input[type="text"]').forEach(i => i.value = '');
+        trackingRows.querySelectorAll('.tracking-row').forEach(r => r.classList.remove('missing-carrier'));
+      }
+    } catch(e){}
   }
 }
-
 function resetDetailAddForm(){
   try { if (typeof stopScanning === 'function') stopScanning(); } catch(e){}
   try { if (window.detailAddMsg) detailAddMsg.textContent = ''; } catch(e){}
@@ -1096,7 +1113,7 @@ function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
  * ------------------------------ */
 async function showCaseDetail(orderId, obj){
   try { resetDetailAddForm(); } catch(e){}
-showLoading();
+  showLoading();
   showView("case-detail-view");
 
   // 復号＋ヘッダ表示
@@ -1195,11 +1212,9 @@ function openDetailAddPanelFresh() {
   }
   if (typeof showAddTrackingBtn !== 'undefined' && showAddTrackingBtn) showAddTrackingBtn.style.display = 'none';
   // 必須ボタンの表示
-  try { if (typeof confirmDetailAddBtn !== 'undefined' && confirmDetailAddBtn) { confirmDetailAddBtn.style.display = 'inline-block'; confirmDetailAddBtn.disabled = false; } } catch(_){
-  }
-  try { if (typeof cancelDetailAddBtn  !== 'undefined' && cancelDetailAddBtn)  { cancelDetailAddBtn.style.display  = 'inline-block'; cancelDetailAddBtn.disabled  = false; } } catch(_){
-  }
-  // 「登録」ボタンは運用に合わせてそのまま表示
+  try { if (typeof confirmDetailAddBtn !== 'undefined' && confirmDetailAddBtn) { confirmDetailAddBtn.style.display = 'inline-block'; confirmDetailAddBtn.disabled = false; } } catch(_) {}
+  try { if (typeof cancelDetailAddBtn  !== 'undefined' && cancelDetailAddBtn ) { cancelDetailAddBtn.style.display  = 'inline-block'; cancelDetailAddBtn.disabled  = false; } } catch(_) {}
+// 「登録」ボタンは運用に合わせてそのまま表示
 }
 /* ------------------------------
  * 追跡番号追加（詳細画面）
@@ -1554,3 +1569,11 @@ if (mobileMenuSearch){
     } catch(_){}
   });
 })();
+
+
+// --- ケース遷移前の保険リセット（イベントデリゲーション） ---
+document.addEventListener('click', (e)=>{
+  const li = e.target && e.target.closest && e.target.closest('#search-results li');
+  if (li && typeof resetDetailAddForm === 'function') resetDetailAddForm();
+});
+
