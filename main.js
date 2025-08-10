@@ -613,7 +613,7 @@ function createTrackingRow(context="add"){
 
 /* ------------------------------
  * 詳細画面：固定キャリア切替（行<select>は消さない）
- *  - 固定ON/変更時に「未選択」の行だけ固定値を適用
+ *  - 固定ON/変更時に全行へ固定値を適用（手動選択済みも上書き）
  * ------------------------------ */
 function applyFixedToUnselectedRows(context = "detail"){
   const rows = Array.from((context === "detail" ? detailTrackingRows : trackingRows).children);
@@ -622,7 +622,7 @@ function applyFixedToUnselectedRows(context = "detail"){
   if (!fixedOn || !fixedVal) return;
   rows.forEach(row => {
     const sel = row.querySelector("select");
-    if (sel && !sel.value) sel.value = fixedVal;
+    if (sel) sel.value = fixedVal;
   });
 }
 // 詳細側
