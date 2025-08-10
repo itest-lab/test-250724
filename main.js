@@ -1186,56 +1186,62 @@ function resolveFixedCarrierForDetail(row){
 }
 
 // --- 詳細画面：追跡番号追加 登録 ---
+// 固定キャリア解決（詳細画面用）
+function resolveFixedCarrierForDetail(row){
+  if (typeof detailFixedCarrierCheckbox !== 'undefined' && detailFixedCarrierCheckbox?.checked) {
+    return detailFixedCarrierSelect?.value || "";
+  }
+  if (typeof fixedCarrierCheckbox !== 'undefined' && fixedCarrierCheckbox?.checked) {
+    return fixedCarrierSelect?.value || "";
+  }
+  return row.querySelector("select")?.value || "";
+}
+
 confirmDetailAddBtn.onclick = async () => {
-  showLoading();                   // ← 開始時に表示
+  showLoading();
   confirmDetailAddBtn.disabled = true;
   detailAddRowBtn.disabled = true;
   cancelDetailAddBtn.disabled = true;
   detailAddMsg.textContent = "";
 
   try {
-    // 入力行を収集
+    // ★既存の登録済み取得→existSet作成
+    const snap = await db.ref(`shipments/${currentOrderId}`).once("value");
+    const exist = snap.val() || {};
+    const existSet = new Set(Object.values(exist).map(v => `${v.carrier}:${v.tracking}`));
+
+    // 入力行収集
     const rows = Array.from(detailTrackingRows.querySelectorAll(".tracking-row"));
     let items = [];
     let missingCarrier = false;
-    
-    // 行の強調リセット
+
     rows.forEach(r => r.classList.remove("missing-carrier"));
-    
-    // 固定ON時に選択なしなら即エラー
+
+    // 固定ON時の未選択チェック
     const fixedOn = (detailFixedCarrierCheckbox?.checked || fixedCarrierCheckbox?.checked) === true;
     if (fixedOn) {
-      const fixedVal =
-        (detailFixedCarrierCheckbox?.checked ? detailFixedCarrierSelect?.value : fixedCarrierSelect?.value) || "";
+      const fixedVal = (detailFixedCarrierCheckbox?.checked ? detailFixedCarrierSelect?.value : fixedCarrierSelect?.value) || "";
       if (!fixedVal) {
         detailAddMsg.textContent = "固定の運送会社を選択してください";
-        hideLoading();
-        confirmDetailAddBtn.disabled = false;
-        detailAddRowBtn.disabled = false;
-        cancelDetailAddBtn.disabled = false;
         return;
       }
     }
-    
+
     for (const r of rows) {
-      const carrier = resolveFixedCarrierForDetail(r);     // ← 固定を優先
+      const carrier = resolveFixedCarrierForDetail(r);           // 固定優先
       let tracking  = (r.querySelector("input[type='text']")?.value || "").trim();
-    
-      if (!tracking) continue;               // 追跡空はスキップ
-      if (!carrier) {                        // キャリア未選択はエラー表示
-        missingCarrier = true;
-        r.classList.add("missing-carrier");
-        continue;
-      }
-    
+
+      if (!tracking) continue;
+      if (!carrier) { missingCarrier = true; r.classList.add("missing-carrier"); continue; }
+
       tracking = normalizeTrackingForSave(carrier, tracking);
-    
+
       const k = `${carrier}:${tracking}`;
-      if (existSet.has(k)) continue;
+      if (existSet.has(k)) continue;                             // 既存はスキップ
       existSet.add(k);
       items.push({ carrier, tracking });
     }
-    
+
     if (missingCarrier) { detailAddMsg.textContent = "運送会社を選択してください"; return; }
     if (items.length === 0) { detailAddMsg.textContent = "追加対象がありません"; return; }
 
@@ -1245,7 +1251,7 @@ confirmDetailAddBtn.onclick = async () => {
       await ref.push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() });
     }
 
-    // 画面に即時反映＋ステータス取得
+    // 即時反映＋最後の取得までホイール維持
     let seqBase = detailShipmentsUl.children.length;
     let lastPromise = null;
     for (const it of items) {
@@ -1273,16 +1279,15 @@ confirmDetailAddBtn.onclick = async () => {
       lastPromise = p;
     }
 
-    if (lastPromise) await lastPromise;  // ← 最後のステータス取得まで待機
+    if (lastPromise) await lastPromise;
     detailAddMsg.textContent = "追加しました";
-    // 入力行クリア
     detailTrackingRows.innerHTML = "";
     addTrackingDetail.style.display = "none";
   } catch (e) {
     console.error(e);
     detailAddMsg.textContent = "追加に失敗しました";
   } finally {
-    hideLoading();                  // ← 終了時に非表示
+    hideLoading();
     confirmDetailAddBtn.disabled = false;
     detailAddRowBtn.disabled = false;
     cancelDetailAddBtn.disabled = false;
