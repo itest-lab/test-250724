@@ -320,6 +320,10 @@ const fixedCarrierSelectDetail   = document.getElementById("fixed-carrier-select
 const backToSearchBtn       = document.getElementById("back-to-search-btn");
 const anotherCaseBtn2       = document.getElementById("another-case-btn-2");
 
+const loadingOverlay = document.getElementById("loadingOverlay");
+function showLoading(){ if (loadingOverlay) loadingOverlay.classList.remove("hidden"); }
+function hideLoading(){ if (loadingOverlay) loadingOverlay.classList.add("hidden"); }
+
 // --- セッションタイムスタンプ管理 ---
 const SESSION_LIMIT_MS = 10 * 60 * 1000;
 function clearLoginTime() { localStorage.removeItem('loginTime'); }
@@ -771,57 +775,70 @@ confirmAddCaseBtn.onclick = async () => {
     return;
   }
 
-  // 既存データ取得
-  const snap = await db.ref(`shipments/${orderId}`).once("value");
-  const existObj = snap.val() || {};
-  const existSet = new Set(Object.values(existObj).map(it => `${it.carrier}:${it.tracking}`));
-  const items = [];
-  let missingCarrier = false;
+  // ここから処理中表示＋多重実行防止
+  showLoading();
+  confirmAddCaseBtn.disabled = true;
+  anotherCaseBtn.disabled = true;
 
-  // 行ごとの強調を初期化
-  Array.from(trackingRows.children).forEach(row => row.classList.remove('missing-carrier'));
+  try {
+    // 既存データ取得
+    const snap = await db.ref(`shipments/${orderId}`).once("value");
+    const existObj = snap.val() || {};
+    const existSet = new Set(Object.values(existObj).map(it => `${it.carrier}:${it.tracking}`));
+    const items = [];
+    let missingCarrier = false;
 
-  Array.from(trackingRows.children).forEach(row => {
-    let tn = row.querySelector("input").value.trim();
-    const carrier = fixedCarrierCheckbox.checked ? fixedCarrierSelect.value : row.querySelector("select")?.value;
-    if (tn && !carrier) { missingCarrier = true; row.classList.add('missing-carrier'); }
-    if (!tn || !carrier) return;
+    // 行ごとの強調を初期化
+    Array.from(trackingRows.children).forEach(row => row.classList.remove('missing-carrier'));
 
-    // ★ 保存前に福山の末尾01は除去
-    tn = normalizeTrackingForSave(carrier, tn);
+    Array.from(trackingRows.children).forEach(row => {
+      let tn = row.querySelector("input").value.trim();
+      const carrier = fixedCarrierCheckbox.checked ? fixedCarrierSelect.value : row.querySelector("select")?.value;
+      if (tn && !carrier) { missingCarrier = true; row.classList.add('missing-carrier'); }
+      if (!tn || !carrier) return;
 
-    const key = `${carrier}:${tn}`;
-    if (existSet.has(key)) return;
-    existSet.add(key);
-    // DB保存は正規化後の番号
-    items.push({ carrier, tracking: tn });
-  });
+      // 保存前に福山の末尾01は除去
+      tn = normalizeTrackingForSave(carrier, tn);
 
-  if (missingCarrier) { addCaseMsg.textContent = "運送会社を選択してください"; return; }
-  if (items.length === 0) { alert("新規追跡なし"); return; }
-
-  // ケース情報を暗号化して保存
-  const uid = (auth.currentUser && auth.currentUser.uid) || "guest";
-  const enc = await encryptForUser(uid, { 得意先: customer, 品名: title, 下版日: plateStr || null });
-
-  await db.ref(`cases/${orderId}`).set({
-    注番: orderId,
-    createdAt: Date.now(),
-    plateDateTs: plateTs,
-    enc
-  });
-
-  // 新規追跡を登録（DBは正規化後の番号）
-  for (const it of items) {
-    await db.ref(`shipments/${orderId}`).push({
-      carrier: it.carrier,
-      tracking: it.tracking,
-      createdAt: Date.now()
+      const key = `${carrier}:${tn}`;
+      if (existSet.has(key)) return;
+      existSet.add(key);
+      items.push({ carrier, tracking: tn });
     });
-  }
 
-  addCaseMsg.textContent = "登録完了";
-  await showCaseDetail(orderId, { 注番: orderId, enc, plateDateTs: plateTs });
+    if (missingCarrier) { addCaseMsg.textContent = "運送会社を選択してください"; return; }
+    if (items.length === 0) { alert("新規追跡なし"); return; }
+
+    // ケース情報を暗号化して保存
+    const uid = (auth.currentUser && auth.currentUser.uid) || "guest";
+    const enc = await encryptForUser(uid, { 得意先: customer, 品名: title, 下版日: plateStr || null });
+
+    await db.ref(`cases/${orderId}`).set({
+      注番: orderId,
+      createdAt: Date.now(),
+      plateDateTs: plateTs,
+      enc
+    });
+
+    // 新規追跡を登録
+    for (const it of items) {
+      await db.ref(`shipments/${orderId}`).push({
+        carrier: it.carrier,
+        tracking: it.tracking,
+        createdAt: Date.now()
+      });
+    }
+
+    addCaseMsg.textContent = "登録完了";
+    await showCaseDetail(orderId, { 注番: orderId, enc, plateDateTs: plateTs });
+  } catch (err) {
+    console.error(err);
+    addCaseMsg.textContent = "登録に失敗しました";
+  } finally {
+    hideLoading();
+    confirmAddCaseBtn.disabled = false;
+    anotherCaseBtn.disabled = false;
+  }
 };
 
 // --- 別案件追加ボタン ---
