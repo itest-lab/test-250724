@@ -1,12 +1,11 @@
 /**
-* main.js
+ * main.js
  * 概要: 受注案件の登録・検索・詳細表示・追跡番号管理（固定キャリア対応）
- * 技術要素: Firebase Authentication / Realtime Database, Barcode/QR 読取, AES-GCM 端末復号, 進捗ホイール
- * 留意点:
- *  - ID不一致での null 代入を避けるため、DOM取得は一箇所で統一
- *  - 「運送会社を固定」有効時は行<select>を排除し、固定値を使用
- *  - 福山通運の末尾"01"は保存時・API時・表示時のそれぞれで整合性を持って扱う
- *  - 進捗ホイールは「案件詳細の最後のステータス取得まで」オン
+ * 変更点（要件反映）:
+ *  - 固定ONでも各行<select>は消さない（行選択が優先。未選択は固定値で補完）
+ *  - 固定<select>変更時は「未選択」の行にだけ反映
+ *  - バリデーションは「行選択 or 固定値」のどちらかがあれば通過
+ *  - 進捗ホイールは案件詳細の「最後のステータス取得完了」まで表示
  */
 
 /* ------------------------------
@@ -482,49 +481,36 @@ async function scanFileForCodes(file){
 }
 
 /* ------------------------------
- * 追跡番号入力行の生成（add/detailで挙動が異なる）
+ * 追跡番号入力行の生成（add/detailで共通。常に<select>を持つ）
  * ------------------------------ */
 function createTrackingRow(context="add"){
   const row = document.createElement("div");
   row.className = "tracking-row";
 
-  // 運送会社<select>（固定ON時は非表示）
-  if (context === "add") {
-    if (!fixedCarrierCheckbox.checked) {
-      const sel = document.createElement("select");
-      sel.innerHTML = `
-        <option value="">運送会社選択してください</option>
-        <option value="yamato">ヤマト運輸</option>
-        <option value="fukuyama">福山通運</option>
-        <option value="seino">西濃運輸</option>
-        <option value="tonami">トナミ運輸</option>
-        <option value="hida">飛騨運輸</option>
-        <option value="sagawa">佐川急便</option>`;
-      row.appendChild(sel);
-    }
-  } else {
-    if (!fixedCarrierCheckboxDetail.checked) {
-      const sel = document.createElement("select");
-      sel.innerHTML = `
-        <option value="">運送会社選択してください</option>
-        <option value="yamato">ヤマト運輸</option>
-        <option value="fukuyama">福山通運</option>
-        <option value="seino">西濃運輸</option>
-        <option value="tonami">トナミ運輸</option>
-        <option value="hida">飛騨運輸</option>
-        <option value="sagawa">佐川急便</option>`;
-      row.appendChild(sel);
-    }
-  }
+  // 運送会社<select>は常に表示。固定ONなら未選択行に初期値を適用
+  const sel = document.createElement("select");
+  sel.innerHTML = `
+    <option value="">運送会社選択してください</option>
+    <option value="yamato">ヤマト運輸</option>
+    <option value="fukuyama">福山通運</option>
+    <option value="seino">西濃運輸</option>
+    <option value="tonami">トナミ運輸</option>
+    <option value="hida">飛騨運輸</option>
+    <option value="sagawa">佐川急便</option>`;
+  const fixedValInit = (context === "add")
+    ? (fixedCarrierCheckbox && fixedCarrierCheckbox.checked ? (fixedCarrierSelect?.value || "") : "")
+    : (fixedCarrierCheckboxDetail && fixedCarrierCheckboxDetail.checked ? (fixedCarrierSelectDetail?.value || "") : "");
+  if (fixedValInit) sel.value = fixedValInit;
+  row.appendChild(sel);
 
-  // 追跡番号入力 <input>
+  // 追跡番号<input>
   const inp = document.createElement("input");
   inp.type = "text";
   inp.placeholder = "追跡番号を入力してください";
   inp.inputMode = "numeric";
   const uniqueId = `tracking-${Date.now()}-${Math.floor(Math.random()*1000)}`;
   inp.id = uniqueId;
-  inp.addEventListener("input", e => { e.target.value = e.target.value.replace(/\\D/g, ""); });
+  inp.addEventListener("input", e => { e.target.value = e.target.value.replace(/\D/g, ""); });
 
   // Enter/Tab で次行へ。最終行なら新規行を自動追加
   inp.addEventListener("keydown", e => {
@@ -561,44 +547,62 @@ function createTrackingRow(context="add"){
     }
   })();
 
-  // 行強調: 追跡入力済みなのにキャリア未選択なら強調
+  // 行強調: 追跡入力済みなのにキャリア未選択なら強調（行選択 or 固定値）
   function updateMissingHighlight() {
     const tnVal = inp.value.trim();
-    let carrierVal;
-    if (context === "add") {
-      carrierVal = fixedCarrierCheckbox.checked ? fixedCarrierSelect.value : row.querySelector("select")?.value;
-    } else {
-      carrierVal = fixedCarrierCheckboxDetail.checked ? fixedCarrierSelectDetail.value : row.querySelector("select")?.value;
-    }
+    const rowVal = sel.value || "";
+    const fixedVal = (context === "add")
+      ? (fixedCarrierCheckbox && fixedCarrierCheckbox.checked ? (fixedCarrierSelect?.value || "") : "")
+      : (fixedCarrierCheckboxDetail && fixedCarrierCheckboxDetail.checked ? (fixedCarrierSelectDetail?.value || "") : "");
+    const carrierVal = rowVal || fixedVal || "";
     if (tnVal && !carrierVal) row.classList.add('missing-carrier'); else row.classList.remove('missing-carrier');
   }
   inp.addEventListener('input', updateMissingHighlight);
-  const selEl = row.querySelector('select'); if (selEl) selEl.addEventListener('change', updateMissingHighlight);
+  sel.addEventListener('change', updateMissingHighlight);
   return row;
 }
 
 /* ------------------------------
- * 詳細画面：固定キャリア切替（行<select>の付け外し）
+ * 詳細画面：固定キャリア切替（行<select>は消さない）
+ *  - 固定ON/変更時に「未選択」の行だけ固定値を適用
  * ------------------------------ */
-fixedCarrierCheckboxDetail.onchange = () => {
-  fixedCarrierSelectDetail.style.display = fixedCarrierCheckboxDetail.checked ? "inline-block" : "none";
-  Array.from(detailTrackingRows.children).forEach(row => {
+function applyFixedToUnselectedRows(context = "detail"){
+  const rows = Array.from((context === "detail" ? detailTrackingRows : trackingRows).children);
+  const fixedOn = (context === "detail") ? (fixedCarrierCheckboxDetail?.checked) : (fixedCarrierCheckbox?.checked);
+  const fixedVal = (context === "detail") ? (fixedCarrierSelectDetail?.value || "") : (fixedCarrierSelect?.value || "");
+  if (!fixedOn || !fixedVal) return;
+  rows.forEach(row => {
     const sel = row.querySelector("select");
-    if (fixedCarrierCheckboxDetail.checked) { if (sel) row.removeChild(sel); }
-    else { if (!sel) {
-      const newSel = document.createElement("select");
-      newSel.innerHTML = `
-        <option value="">運送会社選択してください</option>
-        <option value="yamato">ヤマト運輸</option>
-        <option value="fukuyama">福山通運</option>
-        <option value="seino">西濃運輸</option>
-        <option value="tonami">トナミ運輸</option>
-        <option value="hida">飛騨運輸</option>
-        <option value="sagawa">佐川急便</option>`;
-      row.insertBefore(newSel, row.firstChild);
-    }}
+    if (sel && !sel.value) sel.value = fixedVal;
   });
-};
+}
+// 詳細側
+if (fixedCarrierCheckboxDetail) {
+  fixedCarrierCheckboxDetail.onchange = () => {
+    fixedCarrierSelectDetail.style.display = fixedCarrierCheckboxDetail.checked ? "inline-block" : "none";
+    applyFixedToUnselectedRows("detail");
+  };
+}
+if (fixedCarrierSelectDetail) {
+  fixedCarrierSelectDetail.onchange = () => {
+    if (!fixedCarrierCheckboxDetail.checked) return;
+    applyFixedToUnselectedRows("detail");
+  };
+}
+
+// 追加画面側（同じロジック）
+if (fixedCarrierCheckbox) {
+  fixedCarrierCheckbox.onchange = () => {
+    fixedCarrierSelect.style.display = fixedCarrierCheckbox.checked ? "block" : "none";
+    applyFixedToUnselectedRows("add");
+  };
+}
+if (fixedCarrierSelect) {
+  fixedCarrierSelect.onchange = () => {
+    if (!fixedCarrierCheckbox.checked) return;
+    applyFixedToUnselectedRows("add");
+  };
+}
 
 /* ------------------------------
  * 追加画面の初期化
@@ -613,38 +617,15 @@ function initAddCaseView(){
   manualTitleInput.value        = "";
   manualPlateDateInput.value    = "";
   addCaseMsg.textContent        = "";
-  fixedCarrierCheckbox.checked  = false;
-  fixedCarrierSelect.style.display = "none";
-  fixedCarrierSelect.value      = "";
+  if (fixedCarrierCheckbox) fixedCarrierCheckbox.checked  = false;
+  if (fixedCarrierSelect) { fixedCarrierSelect.style.display = "none"; fixedCarrierSelect.value = ""; }
   trackingRows.innerHTML        = "";
-  for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow());
+  for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow("add"));
 }
 
-// 追跡行の追加と固定キャリアON/OFF切替（追加画面）
+// 追跡行の追加（追加画面）
 addTrackingRowBtn.onclick = () => {
-  for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow());
-};
-fixedCarrierCheckbox.onchange = () => {
-  fixedCarrierSelect.style.display = fixedCarrierCheckbox.checked ? "block" : "none";
-  Array.from(trackingRows.children).forEach(row => {
-    const sel = row.querySelector("select");
-    if(fixedCarrierCheckbox.checked){
-      if(sel) row.removeChild(sel);
-    } else {
-      if(!sel){
-        const newSel = document.createElement("select");
-        newSel.innerHTML = `
-          <option value="">運送会社選択してください</option>
-          <option value="yamato">ヤマト運輸</option>
-          <option value="fukuyama">福山通運</option>
-          <option value="seino">西濃運輸</option>
-          <option value="tonami">トナミ運輸</option>
-          <option value="hida">飛騨運輸</option>
-          <option value="sagawa">佐川急便</option>`;
-        row.insertBefore(newSel, row.firstChild);
-      }
-    }
-  });
+  for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow("add"));
 };
 
 // IME無効（QR欄）
@@ -655,7 +636,7 @@ caseBarcodeInput.addEventListener("compositionstart", e => e.preventDefault());
  * ------------------------------ */
 function normalizeDateString(s) {
   if (!s) return "";
-  const nums = (s.match(/\\d{1,4}/g) || []).map(n => parseInt(n, 10));
+  const nums = (s.match(/\d{1,4}/g) || []).map(n => parseInt(n, 10));
   if (nums.length >= 3) {
     let y = nums[0]; let m = nums[1]; let d = nums[2];
     if (y < 100) y = 2000 + y;
@@ -669,8 +650,8 @@ function normalizeDateString(s) {
   return "";
 }
 function extractPlateDateField(text) {
-  let fields = Array.from(text.matchAll(/\"([^\"]*)\"/g), m=>m[1]);
-  if (fields.length === 0) fields = text.split(/[\\,\\t\\r\\n]+/).map(s => s.trim()).filter(Boolean);
+  let fields = Array.from(text.matchAll(/"([^"]*)"/g), m=>m[1]);
+  if (fields.length === 0) fields = text.split(/[\,\t\r\n]+/).map(s => s.trim()).filter(Boolean);
   let val = "";
   if (fields.length === 4) val = fields[3];
   else if (fields.length >= 10) val = fields[9];
@@ -698,7 +679,7 @@ function processCaseBarcode(raw){
     return;
   }
   text = text.trim().replace(/「[^」]*」/g, "");
-  const matches = Array.from(text.matchAll(/\"([^\"]*)\"/g), m=>m[1]);
+  const matches = Array.from(text.matchAll(/"([^"]*)"/g), m=>m[1]);
   detailOrderId.textContent  = matches[0] || "";
   detailCustomer.textContent = matches[1] || "";
   detailTitle.textContent    = matches[2] || "";
@@ -731,7 +712,6 @@ manualConfirmBtn.onclick = () => {
 
 /* ------------------------------
  * 暗号化ユーティリティ（AES-GCM + PBKDF2）
- *  - データベースには復号不能な enc を保存し、表示時に端末側で復号
  * ------------------------------ */
 const PEPPER = "p9r7WqZ1-LocalPepper-ChangeIfNeeded";
 function b64(bytes){ return btoa(String.fromCharCode(...bytes)); }
@@ -798,13 +778,14 @@ confirmAddCaseBtn.onclick = async () => {
     // 行強調リセット
     Array.from(trackingRows.children).forEach(row => row.classList.remove('missing-carrier'));
 
-    // 入力走査
+    // 入力走査（行<select>優先。未選択は固定値）
     Array.from(trackingRows.children).forEach(row => {
-      let tn = row.querySelector("input").value.trim();
-      const carrier = fixedCarrierCheckbox.checked ? fixedCarrierSelect.value : row.querySelector("select")?.value;
-      if (tn && !carrier) { missingCarrier = true; row.classList.add('missing-carrier'); }
-      if (!tn || !carrier) return;
-
+      const rowSelVal = row.querySelector("select")?.value || "";
+      const fixedVal  = (fixedCarrierCheckbox?.checked ? (fixedCarrierSelect?.value || "") : "");
+      const carrier   = rowSelVal || fixedVal || "";
+      let tn = row.querySelector("input")?.value?.trim() || "";
+      if (!tn) return;
+      if (!carrier) { missingCarrier = true; row.classList.add('missing-carrier'); return; }
       tn = normalizeTrackingForSave(carrier, tn);
       const key = `${carrier}:${tn}`;
       if (existSet.has(key)) return;
@@ -812,7 +793,7 @@ confirmAddCaseBtn.onclick = async () => {
       items.push({ carrier, tracking: tn });
     });
 
-    if (missingCarrier) { addCaseMsg.textContent = "運送会社を選択してください"; return; }
+    if (missingCarrier) { addCaseMsg.textContent = "運送会社を選択してください（固定または行ごとに選択）"; return; }
     if (items.length === 0) { alert("新規追跡なし"); return; }
 
     // 案件情報を暗号化し保存
@@ -851,7 +832,7 @@ confirmAddCaseBtn.onclick = async () => {
  * 検索結果描画と全選択状態更新
  * ------------------------------ */
 anotherCaseBtn.onclick = () => { showView("add-case-view"); initAddCaseView(); };
-anotherCaseBtn2 && (anotherCaseBtn2.onclick = () => { showView("add-case-view"); initAddCaseView(); });
+if (anotherCaseBtn2) anotherCaseBtn2.onclick = () => { showView("add-case-view"); initAddCaseView(); };
 
 function renderSearchResults(list){
   searchResults.innerHTML = "";
@@ -1130,7 +1111,7 @@ backToSearchBtn.onclick = () => showView("search-view");
 
 /* ------------------------------
  * 追跡番号追加（詳細画面）
- *  - 固定キャリアが有効なら必須。無効なら各行<select>から取得
+ *  - 行<select>優先、未選択は固定値。
  *  - 追加後は最後のステータス反映までホイール維持
  * ------------------------------ */
 showAddTrackingBtn.onclick = () => {
@@ -1147,7 +1128,6 @@ cancelDetailAddBtn.onclick = () => {
   showAddTrackingBtn.style.display = "inline-block";
 };
 
-// Worker 経由のステータス取得は上に定義済み
 function getFixedCarrierValue(){
   const detailOn = !!(window.fixedCarrierCheckboxDetail && fixedCarrierCheckboxDetail.checked);
   const commonOn = !!(window.fixedCarrierCheckbox && fixedCarrierCheckbox.checked);
@@ -1156,7 +1136,7 @@ function getFixedCarrierValue(){
   return "";
 }
 
-// 追跡番号追加 確定（DOMContentLoaded 後に一度だけバインド）
+// 追跡番号追加 確定
 document.addEventListener("DOMContentLoaded", () => {
   if (!confirmDetailAddBtn) { console.error("#confirm-detail-add-btn が見つかりません"); return; }
 
@@ -1177,17 +1157,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const exist = snap.val() || {};
       const existSet = new Set(Object.values(exist).map(v => `${v.carrier}:${v.tracking}`));
 
-      // 固定キャリアの取得と必須チェック
+      // 固定値（空でも可）
       const fixedVal = getFixedCarrierValue();
-      const fixedCheckboxOn = !!(window.fixedCarrierCheckboxDetail?.checked || window.fixedCarrierCheckbox?.checked);
-      if (fixedCheckboxOn && !fixedVal) {
-        const msg = "固定の運送会社を選択してください";
-        detailAddMsg.textContent = msg;
-        if (detailAddWarn) detailAddWarn.textContent = msg;
-        return;
-      }
 
-      // 入力集約
+      // 入力集約（行<select>優先。未選択は固定値）
       const rows = Array.from(detailTrackingRows.querySelectorAll(".tracking-row"));
       rows.forEach(r => r.classList.remove("missing-carrier"));
 
@@ -1195,7 +1168,8 @@ document.addEventListener("DOMContentLoaded", () => {
       let missingCarrier = false;
 
       for (const r of rows) {
-        const carrier = fixedVal || (r.querySelector("select")?.value || "");
+        const rowSelVal = r.querySelector("select")?.value || "";
+        const carrier = rowSelVal || fixedVal || "";
         let tracking  = (r.querySelector('input[type="text"]')?.value || "").trim();
 
         if (!tracking) continue;
@@ -1209,7 +1183,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       if (missingCarrier) {
-        const msg = "運送会社を選択してください";
+        const msg = "運送会社を選択してください（固定または行ごとに選択）";
         detailAddMsg.textContent = msg;
         if (detailAddWarn) detailAddWarn.textContent = msg;
         return;
@@ -1242,14 +1216,14 @@ document.addEventListener("DOMContentLoaded", () => {
           .catch(e => {
             console.error(e);
             a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
-            li.className = "ship-exception";
+            li.className = 'ship-exception';
           });
 
         lastP = p;
       }
       if (lastP) await lastP;
 
-      // 正常終了UI
+      /* 正常終了UI　*/
       detailAddMsg.textContent = "追加しました";
       if (detailAddWarn) detailAddWarn.textContent = "";
       detailTrackingRows.innerHTML = "";
@@ -1257,8 +1231,8 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (e) {
       const msg = `追加に失敗しました: ${e.message || e}`;
       detailAddMsg.textContent = msg;
-      const detailAddWarn = document.getElementById("detailAddWarn");
-      if (detailAddWarn) detailAddWarn.textContent = msg;
+      const warn = document.getElementById("detailAddWarn");
+      if (warn) warn.textContent = msg;
       console.error("追跡番号追加エラー:", e);
     } finally {
       hideLoading();
