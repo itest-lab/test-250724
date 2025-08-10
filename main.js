@@ -1140,29 +1140,38 @@ backToSearchBtn.onclick = () => showView("search-view");
  *  - 追加後は最後のステータス反映までホイール維持
  * ------------------------------ */
 showAddTrackingBtn.onclick = () => {
-  addTrackingDetail.style.display = "block";
-  
-  // 追跡追加パネルを表示し、各ボタンを必ず表示
-  if (confirmAddCaseBtn)      { confirmAddCaseBtn.style.display = 'inline-block'; confirmAddCaseBtn.disabled = false; }
-  if (confirmDetailAddBtn)    { confirmDetailAddBtn.style.display = 'inline-block'; confirmDetailAddBtn.disabled = false; }
-  if (cancelDetailAddBtn)     { cancelDetailAddBtn.style.display = 'inline-block'; cancelDetailAddBtn.disabled = false; }
-detailTrackingRows.innerHTML = "";
-  for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail"));
-  showAddTrackingBtn.style.display = "none";
-}
-detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); };
-cancelDetailAddBtn.onclick = () => {
-  addTrackingDetail.style.display = "none";
-  detailTrackingRows.innerHTML = "";
-  detailAddMsg.textContent = "";
-  showAddTrackingBtn.style.display = "inline-block";
-
-  // 固定キャリア初期化
-  if (fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
-  if (fixedCarrierSelectDetail) {
-    fixedCarrierSelectDetail.value = ""; // 運送会社選択してください を選択
+    
+  // 追跡番号追加パネルを初期化して開く
+  if (addTrackingDetail) addTrackingDetail.style.display = "block";
+  // メッセージと警告をクリア
+  if (typeof detailAddMsg !== 'undefined' && detailAddMsg) detailAddMsg.textContent = "";
+  const warn = document.getElementById("detailAddWarn");
+  if (warn) warn.textContent = "";
+  // 固定キャリアを初期化
+  if (typeof fixedCarrierCheckboxDetail !== 'undefined' && fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;
+  if (typeof fixedCarrierSelectDetail !== 'undefined' && fixedCarrierSelectDetail){
+    fixedCarrierSelectDetail.value = "";
     fixedCarrierSelectDetail.style.display = "none";
   }
+  // 既存行を全消去し、空行を再生成（全て未選択・空文字）
+  if (typeof detailTrackingRows !== 'undefined' && detailTrackingRows){
+    detailTrackingRows.innerHTML = "";
+    for (let i = 0; i < 5; i++) {
+      const row = createTrackingRow("detail");
+      // 念のため、各行の<select>/<input>を空に
+      const sel = row.querySelector("select"); if (sel) sel.value = "";
+      const inp = row.querySelector('input[type="text"]'); if (inp) inp.value = "";
+      row.classList.remove("missing-carrier");
+      detailTrackingRows.appendChild(row);
+    }
+  }
+  // トグル
+  if (showAddTrackingBtn) showAddTrackingBtn.style.display = "none";
+  // 「登録」「追加登録」「キャンセル」を表示
+  if (typeof confirmAddCaseBtn   !== 'undefined' && confirmAddCaseBtn)   { confirmAddCaseBtn.style.display = "inline-block"; confirmAddCaseBtn.disabled = false; }
+  if (typeof confirmDetailAddBtn !== 'undefined' && confirmDetailAddBtn) { confirmDetailAddBtn.style.display = "inline-block"; confirmDetailAddBtn.disabled = false; }
+  if (typeof cancelDetailAddBtn  !== 'undefined' && cancelDetailAddBtn)  { cancelDetailAddBtn.style.display = "inline-block";  cancelDetailAddBtn.disabled = false; }
+
 };
 
 function getFixedCarrierValue(){
@@ -1467,4 +1476,3 @@ document.addEventListener('click', (e)=>{
     if (fixedSel) { fixedSel.value = ''; fixedSel.style.display = 'none'; }
   }
 });
-
