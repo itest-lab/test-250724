@@ -1178,113 +1178,121 @@ function getFixedCarrierValue(){
   return "";
 }
 
-// 追跡番号追加 確定
-confirmDetailAddBtn.onclick = async () => {
-  showLoading();
-  confirmDetailAddBtn.disabled = true;
-  detailAddRowBtn.disabled = true;
-  cancelDetailAddBtn.disabled = true;
-  detailAddMsg.textContent = "";
-  const detailAddWarn = document.getElementById("detailAddWarn");
-  if (detailAddWarn) detailAddWarn.textContent = "";
-
-  try {
-    if (!currentOrderId) throw new Error("currentOrderId 未設定");
-
-    // 既存重複セット
-    const snap = await db.ref(`shipments/${currentOrderId}`).once("value");
-    const exist = snap.val() || {};
-    const existSet = new Set(Object.values(exist).map(v => `${v.carrier}:${v.tracking}`));
-
-    // 固定キャリア取得
-    const fixedVal = getFixedCarrierValue();
-    const fixedCheckboxOn = !!(window.detailFixedCarrierCheckbox?.checked || window.fixedCarrierCheckbox?.checked);
-    if (fixedCheckboxOn && !fixedVal) {
-      const msg = "固定の運送会社を選択してください";
-      detailAddMsg.textContent = msg;
-      if (detailAddWarn) detailAddWarn.textContent = msg;   // ← ボタン上にも表示
-      return;
-    }
-
-    // 入力収集
-    const rows = Array.from(detailTrackingRows.querySelectorAll(".tracking-row"));
-    rows.forEach(r => r.classList.remove("missing-carrier"));
-
-    const items = [];
-    let missingCarrier = false;
-
-    for (const r of rows) {
-      // 固定が有効なら全行これを使う。無効時のみ行<select>
-      const carrier = fixedVal || (r.querySelector("select")?.value || "");
-      let tracking  = (r.querySelector('input[type="text"]')?.value || "").trim();
-
-      if (!tracking) continue;
-      if (!carrier) { missingCarrier = true; r.classList.add("missing-carrier"); continue; }
-
-      tracking = normalizeTrackingForSave(carrier, tracking);
-      const k = `${carrier}:${tracking}`;
-      if (existSet.has(k)) continue;
-      existSet.add(k);
-      items.push({ carrier, tracking });
-    }
-
-    if (missingCarrier) {
-      const msg = "運送会社を選択してください";
-      detailAddMsg.textContent = msg;
-      if (detailAddWarn) detailAddWarn.textContent = msg;   // ← ボタン上にも表示
-      return;
-    }
-    if (items.length === 0) { detailAddMsg.textContent = "追加対象がありません"; return; }
-
-    // 登録
-    const ref = db.ref(`shipments/${currentOrderId}`);
-    await Promise.all(items.map(it => ref.push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() })));
-
-    // 画面反映＋最後までホイール維持
-    let seqBase = detailShipmentsUl.children.length;
-    let lastP = null;
-    for (const it of items) {
-      const li = document.createElement("li");
-      const label = carrierLabels[it.carrier] || it.carrier;
-      const a = document.createElement("a");
-      a.target = "_blank";
-      a.href = it.carrier === "hida" ? carrierUrls[it.carrier] : (carrierUrls[it.carrier] + encodeURIComponent(it.tracking));
-      a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
-      li.appendChild(a);
-      detailShipmentsUl.appendChild(li);
-
-      const p = fetchStatus(it.carrier, it.tracking)
-        .then(({ status, time, location }) => {
-          const seq = ++seqBase;
-          a.textContent = formatShipmentText(seq, it.carrier, it.tracking, status, time, location);
-          li.className = "ship-" + classifyStatus(status);
-        })
-        .catch(e => {
-          console.error(e);
-          a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
-          li.className = "ship-exception";
-        });
-
-      lastP = p;
-    }
-    if (lastP) await lastP;
-
-    detailAddMsg.textContent = "追加しました";
-    if (detailAddWarn) detailAddWarn.textContent = "";
-    detailTrackingRows.innerHTML = "";
-    addTrackingDetail.style.display = "none";
-  } catch (e) {
-    const msg = `追加に失敗しました: ${e.message || e}`;
-    detailAddMsg.textContent = msg;
-    if (detailAddWarn) detailAddWarn.textContent = msg;
-    console.error("追跡番号追加エラー:", e);
-  } finally {
-    hideLoading();
-    confirmDetailAddBtn.disabled = false;
-    detailAddRowBtn.disabled = false;
-    cancelDetailAddBtn.disabled = false;
+document.addEventListener("DOMContentLoaded", () => {
+  const confirmDetailAddBtn = document.getElementById("confirmDetailAddBtn");
+  if (!confirmDetailAddBtn) {
+    console.error("confirmDetailAddBtn が見つかりません");
+    return;
   }
-};
+  
+  // 追跡番号追加 確定
+  confirmDetailAddBtn.onclick = async () => {
+    showLoading();
+    confirmDetailAddBtn.disabled = true;
+    detailAddRowBtn.disabled = true;
+    cancelDetailAddBtn.disabled = true;
+    detailAddMsg.textContent = "";
+    const detailAddWarn = document.getElementById("detailAddWarn");
+    if (detailAddWarn) detailAddWarn.textContent = "";
+  
+    try {
+      if (!currentOrderId) throw new Error("currentOrderId 未設定");
+  
+      // 既存重複セット
+      const snap = await db.ref(`shipments/${currentOrderId}`).once("value");
+      const exist = snap.val() || {};
+      const existSet = new Set(Object.values(exist).map(v => `${v.carrier}:${v.tracking}`));
+  
+      // 固定キャリア取得
+      const fixedVal = getFixedCarrierValue();
+      const fixedCheckboxOn = !!(window.detailFixedCarrierCheckbox?.checked || window.fixedCarrierCheckbox?.checked);
+      if (fixedCheckboxOn && !fixedVal) {
+        const msg = "固定の運送会社を選択してください";
+        detailAddMsg.textContent = msg;
+        if (detailAddWarn) detailAddWarn.textContent = msg;   // ← ボタン上にも表示
+        return;
+      }
+  
+      // 入力収集
+      const rows = Array.from(detailTrackingRows.querySelectorAll(".tracking-row"));
+      rows.forEach(r => r.classList.remove("missing-carrier"));
+  
+      const items = [];
+      let missingCarrier = false;
+  
+      for (const r of rows) {
+        // 固定が有効なら全行これを使う。無効時のみ行<select>
+        const carrier = fixedVal || (r.querySelector("select")?.value || "");
+        let tracking  = (r.querySelector('input[type="text"]')?.value || "").trim();
+  
+        if (!tracking) continue;
+        if (!carrier) { missingCarrier = true; r.classList.add("missing-carrier"); continue; }
+  
+        tracking = normalizeTrackingForSave(carrier, tracking);
+        const k = `${carrier}:${tracking}`;
+        if (existSet.has(k)) continue;
+        existSet.add(k);
+        items.push({ carrier, tracking });
+      }
+  
+      if (missingCarrier) {
+        const msg = "運送会社を選択してください";
+        detailAddMsg.textContent = msg;
+        if (detailAddWarn) detailAddWarn.textContent = msg;   // ← ボタン上にも表示
+        return;
+      }
+      if (items.length === 0) { detailAddMsg.textContent = "追加対象がありません"; return; }
+  
+      // 登録
+      const ref = db.ref(`shipments/${currentOrderId}`);
+      await Promise.all(items.map(it => ref.push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() })));
+  
+      // 画面反映＋最後までホイール維持
+      let seqBase = detailShipmentsUl.children.length;
+      let lastP = null;
+      for (const it of items) {
+        const li = document.createElement("li");
+        const label = carrierLabels[it.carrier] || it.carrier;
+        const a = document.createElement("a");
+        a.target = "_blank";
+        a.href = it.carrier === "hida" ? carrierUrls[it.carrier] : (carrierUrls[it.carrier] + encodeURIComponent(it.tracking));
+        a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：読み込み中…`;
+        li.appendChild(a);
+        detailShipmentsUl.appendChild(li);
+  
+        const p = fetchStatus(it.carrier, it.tracking)
+          .then(({ status, time, location }) => {
+            const seq = ++seqBase;
+            a.textContent = formatShipmentText(seq, it.carrier, it.tracking, status, time, location);
+            li.className = "ship-" + classifyStatus(status);
+          })
+          .catch(e => {
+            console.error(e);
+            a.textContent = `${label}：${formatTrackingForDisplay(it.carrier, it.tracking)}：取得失敗`;
+            li.className = "ship-exception";
+          });
+  
+        lastP = p;
+      }
+      if (lastP) await lastP;
+  
+      detailAddMsg.textContent = "追加しました";
+      if (detailAddWarn) detailAddWarn.textContent = "";
+      detailTrackingRows.innerHTML = "";
+      addTrackingDetail.style.display = "none";
+    } catch (e) {
+      const msg = `追加に失敗しました: ${e.message || e}`;
+      detailAddMsg.textContent = msg;
+      if (detailAddWarn) detailAddWarn.textContent = msg;
+      console.error("追跡番号追加エラー:", e);
+    } finally {
+      hideLoading();
+      confirmDetailAddBtn.disabled = false;
+      detailAddRowBtn.disabled = false;
+      cancelDetailAddBtn.disabled = false;
+    }
+  };
+});
 
 // --- 画面初期表示 ---
 auth.onAuthStateChanged(async user => {
