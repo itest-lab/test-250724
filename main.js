@@ -1177,8 +1177,10 @@ function getFixedCarrierValue(){
   return "";
 }
 
+function qs(id){ return document.getElementById(id); }
+
 document.addEventListener("DOMContentLoaded", () => {
-  const confirmDetailAddBtn = document.getElementById("confirmDetailAddBtn");
+  const confirmDetailAddBtn = document.getElementById("confirm-detail-add-btn");
   if (!confirmDetailAddBtn) {
     console.error("confirmDetailAddBtn が見つかりません");
     return;
@@ -1286,9 +1288,9 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("追跡番号追加エラー:", e);
     } finally {
       hideLoading();
-      confirmDetailAddBtn.disabled = false;
-      detailAddRowBtn.disabled = false;
-      cancelDetailAddBtn.disabled = false;
+      if (detailAddRowBtn)     detailAddRowBtn.disabled = false;
+      if (confirmDetailAddBtn) confirmDetailAddBtn.disabled = false;
+      if (cancelDetailAddBtn)  cancelDetailAddBtn.disabled = false;
     }
   };
 });
