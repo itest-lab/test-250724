@@ -596,7 +596,10 @@ function createTrackingRow(context="add"){
 function resetFixedCarrierUI(context){
   // 詳細側
   if (!context || context === 'detail'){
-    try { if (window.fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false; } catch(e){}
+    try { if (window.fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false;   try { if (typeof fixedCarrierCheckboxDetail !== 'undefined' && fixedCarrierCheckboxDetail) { fixedCarrierCheckboxDetail.checked = false; fixedCarrierCheckboxDetail.dispatchEvent(new Event('change', {bubbles:true  try { if (typeof fixedCarrierSelectDetail !== 'undefined' && fixedCarrierSelectDetail) { fixedCarrierSelectDetail.value = ''; fixedCarrierSelectDetail.style.display = 'none'; fixedCarrierSelectDetail.dispatchEvent(new Event('change', {bubbles:true  try { if (typeof detailTrackingRows !== 'undefined' && detailTrackingRows) { detailTrackingRows.querySelectorAll('select').forEach(s=>{ s.value=''; s.dispatchEvent(new Event('change', {bubbles:true})); }); detailTrackingRows.querySelectorAll('.tracking-row').forEach(r=> r.classList.remove('missing-carrier')); } } catch(e){}
+})); } } catch(e){}
+})); } } catch(e){}
+} catch(e){}
     try { if (window.fixedCarrierSelectDetail) { fixedCarrierSelectDetail.value = ''; fixedCarrierSelectDetail.style.display = 'none'; } } catch(e){}
     try { if (window.detailTrackingRows) { 
       detailTrackingRows.querySelectorAll('select').forEach(s=> s.value=''); 
@@ -1179,26 +1182,32 @@ showLoading();
 
 backToSearchBtn.onclick = () => showView("search-view");
 
+
+// --- 追跡番号追加の初期化＋必須ボタンの表示 ---
+function openDetailAddPanelFresh() {
+  try { if (typeof resetFixedCarrierUI === 'function') resetFixedCarrierUI('detail'); } catch(_){
+  }
+  try { if (typeof detailAddMsg !== 'undefined' && detailAddMsg) detailAddMsg.textContent = ''; } catch(_){}
+  if (typeof addTrackingDetail !== 'undefined' && addTrackingDetail) addTrackingDetail.style.display = 'block';
+  if (typeof detailTrackingRows !== 'undefined' && detailTrackingRows) {
+    detailTrackingRows.innerHTML = '';
+    for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow('detail'));
+  }
+  if (typeof showAddTrackingBtn !== 'undefined' && showAddTrackingBtn) showAddTrackingBtn.style.display = 'none';
+  // 必須ボタンの表示
+  try { if (typeof confirmDetailAddBtn !== 'undefined' && confirmDetailAddBtn) { confirmDetailAddBtn.style.display = 'inline-block'; confirmDetailAddBtn.disabled = false; } } catch(_){
+  }
+  try { if (typeof cancelDetailAddBtn  !== 'undefined' && cancelDetailAddBtn)  { cancelDetailAddBtn.style.display  = 'inline-block'; cancelDetailAddBtn.disabled  = false; } } catch(_){
+  }
+  // 「登録」ボタンは運用に合わせてそのまま表示
+}
 /* ------------------------------
  * 追跡番号追加（詳細画面）
  *  - 行<select>優先、未選択は固定値。
  *  - 追加後は最後のステータス反映までホイール維持
  * ------------------------------ */
 showAddTrackingBtn.onclick = () => {
-    // 追跡追加UIを毎回リセット
-  try { resetDetailAddForm(); } catch(e){}
-  // パネルを開く
-  if (addTrackingDetail) addTrackingDetail.style.display = "block";
-  // 行の再生成
-  if (detailTrackingRows){
-    detailTrackingRows.innerHTML = "";
-    for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail"));
-  }
-  // ボタンの表示
-  if (showAddTrackingBtn) showAddTrackingBtn.style.display = "none";
-  if (typeof confirmAddCaseBtn   !== 'undefined' && confirmAddCaseBtn)   { confirmAddCaseBtn.style.display = "inline-block"; confirmAddCaseBtn.disabled = false; }
-  if (typeof confirmDetailAddBtn !== 'undefined' && confirmDetailAddBtn) { confirmDetailAddBtn.style.display = "inline-block"; confirmDetailAddBtn.disabled = false; }
-  if (typeof cancelDetailAddBtn  !== 'undefined' && cancelDetailAddBtn)  { cancelDetailAddBtn.style.display  = "inline-block";  cancelDetailAddBtn.disabled  = false; }
+      openDetailAddPanelFresh();
 
 };
 detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); };
@@ -1479,3 +1488,69 @@ if (mobileMenuSearch){
     if (typeof searchAll === 'function') searchAll();
   });
 }
+
+
+// === ボタン類の安全再バインド（既存が無ければ補完） ===
+(function restoreButtonBindings(){
+  function safeBindClick(id, handler){
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (typeof el.onclick === 'function' || el.__bound_click) return;
+    el.addEventListener('click', handler);
+    el.__bound_click = true;
+  }
+  function ensureDetailPanelOpenFresh(){
+    try {
+      if (typeof resetDetailAddForm === 'function') resetDetailAddForm();
+    } catch(_){}
+    const panel = document.getElementById('add-tracking-detail');
+    const rows  = document.getElementById('detail-tracking-rows');
+    if (panel) panel.style.display = 'block';
+    if (rows) {
+      rows.innerHTML = '';
+      for (let i = 0; i < 5; i++) rows.appendChild(createTrackingRow('detail'));
+    }
+    const showBtn = document.getElementById('show-add-tracking-btn');
+    if (showBtn) showBtn.style.display = 'none';
+    if (typeof confirmAddCaseBtn   !== 'undefined' && confirmAddCaseBtn)   { confirmAddCaseBtn.style.display   = 'inline-block'; confirmAddCaseBtn.disabled   = false; }
+    if (typeof confirmDetailAddBtn !== 'undefined' && confirmDetailAddBtn) { confirmDetailAddBtn.style.display = 'inline-block'; confirmDetailAddBtn.disabled = false; }
+    if (typeof cancelDetailAddBtn  !== 'undefined' && cancelDetailAddBtn)  { cancelDetailAddBtn.style.display  = 'inline-block'; cancelDetailAddBtn.disabled  = false; }
+    const msg = document.getElementById('detail-add-msg'); if (msg) msg.textContent='';
+  }
+
+  // 追跡番号追加（詳細）を開く
+  safeBindClick('show-add-tracking-btn', ensureDetailPanelOpenFresh);
+
+  // 詳細側：行追加
+  safeBindClick('detail-add-tracking-row-btn', function(){
+    const rows  = document.getElementById('detail-tracking-rows');
+    if (!rows) return;
+    for (let i = 0; i < 5; i++) rows.appendChild(createTrackingRow('detail'));
+  });
+
+  // 追加側：行追加
+  safeBindClick('add-tracking-row-btn', function(){
+    const rows  = document.getElementById('tracking-rows');
+    if (!rows) return;
+    for (let i = 0; i < 10; i++) rows.appendChild(createTrackingRow('add'));
+  });
+
+  // 詳細側：キャンセル
+  safeBindClick('cancel-detail-add-btn', function(){
+    const panel = document.getElementById('add-tracking-detail');
+    const rows  = document.getElementById('detail-tracking-rows');
+    const msg   = document.getElementById('detail-add-msg');
+    if (panel) panel.style.display = 'none';
+    if (rows) rows.innerHTML = '';
+    if (msg)  msg.textContent = '';
+    const showBtn = document.getElementById('show-add-tracking-btn');
+    if (showBtn) showBtn.style.display = 'inline-block';
+    if (typeof confirmAddCaseBtn !== 'undefined' && confirmAddCaseBtn) confirmAddCaseBtn.style.display = 'inline-block';
+    try {
+      const fixedChk = document.getElementById('fixed-carrier-checkbox-detail');
+      const fixedSel = document.getElementById('fixed-carrier-select-detail');
+      if (fixedChk) fixedChk.checked = false;
+      if (fixedSel) { fixedSel.value = ''; fixedSel.style.display = 'none'; }
+    } catch(_){}
+  });
+})();
