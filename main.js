@@ -124,10 +124,10 @@ async function startScanning(formats, inputId) {
   html5QrCode = new Html5Qrcode('video-container', false);
   const backId = await selectBackCamera();
 
-  // ★端末側制約：連続AFとフレームレート控えめ
-  const constraints = backId
-    ? { video: { deviceId: { exact: backId }, focusMode: 'continuous', frameRate: { ideal: 24, max: 30 } } }
-    : { video: { facingMode: { exact: 'environment' }, focusMode: 'continuous', frameRate: { ideal: 24, max: 30 } } };
+  // html5-qrcode の cameraConfig は video ラッパーなし
+  const cameraConfig = backId
+    ? { deviceId: { exact: backId } }
+    : { facingMode: "environment" };
 
   // ★読取り設定
   const isCodabarOnly = (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR);
@@ -168,7 +168,7 @@ async function startScanning(formats, inputId) {
   };
 
   try {
-    await html5QrCode.start(constraints, config, onSuccess, () => {});
+    await html5QrCode.start(cameraConfig, config, onSuccess, () => {});
     // ★起動直後にAFを一度だけ強制（対応端末のみ）
     setTimeout(() => {
       if (html5QrCode) {
