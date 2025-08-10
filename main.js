@@ -1167,7 +1167,11 @@ backToSearchBtn.onclick = () => showView("search-view");
  * ------------------------------ */
 showAddTrackingBtn.onclick = () => {
   
-  // 追跡追加パネルを開く＋必須ボタンを確実に表示
+  
+  // 固定キャリアを初期化
+  try { if (typeof fixedCarrierCheckboxDetail !== 'undefined' && fixedCarrierCheckboxDetail) fixedCarrierCheckboxDetail.checked = false; } catch(_) {}
+  try { if (typeof fixedCarrierSelectDetail   !== 'undefined' && fixedCarrierSelectDetail) { fixedCarrierSelectDetail.value=''; fixedCarrierSelectDetail.style.display='none'; } } catch(_) {}
+// 追跡追加パネルを開く＋必須ボタンを確実に表示
   try { if (addTrackingDetail) addTrackingDetail.style.display = 'block'; } catch(_) {}
   try { if (detailAddMsg) detailAddMsg.textContent = ''; } catch(_) {}
   try {
@@ -1390,3 +1394,16 @@ if (passwordInput) {
     if (e.key === 'Enter') { e.preventDefault(); if (loginBtn) loginBtn.click(); }
   });
 }
+
+// --- 固定キャリア(詳細)の委譲ハンドラ ---
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  if (!t || t.id !== 'fixed-carrier-checkbox-detail') return;
+  try {
+    if (typeof fixedCarrierSelectDetail !== 'undefined' && fixedCarrierSelectDetail) {
+      fixedCarrierSelectDetail.style.display = t.checked ? 'inline-block' : 'none';
+    }
+    if (typeof applyFixedToUnselectedRows === 'function') applyFixedToUnselectedRows('detail');
+  } catch(_) {}
+}, true);
+
