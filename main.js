@@ -75,26 +75,6 @@ function isMobileDevice() {
 }
 let html5QrCode = null;
 let torchOn = false;
-let _scanCommitting = false;
-let _lastScan = null;
-async function commitToInput(inputId, value) {
-  const el = document.getElementById(inputId);
-  if (!el) return false;
-  el.value = value;
-  el.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }));
-  el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-  try { el.focus({ preventScroll: true }); } catch (_) {}
-  await new Promise(r => requestAnimationFrame(r));
-  try { el.blur(); } catch (_) {}
-  await new Promise(r => requestAnimationFrame(r));
-  if (!el.value) {
-    el.value = value;
-    el.dispatchEvent(new Event('input',  { bubbles: true }));
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    await new Promise(r => requestAnimationFrame(r));
-  }
-  return !!el.value;
-}
 function mmToPx(mm) { return mm * (96 / 25.4); }
 
 // 背面カメラ優先選択
@@ -182,34 +162,29 @@ async function startScanning(formats, inputId) {
   };
 
   // デコード成功時のハンドラ
-  const onSuccess = async (decoded) => {
-  if (_scanCommitting) return;
-  _scanCommitting = true;
-  try {
-    let value = String(decoded);
-    if (Array.isArray(formats) && formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
-      value = normalizeCodabar(value);
-      if (!value) { _scanCommitting = false; return; }
-    }
-    _lastScan = { inputId, value };
-    const ok = await commitToInput(inputId, value);
-    if (ok && inputId === 'case-barcode' && typeof processCaseBarcode === 'function') {
-      await processCaseBarcode(value);
-    }
-    await stopScanning();
-    const el = document.getElementById(inputId);
-    if (!el || !el.value) {
-      await new Promise(r => setTimeout(r, 0));
-      await commitToInput(inputId, value);
-    }
-  } catch (err) {
-    console.error(err);
-    await stopScanning();
-  } finally {
-    _lastScan = null;
-    _scanCommitting = false;
-  }
-};
+  const onSuccess = decoded => {
+    try {
+      const inputEl = document.getElementById(inputId);
+      if (!inputEl) { stopScanning(); return; }
+
+      // CODABARのスタート/ストップ文字除去
+      let value = decoded;
+      if (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
+        if (decoded && decoded.length >= 2) {
+          const pre = decoded[0], suf = decoded[decoded.length - 1];
+          if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) value = decoded.substring(1, decoded.length - 1);
+          else return; // 正しい開始/終了でなければ無視
+        }
+      }
+
+      inputEl.value = value;
+      inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+
+      // 案件バーコード欄のみ自動確定
+      if (inputId === 'case-barcode') processCaseBarcode(value);
+      stopScanning();
+    } catch (err) { console.error(err); stopScanning(); }
+  };
 
   try {
     await html5QrCode.start(cameraConfig, config, onSuccess, () => {});
@@ -252,6 +227,7 @@ async function toggleTorch() {
 
 // カメラUIの初期化（DOMContentLoaded）
 window.addEventListener('DOMContentLoaded', () => {
+  try{ ensureFixedCarrierToolbar('add'); }catch(_){}
   const closeBtn = document.getElementById('close-button');
   if (closeBtn) closeBtn.addEventListener('click', () => stopScanning());
   const torchBtn = document.getElementById('torch-button');
@@ -590,11 +566,53 @@ async function scanFileForCodes(file){
 }
 
 /* ------------------------------
+ * 行番号付与と固定キャリアツールバー配置
+ * ------------------------------ */
+function renumberTrackingRows(context="add"){
+  const container = (context === "detail") ? detailTrackingRows : trackingRows;
+  if (!container) return;
+  const rows = Array.from(container.children);
+  rows.forEach((row, idx) => {
+    let badge = row.querySelector('.row-no');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'row-no';
+      badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;min-width:2em;padding:0 .5em;margin-right:.5em;border-radius:9999px;font-weight:600;border:1px solid #999;';
+      row.insertBefore(badge, row.firstChild);
+    }
+    badge.textContent = String(idx + 1);
+  });
+}
+function ensureFixedCarrierToolbar(context="add"){
+  const rows = (context === "detail") ? detailTrackingRows : trackingRows;
+  if (!rows || !rows.parentElement) return;
+  const toolbarId = (context === "detail") ? 'fixed-toolbar-detail' : 'fixed-toolbar-add';
+  let bar = document.getElementById(toolbarId);
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = toolbarId;
+    bar.style.cssText = 'padding:.5em;border:1px dashed #bbb;background:#f9fafb;margin:.5em 0;display:flex;align-items:center;gap:.75em;position:sticky;top:.5rem;z-index:20;';
+    const lbl = document.createElement('strong');
+    lbl.textContent = '運送会社を固定';
+    lbl.style.cssText = 'font-weight:700;';
+    bar.appendChild(lbl);
+    rows.parentElement.insertBefore(bar, rows);
+  }
+  const cb  = (context === "detail") ? fixedCarrierCheckboxDetail : fixedCarrierCheckbox;
+  const sel = (context === "detail") ? fixedCarrierSelectDetail   : fixedCarrierSelect;
+  if (cb && cb.parentElement !== bar) bar.appendChild(cb);
+  if (sel && sel.parentElement !== bar) bar.appendChild(sel);
+  if (cb && sel) sel.style.display = cb.checked ? (context === "detail" ? "inline-block" : "block") : "none";
+}
+/* ------------------------------
  * 追跡番号入力行の生成（add/detailで共通。常に<select>を持つ）
  * ------------------------------ */
 function createTrackingRow(context="add"){
   const row = document.createElement("div");
   row.className = "tracking-row";
+  row.style.display = row.style.display || "flex";
+  row.style.alignItems = row.style.alignItems || "center";
+  row.style.gap = row.style.gap || ".5em";
 
   // 運送会社<select>は常に表示。固定ONなら未選択行に初期値を適用
   const sel = document.createElement("select");
@@ -635,13 +653,23 @@ function createTrackingRow(context="add"){
         setTimeout(() => {
           const newInputs = Array.from(row.parentElement.querySelectorAll('input[type="text"]'));
           if (newInputs[countBefore]) newInputs[countBefore].focus();
+          try{ renumberTrackingRows(context); }catch(_){}
         }, 0);
       }
     }
   });
   row.appendChild(inp);
 
-  // モバイルならカメラボタンを添付
+  
+  (function ensureBadge(){
+    if (!row.querySelector('.row-no')) {
+      const badge = document.createElement('span');
+      badge.className = 'row-no';
+      badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;min-width:2em;padding:0 .5em;margin-right:.5em;border-radius:9999px;font-weight:600;border:1px solid #999;';
+      row.insertBefore(badge, row.firstChild);
+    }
+  })();
+// モバイルならカメラボタンを添付
   (function attachCaptureControls(){
     const canCamera = isMobileDevice() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
     if (canCamera) {
@@ -703,6 +731,7 @@ if (fixedCarrierSelectDetail) {
 if (fixedCarrierCheckbox) {
   fixedCarrierCheckbox.onchange = () => {
     fixedCarrierSelect.style.display = fixedCarrierCheckbox.checked ? "block" : "none";
+    try{ ensureFixedCarrierToolbar('add'); }catch(_){}
     applyFixedToUnselectedRows("add");
   };
 }
@@ -730,11 +759,17 @@ function initAddCaseView(){
   if (fixedCarrierSelect) { fixedCarrierSelect.style.display = "none"; fixedCarrierSelect.value = ""; }
   trackingRows.innerHTML        = "";
   for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow("add"));
+  renumberTrackingRows('add');
+  renumberTrackingRows('add');
+  ensureFixedCarrierToolbar('add');
 }
 
 // 追跡行の追加（追加画面）
 addTrackingRowBtn.onclick = () => {
   for(let i=0;i<10;i++) trackingRows.appendChild(createTrackingRow("add"));
+  renumberTrackingRows('add');
+  renumberTrackingRows('add');
+  ensureFixedCarrierToolbar('add');
 };
 
 // IME無効（QR欄）
@@ -1158,6 +1193,7 @@ async function showCaseDetail(orderId, obj){
   detailShipmentsUl.innerHTML = "";
   currentOrderId = orderId;
   addTrackingDetail.style.display = "none";
+  try{ ensureFixedCarrierToolbar('detail'); }catch(_){}
   detailTrackingRows.innerHTML = "";
   detailAddMsg.textContent = "";
   if (detailAddRowBtn)     detailAddRowBtn.disabled = false;
@@ -1238,6 +1274,8 @@ showAddTrackingBtn.onclick = () => {
     if (detailTrackingRows){
       detailTrackingRows.innerHTML = '';
       for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow('detail'));
+    renumberTrackingRows('detail');
+    ensureFixedCarrierToolbar('detail');
     }
   } catch(_) {}
   try { if (confirmDetailAddBtn) { confirmDetailAddBtn.style.display = 'inline-block'; confirmDetailAddBtn.disabled = false; } } catch(_) {}
@@ -1245,9 +1283,10 @@ showAddTrackingBtn.onclick = () => {
   try { if (showAddTrackingBtn)  { showAddTrackingBtn.style.display  = 'none'; } } catch(_) {}
 
 };
-detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); };
+detailAddRowBtn.onclick = () => { for (let i = 0; i < 5; i++) detailTrackingRows.appendChild(createTrackingRow("detail")); renumberTrackingRows('detail'); };
 cancelDetailAddBtn.onclick = () => {
   addTrackingDetail.style.display = "none";
+  try{ ensureFixedCarrierToolbar('detail'); }catch(_){}
   detailTrackingRows.innerHTML = "";
   detailAddMsg.textContent = "";
   showAddTrackingBtn.style.display = "inline-block";
@@ -1371,6 +1410,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // 次回追加時も初期化状態で表示
       addTrackingDetail.style.display = "none";
+  try{ ensureFixedCarrierToolbar('detail'); }catch(_){}
       showAddTrackingBtn.style.display = "inline-block";
       
     } catch (e) {
