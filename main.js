@@ -1563,7 +1563,9 @@ async function showCaseDetail(orderId, obj){
       return;
     }
     // 2件以上ある場合は対象追跡のみ削除（確認付き）
-    if (!confirm("この追跡を削除しますか？")) return;
+    const __carrierName = carrierLabels[it.carrier] || it.carrier;
+const __trackDisp  = formatTrackingForDisplay(it.carrier, it.tracking);
+if (!confirm(`[${__carrierName}：${__trackDisp}]　を削除しますか？`)) return;
     await db.ref(`shipments/${orderId}/${child.key}`).remove();
     await showCaseDetail(orderId, obj);
   } catch (e) {
