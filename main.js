@@ -171,6 +171,15 @@ async function startScanning(formats, inputId) {
       if (!inputEl) { stopScanning(); return; }
 
       let value = String(decoded);
+      // CODABAR最短長チェック: A-Dがなくても数字のみ9桁以下は無視
+      {
+        const hasCodabar = Array.isArray(formats) && formats.includes(Html5QrcodeSupportedFormats.CODABAR);
+        if (hasCodabar) {
+          const pre = value[0], suf = value[value.length - 1];
+          const core = (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) ? value.substring(1, value.length - 1) : value;
+          if (/^\d{1,9}$/.test(core)) return; // 継続スキャン
+        }
+      }
 
       // CODABAR: 両端A/B/C/Dが付いている場合は常に正規化。9文字以下は継続スキャン
       {
@@ -586,7 +595,7 @@ async function scanFileForCodes(file){
   if (!v) return null;
 
   const n = normalizeCodabar(String(v));
-  return n ? n : null;
+  return (/^\d{1,9}$/.test(n) ? null : n);
 }
 
 /* ------------------------------
