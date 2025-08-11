@@ -1,3 +1,4 @@
+
 body {
   font-family: sans-serif;
   max-width: 600px;
@@ -300,6 +301,9 @@ html, body, button, input, select, textarea {
   width: auto;      /* グローバルの width:100% を打ち消す */
   flex: 1 1 auto;   /* 余白があれば広がるが min-width 未満に縮まない */
 }
+@media (max-width: 420px) {
+  .tracking-row { flex-wrap: wrap; }
+}
 
 /* 14ch guarantee */
 .tracking-row input[type="text"] { width: auto; flex: 1 1 auto; }
@@ -312,3 +316,10 @@ html, body, button, input, select, textarea {
   width: auto;                  /* 全体の width:100% を上書き */
   flex: 0 0 auto;               /* 伸縮させず幅を維持 */
 }
+
+/* === 追跡行: 運送会社と追跡番号を横並びにする === */
+.tracking-row { display: flex; align-items: center; gap: .5em; flex-wrap: nowrap; }
+.tracking-row select { width: auto; min-width: calc(4em + 1.5em); flex: 0 0 auto; }
+.tracking-row input[type="text"] { width: auto; min-width: calc(14ch + 1em); flex: 1 1 260px; }
+.tracking-row button { width: auto; flex: 0 0 auto; }
+@media (max-width: 480px) { .tracking-row { flex-wrap: wrap; } }
