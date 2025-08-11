@@ -689,9 +689,9 @@ function ensureFixedCarrierToolbar(context="add"){
   if (cb) { cb.style.margin = '0'; cb.style.transform = 'scale(1.0)'; group.appendChild(cb); }
   if (sel) {
     sel.style.display = (cb && cb.checked) ? 'inline-block' : 'none';
-    sel.style.width = 'auto';
-    sel.style.minWidth = '140px';
-    sel.style.maxWidth = '180px';
+    
+    
+    
     sel.style.flex = '0 0 auto';
     group.appendChild(sel);
   }
@@ -703,7 +703,7 @@ function ensureFixedCarrierToolbar(context="add"){
 function createTrackingRow(context="add"){
   const row = document.createElement("div");
   row.className = "tracking-row";
-  row.style.display = row.style.display || "flex";
+  
   row.style.alignItems = row.style.alignItems || "center";
   row.style.gap = row.style.gap || ".5em";
 
@@ -812,31 +812,13 @@ row.appendChild(inp);
 
   
   // ▼ 幅自動調整: 画面幅に追従（ADD/DETAIL 共通）
-  row.style.flexWrap = 'nowrap'; row.style.width = '100%';
-  sel.style.flex = '1 1 auto'; inp.style.flex = '1 1 auto';
-  function fitRow(){
-    try{
-      const gap = parseFloat(getComputedStyle(row).gap || '8');
-      const btn = row.querySelector('button.camera-btn');
-      const btnMin = 48; // px
-    const isMobile = (window.matchMedia && (matchMedia('(pointer: coarse)').matches || matchMedia('(max-width: 768px)').matches));
-      const fs = parseFloat(getComputedStyle(inp).fontSize || '16');
-      const ch = fs * 0.5, zen = fs;
-      const minInput = Math.round(16 * ch + 16);
-      const minSelect = Math.round(4 * zen + 24);
-      let btnW = btn ? (isMobile ? 48 : btn.offsetWidth) : 0;
-      let availRow = row.clientWidth - gap*2;
-      let remain = availRow - btnW;
-      if (!isMobile && remain < minInput + minSelect && btn) {
-        const targetBtn = Math.max(btnMin, btnW - ((minInput + minSelect) - remain));
-        btn.style.flex = '0 1 auto'; btn.style.maxWidth = targetBtn + 'px';
-        btnW = btn.offsetWidth; remain = availRow - btnW;
-      }
-      let selectW = Math.max(minSelect, Math.min(remain - minInput, Math.floor(remain * 0.5)));
+   
+  sel.style.flex = '1 1 auto'; 
+  function fitRow(){ try{ sel.removeAttribute("style"); inp.removeAttribute("style"); row.style.removeProperty("width"); }catch(_){}}
       if (selectW < minSelect) selectW = minSelect;
       const inputW = Math.max(minInput, remain - selectW);
-      sel.style.maxWidth = selectW + 'px'; sel.style.width = selectW + 'px';
-      inp.style.maxWidth = inputW + 'px'; inp.style.width = inputW + 'px';
+       
+       
     }catch(_){ }
   }
   setTimeout(fitRow, 0);

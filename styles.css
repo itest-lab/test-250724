@@ -360,43 +360,41 @@ html, body, button, input, select, textarea {
 }
 .tracking-row { width: 100%; }
 
-/* === 600px 基準レイアウト === */
+/* === 600px 基準レイアウト（カメラはブリード配置） === */
 :root{ --camera-btn-w:56px; }
 
-/* 追跡行レイアウト: PC=3列, モバイル=4列(最後がカメラ) */
 .tracking-row{
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0,1fr) minmax(0,1.2fr);
   align-items: center;
   gap: .5rem;
   width: 100%;
+  overflow: visible;
 }
-
 .tracking-row .row-no{
   width: 3ch;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-
-/* 入力とセレクトは常に100% */
 .tracking-row select,
 .tracking-row input[type="text"]{
   width: 100%;
   min-width: 0;
 }
 
-/* カメラボタン: PCは非表示かつレイアウト幅に含めない */
-.camera-btn{
-  display: none;
-}
+/* PC: カメラ非表示（幅計算に含めない） */
+.camera-btn{ display:none; }
 
-/* モバイル時のみ表示し固定幅 */
+/* モバイル: カメラを行の右外に固定配置してブリード（幅に含めない） */
 @media (max-width: 768px){
-  .tracking-row{
-    grid-template-columns: auto minmax(0,1fr) minmax(0,1fr) var(--camera-btn-w);
-  }
+  .tracking-row{ overflow: visible; }
   .camera-btn{
     display: inline-flex;
+    position: absolute;
+    top: 50%;
+    right: calc(-1 * var(--camera-btn-w) - .5rem); /* コンテナ外へブリード */
+    transform: translateY(-50%);
     align-items: center;
     justify-content: center;
     width: var(--camera-btn-w);
@@ -406,5 +404,6 @@ html, body, button, input, select, textarea {
     white-space: nowrap;
     border: 1px solid #ccc;
     border-radius: 8px;
+    background: #fff;
   }
 }
