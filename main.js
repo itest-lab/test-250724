@@ -659,7 +659,7 @@ function renumberTrackingRows(context="add"){
     let badge = row.querySelector('.row-no');
     if (!badge) {
       badge = document.createElement('span');
-      badge.className = 'row-no'; badge.style.cssText = 'display:inline-block;width:3ch;text-align:right;margin-right:.25em;font-weight:600;font-variant-numeric:tabular-nums;';
+      badge.className = 'row-no'; badge.style.cssText = 'display:inline-block;width:3ch;text-align:right;font-weight:600;font-variant-numeric:tabular-nums;';
       row.insertBefore(badge, row.firstChild);
     }
     badge.textContent = String(Math.min(idx + 1, 999));
