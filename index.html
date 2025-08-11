@@ -114,6 +114,18 @@
     <!-- 案件検索ビュー -->
     <div id="search-view" class="subview" style="display:none;">
       <h3>案件検索</h3>
+
+<!-- ▼ 追加：表示件数セレクタ（既定50件） -->
+<label id="page-size-container">表示件数:
+  <select id="page-size-select">
+    <option value="5">5件</option>
+    <option value="10">10件</option>
+    <option value="20">20件</option>
+    <option value="50" selected>50件</option>
+    <option value="100">100件</option>
+  </select>
+</label>
+
       <input id="search-input" placeholder="キーワード（注番／得意先／タイトル）">
       <!-- ★ 追加: どの日時で絞るか選択（既定: 下版日） -->
       <label>日付基準:
@@ -128,6 +140,9 @@
       <button id="search-btn">検索</button>
       <button id="list-all-btn">一覧表示</button>
       <ul id="search-results"></ul>
+
+  <!-- ▼ 追加：ページングUI -->
+  <div id="pagination"></div>
       <!-- 管理者専用: 全選択チェックボックスと選択削除ボタン -->
       <label id="select-all-container" style="display:none;">
         <input type="checkbox" id="select-all-checkbox">

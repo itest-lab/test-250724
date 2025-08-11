@@ -285,3 +285,12 @@ html, body, button, input, select, textarea {
 }
 #mobile-menu-panel button + button{ border-top: 1px solid #eee; }
 #mobile-menu-panel button:active{ background:#f5f7fb; }
+
+
+/* ---------- ページングUI ---------- */
+#pagination { display:flex; align-items:center; gap:.5rem; margin:.5rem 0; flex-wrap: wrap; }
+#pagination button { width:auto; }
+#pagination #page-info { white-space:nowrap; }
+#pagination #page-number-input { width:5rem; }
+#page-size-container { margin: .5rem 0; }
+#page-size-container select { width:auto; display:inline-block; }
