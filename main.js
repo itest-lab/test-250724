@@ -141,7 +141,11 @@ function normalizeTrackingForSave(carrier, tracking) {
 function normalizeCodabar(value) {
   if (!value || value.length < 2) return value || '';
   const pre = value[0], suf = value[value.length - 1];
-  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) return value.substring(1, value.length - 1);
+  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) {
+    const core = value.substring(1, value.length - 1);
+    // 先頭・末を省いた9文字以下はスキップ（空文字を返す）
+    return (core.length <= 9) ? '' : core;
+  }
   return value;
 }
 
