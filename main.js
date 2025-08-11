@@ -744,29 +744,38 @@ function createTrackingRow(context="add"){
   }
   inp.addEventListener('input', updateMissingHighlight);
   sel.addEventListener('change', updateMissingHighlight);
+
   
-  // ▼ 幅自動調整: 画面幅にフィット（折返し/行内スクロールなし）
+  // ▼ 幅自動調整: カメラボタンも含めて画面幅にフィット
   row.style.flexWrap = 'nowrap'; row.style.width = '100%';
-  sel.style.flex = '0 0 auto';
-  inp.style.flex = '1 1 auto';
+  sel.style.flex = '0 0 auto'; inp.style.flex = '1 1 auto';
   function fitRow(){
     try{
       const gap = parseFloat(getComputedStyle(row).gap || '8');
       const btn = row.querySelector('button.camera-btn');
-      const btnW = btn ? btn.offsetWidth : 0;
-      const avail = row.clientWidth - sel.offsetWidth - btnW - gap*2; // 左右の隙間考慮
+      const selW = sel.offsetWidth;
+      const btnMin = 48; // px 最小確保
       const style = getComputedStyle(inp);
-      const ch = parseFloat(style.fontSize || '16') * 0.5; // 約半角幅
-      const minPx = Math.max(0, 15 * ch + 16); // 15ch + padding相当
+      const ch = (parseFloat(style.fontSize || '16') * 0.5) || 8; // 半角幅推定
+      const minPx = Math.max(0, 15 * ch + 16); // 15ch + padding
+      let btnW = btn ? btn.offsetWidth : 0;
+      let avail = row.clientWidth - selW - btnW - gap*2;
+      if (avail < minPx && btn) {
+        const shrink = row.clientWidth - selW - gap*2 - minPx;
+        const newBtnW = Math.max(btnMin, shrink);
+        btn.style.maxWidth = newBtnW + 'px';
+        btn.style.flex = '0 1 auto';
+        btnW = btn.offsetWidth;
+        avail = row.clientWidth - selW - btnW - gap*2;
+      }
       const w = Math.max(minPx, avail);
       inp.style.maxWidth = w + 'px';
       inp.style.width = Math.min(w, avail) + 'px';
-    }catch(_){ /* no-op */ }
+    }catch(_){ }
   }
-  // 初期 + リサイズで再計算
   setTimeout(fitRow, 0);
   window.addEventListener('resize', fitRow);
-
+  sel.addEventListener('change', fitRow);
   return row;
 }
 

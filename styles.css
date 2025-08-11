@@ -328,3 +328,9 @@ html, body, button, input, select, textarea {
 .tracking-row{ width:100%; display:flex; align-items:center; gap:.5em; flex-wrap:nowrap; }
 .tracking-row select{ width:auto; }
 .tracking-row input[type="text"]{ width:auto; }
+
+/* === 追跡行: 画面幅フィット（カメラボタン含む） === */
+.tracking-row{ display:flex; align-items:center; gap:.5em; width:100%; flex-wrap:nowrap; overflow-x:visible; }
+.tracking-row select{ width:auto; min-width:calc(5em + 1.5em); flex:0 0 auto; }
+.tracking-row input[type="text"]{ width:auto; min-width:calc(15ch + 1em); flex:1 1 auto; }
+.tracking-row .camera-btn{ width:auto; flex:0 1 auto; max-width:100%; white-space:nowrap; }
