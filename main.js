@@ -707,7 +707,26 @@ function createTrackingRow(context="add"){
       }
     }
   });
-  row.appendChild(inp);
+  inp.addEventListener("beforeinput", e => {
+  const t = e.inputType;
+  if (t === "insertLineBreak" || t === "insertParagraph") {
+    e.preventDefault();
+    const inputs = Array.from(row.parentElement.querySelectorAll('input[type="text"]'));
+    const countBefore = inputs.length;
+    const idx = inputs.indexOf(inp);
+    if (idx !== -1 && idx < countBefore - 1) {
+      inputs[idx + 1].focus();
+    } else {
+      if (context === "detail") { detailAddRowBtn.click(); } else { addTrackingRowBtn.click(); }
+      setTimeout(() => {
+        const newInputs = Array.from(row.parentElement.querySelectorAll('input[type="text"]'));
+        if (newInputs[countBefore]) newInputs[countBefore].focus();
+        try{ renumberTrackingRows(context); }catch(_){ }
+      }, 0);
+    }
+  }
+});
+row.appendChild(inp);
 
   
   (function ensureBadge(){
