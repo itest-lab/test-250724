@@ -1541,16 +1541,36 @@ async function showCaseDetail(orderId, obj){
           editBtn.onclick = openEditForm;
 
           delBtn.onclick = async () => {
-            if (!confirm("この追跡を削除しますか？")) return;
-            try {
-              await db.ref(`shipments/${orderId}/${child.key}`).remove();
-            } catch (e) {
-              console.error("削除失敗:", e);
-              alert("削除に失敗しました");
-              return;
-            }
-            await showCaseDetail(orderId, obj);
-          };
+  try {
+    // 登録数を取得
+    const snapCount = await db.ref(`shipments/${orderId}`).once("value");
+    const count = snapCount.numChildren();
+    if (count <= 1) {
+      // 案件自体を削除する確認
+      const ok = confirm("この案件は登録が1件のみです。案件自体を削除します。よろしいですか？");
+      if (!ok) return;
+      try {
+        await db.ref(`shipments/${orderId}`).remove();
+        await db.ref(`cases/${orderId}`).remove();
+      } catch (e) {
+        console.error("案件削除失敗:", e);
+        alert("案件の削除に失敗しました");
+        return;
+      }
+      // 検索画面へ戻る
+      showView("search-view");
+      try { if (typeof searchAll === 'function') searchAll(searchInput.value || ""); } catch(_){}
+      return;
+    }
+    // 2件以上ある場合は対象追跡のみ削除（確認付き）
+    if (!confirm("この追跡を削除しますか？")) return;
+    await db.ref(`shipments/${orderId}/${child.key}`).remove();
+    await showCaseDetail(orderId, obj);
+  } catch (e) {
+    console.error("削除処理中エラー:", e);
+    alert("削除処理に失敗しました");
+  }
+};
         }
 
         detailShipmentsUl.appendChild(li);
