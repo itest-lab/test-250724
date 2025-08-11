@@ -9,6 +9,7 @@
  */
 
 /* ------------------------------
+// セクション解説: Firebase 初期化 の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * Firebase 初期化
  * ------------------------------ */
 const firebaseConfig = {
@@ -26,8 +27,14 @@ const auth = firebase.auth();
 const db = firebase.database();
 
 /* ------------------------------
+// セクション解説: Firebase 認証エラーメッセージ整形 の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * Firebase 認証エラーメッセージ整形
  * ------------------------------ */
+/** 
+ * Firebase Authのエラーコードをユーザー向け日本語メッセージに変換します。
+ * @param {any} e - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function authErrorToMessage(e){
   const code = (e && e.code) ? String(e.code) : "";
   switch(code){
@@ -41,7 +48,6 @@ function authErrorToMessage(e){
     default: return (e && e.message) ? e.message : "ログインに失敗しました";
   }
 }
-
 
 // セッション永続化: ブラウザのタブ単位（閉じると失効）
 auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
@@ -61,20 +67,29 @@ const carrierUrls = {
   fukuyama: "https://corp.fukutsu.co.jp/situation/tracking_no_hunt/",
   seino:   "https://track.seino.co.jp/cgi-bin/gnpquery.pgm?GNPNO1=",
   tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
-  // 飛騨運輸: 追跡API非対応のため固定URL
   hida:    "http://www.hida-unyu.co.jp/WP_HIDAUNYU_WKSHO_GUEST/KW_UD04015.do?_Action_=a_srcAction",
   sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo="
 };
 
 /* ------------------------------
+// セクション解説: モバイル用カメラ読取（html5-qrcode） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * モバイル用カメラ読取（html5-qrcode）
  * ------------------------------ */
+/** 
+ * UserAgent判定でモバイル端末かを推測します。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function isMobileDevice() {
   const ua = navigator.userAgent || navigator.vendor || window.opera;
   return /android|iPad|iPhone|iPod/i.test(ua);
 }
 let html5QrCode = null;
 let torchOn = false;
+/** 
+ * mm単位をCSS pxに変換します。96dpi前提。
+ * @param {any} mm - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function mmToPx(mm) { return mm * (96 / 25.4); }
 
 // 背面カメラ優先選択
@@ -89,20 +104,39 @@ async function selectBackCamera() {
 }
 
 /* ------------------------------
+// セクション解説: 追跡番号のフォーマット/正規化（福山の末尾01対応） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 追跡番号のフォーマット/正規化（福山の末尾01対応）
  * ------------------------------ */
+/** 
+ * 画面表示用に追跡番号の表記を補正します（福山の末尾01→除去）。
+ * @param {any} carrier - 入力パラメータ
+ * @param {any} tracking - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function formatTrackingForDisplay(carrier, tracking) {
   if (carrier === "fukuyama" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
     return tracking.slice(0, -2);
   }
   return tracking;
 }
+/** 
+ * 外部追跡ページやAPI参照用の追跡番号に正規化します。
+ * @param {any} carrier - 入力パラメータ
+ * @param {any} tracking - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function trackingForApi(carrier, tracking) {
   if (carrier === "fukuyama" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
     return tracking.slice(0, -2);
   }
   return tracking;
 }
+/** 
+ * DB保存用に追跡番号を正規化します。
+ * @param {any} carrier - 入力パラメータ
+ * @param {any} tracking - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function normalizeTrackingForSave(carrier, tracking) {
   if (carrier === "fukuyama" && typeof tracking === "string" && tracking.length > 2 && tracking.endsWith("01")) {
     return tracking.slice(0, -2);
@@ -111,8 +145,14 @@ function normalizeTrackingForSave(carrier, tracking) {
 }
 
 /* ------------------------------
+// セクション解説: CODABAR の A/B/C/D を両端から除去（ラベル部） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * CODABAR の A/B/C/D を両端から除去（ラベル部）
  * ------------------------------ */
+/** 
+ * CODABARの開始/停止文字(A-D)を両端から除去。桁不足は無視します。
+ * @param {any} value - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function normalizeCodabar(value){
   if (!value || value.length < 2) return value || '';
   const pre = value[0], suf = value[value.length - 1];
@@ -124,6 +164,7 @@ function normalizeCodabar(value){
 }
 
 /* ------------------------------
+// セクション解説: カメラ読取開始（PCは無効） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * カメラ読取開始（PCは無効）
  * ------------------------------ */
 async function startScanning(formats, inputId) {
@@ -279,6 +320,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ------------------------------
+// セクション解説: 画面共通状態・DOM参照 の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 画面共通状態・DOM参照
  * ------------------------------ */
 let isAdmin = false;
@@ -341,6 +383,13 @@ const addCaseMsg            = document.getElementById("add-case-msg");
 const anotherCaseBtn        = document.getElementById("another-case-btn");
 
 // ▼ 追跡入力のキーボード移動（委譲）
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @param {any} container - 入力パラメータ
+ * @param {any} addBtn - 入力パラメータ
+ * @param {any} context - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function wireDelegatedNav(container, addBtn, context){
   if(!container) return;
   container.addEventListener('keydown', e => {
@@ -439,15 +488,36 @@ const anotherCaseBtn2       = document.getElementById("another-case-btn-2");
 
 // 進捗ホイール
 const loadingOverlay = document.getElementById("loadingOverlay");
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function showLoading(){ if (loadingOverlay) loadingOverlay.classList.remove("hidden"); }
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function hideLoading(){ if (loadingOverlay) loadingOverlay.classList.add("hidden"); }
 
 /* ------------------------------
+// セクション解説: セッションタイムアウト制御（10分） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * セッションタイムアウト制御（10分）
  * ------------------------------ */
 const SESSION_LIMIT_MS = 10 * 60 * 1000;
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function clearLoginTime() { localStorage.removeItem('loginTime'); }
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function markLoginTime()  { localStorage.setItem('loginTime', Date.now().toString()); }
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function isSessionExpired(){
   const t = parseInt(localStorage.getItem('loginTime') || '0', 10);
   return (Date.now() - t) > SESSION_LIMIT_MS;
@@ -460,6 +530,11 @@ if (auth && auth.currentUser && isSessionExpired()) {
 }
 
 // サブビュー切替
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @param {any} id - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function showView(id){
   document.querySelectorAll(".subview").forEach(el=>el.style.display="none");
   const target = document.getElementById(id);
@@ -479,6 +554,10 @@ const mobileMenuPanel = document.getElementById('mobile-menu-panel');
 const mobileMenuAdd   = document.getElementById('mobile-menu-add');
 const mobileMenuSearch= document.getElementById('mobile-menu-search');
 
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function updateMobileMenuVisibility(){
   if (!isMobileDevice()) { mobileMenuBtn.style.display = 'none'; mobileMenuPanel.style.display = 'none'; return; }
   // 上から少しスクロールしたら表示
@@ -509,6 +588,7 @@ mobileMenuSearch.addEventListener('click', ()=>{
 });
 
 /* ------------------------------
+// セクション解説: 認証操作（ログイン/新規/匿名/再発行/サインアウト） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 認証操作（ログイン/新規/匿名/再発行/サインアウト）
  * ------------------------------ */
 
@@ -548,6 +628,7 @@ logoutBtn.onclick = async () => {
 };
 
 /* ------------------------------
+// セクション解説: 新規登録処理 の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 新規登録処理
  * ------------------------------ */
 signupConfirmBtn.onclick = async () => {
@@ -566,6 +647,7 @@ backToLoginBtn.onclick = () => {
 };
 
 /* ------------------------------
+// セクション解説: ナビゲーション の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * ナビゲーション
  * ------------------------------ */
 navAddBtn.addEventListener("click", () => { showView("add-case-view"); initAddCaseView(); });
@@ -578,6 +660,7 @@ navSearchBtn.addEventListener("click", () => {
 });
 
 /* ------------------------------
+// セクション解説: 画像/PDF から PDF417・CODABAR を抽出（PC補助） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 画像/PDF から PDF417・CODABAR を抽出（PC補助）
  * ------------------------------ */
 async function decodeWithBarcodeDetectorFromBitmap(bitmap){
@@ -649,8 +732,14 @@ async function scanFileForCodes(file){
 }
 
 /* ------------------------------
+// セクション解説: 行番号付与と固定キャリアツールバー配置 の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 行番号付与と固定キャリアツールバー配置
  * ------------------------------ */
+/** 
+ * 追跡番号入力行の先頭に連番バッジを付与/更新します。
+ * @param {any} context="add" - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function renumberTrackingRows(context="add"){
   const container = (context === "detail") ? detailTrackingRows : trackingRows;
   if (!container) return;
@@ -665,6 +754,11 @@ function renumberTrackingRows(context="add"){
     badge.textContent = String(Math.min(idx + 1, 999));
   });
 }
+/** 
+ * 固定キャリアのチェックボックスとセレクトを入力行の上部に固定配置します。
+ * @param {any} context="add" - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function ensureFixedCarrierToolbar(context="add"){
   const rows = (context === "detail") ? detailTrackingRows : trackingRows;
   if (!rows || !rows.parentElement) return;
@@ -698,8 +792,14 @@ function ensureFixedCarrierToolbar(context="add"){
   bar.appendChild(group);
 }
 /* ------------------------------
+// セクション解説: 追跡番号入力行の生成（add/detailで共通。常に<select>を持つ） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 追跡番号入力行の生成（add/detailで共通。常に<select>を持つ）
  * ------------------------------ */
+/** 
+ * 追跡番号入力行を1行生成します。キャリア<select>と入力<input>、モバイルならカメラボタンを付加します。
+ * @param {any} context="add" - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function createTrackingRow(context="add"){
   const row = document.createElement("div");
   row.className = "tracking-row";
@@ -795,6 +895,10 @@ row.appendChild(inp);
   })();
 
   // 行強調: 追跡入力済みなのにキャリア未選択なら強調（行選択 or 固定値）
+  /** 
+   * 関数の処理内容をまとめます。既存ロジックは変更しません。
+   * @returns {void|any} 関数の戻り値（該当する場合）
+   */
   function updateMissingHighlight() {
     const tnVal = inp.value.trim();
     const rowVal = sel.value || "";
@@ -811,6 +915,10 @@ row.appendChild(inp);
   // ▼ 幅自動調整: 画面幅に追従（ADD/DETAIL 共通）
    
   sel.style.flex = '1 1 auto'; 
+  /** 
+   * 関数の処理内容をまとめます。既存ロジックは変更しません。
+   * @returns {void|any} 関数の戻り値（該当する場合）
+   */
   function fitRow(){ try{ sel.removeAttribute("style"); inp.removeAttribute("style"); row.style.removeProperty("width"); }catch(_){}}
 
   setTimeout(fitRow, 0);
@@ -820,9 +928,15 @@ row.appendChild(inp);
 }
 
 /* ------------------------------
+// セクション解説: 詳細画面：固定キャリア切替（行<select>は消さない） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 詳細画面：固定キャリア切替（行<select>は消さない）
  *  - 固定ON/変更時に全行へ固定値を適用（手動選択済みも上書き）
  * ------------------------------ */
+/** 
+ * 固定ON時に各行<select>へ固定値を適用します（行選択が優先）。
+ * @param {any} context = "detail" - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function applyFixedToUnselectedRows(context = "detail"){
   const rows = Array.from((context === "detail" ? detailTrackingRows : trackingRows).children);
   const fixedOn = (context === "detail") ? (fixedCarrierCheckboxDetail?.checked) : (fixedCarrierCheckbox?.checked);
@@ -863,8 +977,13 @@ if (fixedCarrierSelect) {
 }
 
 /* ------------------------------
+// セクション解説: 追加画面の初期化 の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 追加画面の初期化
  * ------------------------------ */
+/** 
+ * 案件追加ビューの初期化。入力欄リセットと行の初期生成を行います。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function initAddCaseView(){
   scanModeDiv.style.display     = "block";
   manualModeDiv.style.display   = "none";
@@ -896,8 +1015,14 @@ addTrackingRowBtn.onclick = () => {
 caseBarcodeInput.addEventListener("compositionstart", e => e.preventDefault());
 
 /* ------------------------------
+// セクション解説: 日付の緩い正規化（YYYY-MM-DD）と下版日抽出 の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 日付の緩い正規化（YYYY-MM-DD）と下版日抽出
  * ------------------------------ */
+/** 
+ * YYYY-MM-DD形式へ緩く正規化します。2桁年は2000年代に補完。
+ * @param {any} s - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function normalizeDateString(s) {
   if (!s) return "";
   const nums = (s.match(/\d{1,4}/g) || []).map(n => parseInt(n, 10));
@@ -913,6 +1038,11 @@ function normalizeDateString(s) {
   }
   return "";
 }
+/** 
+ * 読み取り済みQRテキストから下版日フィールドだけを抽出します。
+ * @param {any} text - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function extractPlateDateField(text) {
   let fields = Array.from(text.matchAll(/"([^"]*)"/g), m=>m[1]);
   if (fields.length === 0) fields = text.split(/[\,\t\r\n]+/).map(s => s.trim()).filter(Boolean);
@@ -923,8 +1053,14 @@ function extractPlateDateField(text) {
 }
 
 /* ------------------------------
+// セクション解説: 案件バーコード確定処理（ZLIB64対応） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 案件バーコード確定処理（ZLIB64対応）
  * ------------------------------ */
+/** 
+ * QRテキスト（ZLIB64対応）を展開し、受注番号などのフィールドをUIに反映します。
+ * @param {any} raw - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function processCaseBarcode(raw){
   if(!raw) return;
   let text;
@@ -977,10 +1113,21 @@ manualConfirmBtn.onclick = () => {
 };
 
 /* ------------------------------
+// セクション解説: 暗号化ユーティリティ（AES-GCM + PBKDF2） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 暗号化ユーティリティ（AES-GCM + PBKDF2）
  * ------------------------------ */
 const PEPPER = "p9r7WqZ1-LocalPepper-ChangeIfNeeded";
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @param {any} bytes - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function b64(bytes){ return btoa(String.fromCharCode(...bytes)); }
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @param {any} str - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function b64dec(str){ return new Uint8Array([...atob(str)].map(c=>c.charCodeAt(0))); }
 
 async function deriveKey(uid, saltBytes){
@@ -1018,6 +1165,7 @@ async function decryptForUser(uid, encObj){
 }
 
 /* ------------------------------
+// セクション解説: 案件登録（案件情報 + 追跡） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 案件登録（案件情報 + 追跡）
  * ------------------------------ */
 confirmAddCaseBtn.onclick = async () => {
@@ -1097,11 +1245,17 @@ confirmAddCaseBtn.onclick = async () => {
 };
 
 /* ------------------------------
+// セクション解説: 検索結果描画と全選択状態更新 の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 検索結果描画と全選択状態更新
  * ------------------------------ */
 anotherCaseBtn.onclick = () => { showView("add-case-view"); initAddCaseView(); };
 if (anotherCaseBtn2) anotherCaseBtn2.onclick = () => { showView("add-case-view"); initAddCaseView(); };
 
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @param {any} list - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function renderSearchResults(list){
   searchResults.innerHTML = "";
   list.forEach(item => {
@@ -1130,6 +1284,10 @@ function renderSearchResults(list){
   boxes.forEach(cb => { cb.onchange = updateSelectAllState; });
   updateSelectAllState();
 }
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function updateSelectAllState() {
   if (!isAdmin) return;
   const boxes = searchResults.querySelectorAll(".select-case-checkbox");
@@ -1138,8 +1296,14 @@ function updateSelectAllState() {
 }
 
 /* ------------------------------
+// セクション解説: 検索／全件一覧（createdAt or plateDateTs） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 検索／全件一覧（createdAt or plateDateTs）
  * ------------------------------ */
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @param {any} kw="" - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function searchAll(kw=""){
   db.ref("cases").once("value").then(async snap => {
     const data = snap.val() || {};
@@ -1210,11 +1374,16 @@ listAllBtn.onclick = () => {
 };
 
 /* ------------------------------
+// セクション解説: 管理者のみ：選択削除（cases と shipments の両方削除） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 管理者のみ：選択削除（cases と shipments の両方削除）
  * ------------------------------ */
 
 
 // ▼ 追加：ページ描画とページングUI
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function renderPage(){
   const total = fullResults.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -1226,6 +1395,12 @@ function renderPage(){
   renderPagination(total, totalPages);
 }
 
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @param {any} total - 入力パラメータ
+ * @param {any} totalPages - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function renderPagination(total, totalPages){
   if (!paginationDiv) return;
   paginationDiv.innerHTML = "";
@@ -1317,8 +1492,14 @@ deleteSelectedBtn.onclick = async () => {
 };
 
 /* ------------------------------
+// セクション解説: 追跡ステータス分類と表記生成 の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 追跡ステータス分類と表記生成
  * ------------------------------ */
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @param {any} status - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function classifyStatus(status){
   const s = String(status || "");
   if (/(配達完了|お届け完了|配達済みです|配達済み)/.test(s)) return "delivered";
@@ -1344,6 +1525,13 @@ async function fetchStatus(carrier, tracking) {
   }
   return res.json();
 }
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @param {any} carrier - 入力パラメータ
+ * @param {any} status - 入力パラメータ
+ * @param {any} time - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function getTimeLabel(carrier, status, time) {
   if (!time || time.includes('：')) return '';
   if (carrier === 'seino') return (status === '配達済みです') ? '配達日時:' : '最新日時:';
@@ -1354,6 +1542,16 @@ function getTimeLabel(carrier, status, time) {
   if (status && status.includes('配達完了')) return '配達日時:';
   return '予定日時:';
 }
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @param {any} seqNum - 入力パラメータ
+ * @param {any} carrier - 入力パラメータ
+ * @param {any} tracking - 入力パラメータ
+ * @param {any} status - 入力パラメータ
+ * @param {any} time - 入力パラメータ
+ * @param {any} location - 入力パラメータ
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
   const label = carrierLabels[carrier] || carrier;
   const displayTracking = formatTrackingForDisplay(carrier, tracking);
@@ -1368,6 +1566,7 @@ function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
 }
 
 /* ------------------------------
+// セクション解説: 案件詳細＋ステータス取得 の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 案件詳細＋ステータス取得
  *  - pushキー昇順で描画し、非同期でもラベル連番を固定
  *  - 最後の fetch が終わるまでホイール維持
@@ -1461,6 +1660,7 @@ async function showCaseDetail(orderId, obj){
 backToSearchBtn.onclick = () => showView("search-view");
 
 /* ------------------------------
+// セクション解説: 追跡番号追加（詳細画面） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 追跡番号追加（詳細画面）
  *  - 行<select>優先、未選択は固定値。
  *  - 追加後は最後のステータス反映までホイール維持
@@ -1503,6 +1703,10 @@ cancelDetailAddBtn.onclick = () => {
   }
 };
 
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function getFixedCarrierValue(){
   const detailOn = !!(window.fixedCarrierCheckboxDetail && fixedCarrierCheckboxDetail.checked);
   const commonOn = !!(window.fixedCarrierCheckbox && fixedCarrierCheckbox.checked);
@@ -1633,6 +1837,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /* ------------------------------
+// セクション解説: 初期表示（ログイン状態に応じてビュー切替） の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * 初期表示（ログイン状態に応じてビュー切替）
  * ------------------------------ */
 auth.onAuthStateChanged(async user => {
@@ -1661,8 +1866,13 @@ auth.onAuthStateChanged(async user => {
 });
 
 /* ------------------------------
+// セクション解説: セッション延長タイマー の内部では関連するUI/状態の初期化とイベント束縛を行います。処理順は変更していません。
  * セッション延長タイマー
  * ------------------------------ */
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function resetSessionTimer() {
   try { markLoginTime(); } catch (_) {}
   clearTimeout(sessionTimer);
@@ -1674,6 +1884,10 @@ function resetSessionTimer() {
     try { localStorage.removeItem('loginTime'); } catch (_) {}
   }, SESSION_LIMIT_MS);
 }
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function startSessionTimer() {
   resetSessionTimer();
   ['click','keydown','touchstart','input','change'].forEach(evt =>
@@ -1713,6 +1927,10 @@ document.addEventListener('change', (e) => {
 
 
 // === 初期表示でもサイズ調整を走らせる ===
+/** 
+ * 関数の処理内容をまとめます。既存ロジックは変更しません。
+ * @returns {void|any} 関数の戻り値（該当する場合）
+ */
 function requestFitAll(){
   try { window.dispatchEvent(new Event('resize')); } catch(_){}
 }
