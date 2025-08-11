@@ -441,3 +441,53 @@ html, body, button, input, select, textarea {
     transform:none !important;
   }
 }
+/* === モバイル: 入力欄を広げ、セレクトを少し小さくする === */
+@media (max-width: 600px){
+  .tracking-row{ flex-wrap: nowrap; }
+
+  /* 運送会社<select>は控えめ */
+  .tracking-row select{
+    flex: 0 0 7.5em !important;
+    min-width: 7.5em !important;
+    font-size: 0.9em !important;
+    padding-inline: .4em !important;
+  }
+
+  /* 追跡番号<input>は広めに */
+  .tracking-row input[type="text"]{
+    flex: 1 1 auto !important;
+    min-width: 20ch !important;
+  }
+
+  /* カメラは固定幅のまま */
+  .tracking-row .camera-btn{
+    flex: 0 0 56px !important;
+    width: 56px !important;
+    max-width: 56px !important;
+  }
+}
+
+/* === カメラボタンの配色・状態を明確化（通常=青／無効=白） === */
+.tracking-row .camera-btn{
+  background: #1976d2 !important;
+  color: #fff !important;
+  border: none !important;
+}
+.tracking-row .camera-btn:hover{ background: #155fa0 !important; }
+.tracking-row .camera-btn:focus{ outline: 2px solid #90caf9; outline-offset: 2px; }
+.tracking-row .camera-btn:active{ filter: brightness(.95); }
+.tracking-row .camera-btn:disabled{
+  background: #fff !important;
+  color: #9e9e9e !important;
+  border: 1px solid #ccc !important;
+  cursor: not-allowed;
+}
+
+/* === 既存の“白背景＋右外ブリード”を無効化 === */
+@media (max-width: 768px){
+  .tracking-row .camera-btn{
+    position: static !important;
+    right: auto !important;
+    transform: none !important;
+  }
+}
