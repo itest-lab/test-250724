@@ -172,10 +172,13 @@ async function startScanning(formats, inputId) {
 
       let value = String(decoded);
 
-      // CODABAR: 両端A/B/C/D除去 → 9文字以下なら継続スキャン（停止しない）
-      if (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
-        value = normalizeCodabar(value);
-        if (!value) return; // 継続
+      // CODABAR: 両端A/B/C/Dが付いている場合は常に正規化。9文字以下は継続スキャン
+      {
+        const pre = value[0], suf = value[value.length - 1];
+        if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) {
+          value = normalizeCodabar(value);
+          if (!value) return; // 継続
+        }
       }
 
       inputEl.value = value;
@@ -333,6 +336,21 @@ const listAllBtn            = document.getElementById("list-all-btn");
 const searchResults         = document.getElementById("search-results");
 const deleteSelectedBtn     = document.getElementById("delete-selected-btn");
 
+
+// ▼ 追加：ページング関連
+const pageSizeSelect        = document.getElementById("page-size-select");
+const paginationDiv         = document.getElementById("pagination");
+let fullResults = [];
+let currentPage = 1;
+let pageSize = 50;
+if (pageSizeSelect) {
+  pageSizeSelect.value = String(pageSize);
+  pageSizeSelect.onchange = () => {
+    pageSize = parseInt(pageSizeSelect.value, 10) || 50;
+    currentPage = 1;
+    renderPage();
+  };
+}
 // 一覧の全選択
 const selectAllContainer    = document.getElementById("select-all-container");
 const selectAllCheckbox     = document.getElementById("select-all-checkbox");
@@ -494,10 +512,10 @@ backToLoginBtn.onclick = () => {
 navAddBtn.addEventListener("click", () => { showView("add-case-view"); initAddCaseView(); });
 navSearchBtn.addEventListener("click", () => {
   showView("search-view");
-  searchInput.value = "";
-  startDateInput.value = "";
-  endDateInput.value = "";
-  searchAll();
+  if (pageSizeSelect) pageSizeSelect.value = "50";
+  pageSize = parseInt((pageSizeSelect && pageSizeSelect.value) || "50", 10) || 50;
+  currentPage = 1;
+  searchAll("");
 });
 
 /* ------------------------------
@@ -1080,7 +1098,7 @@ function searchAll(kw=""){
 
     // 登録日の新→古
     res.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-    renderSearchResults(res);
+    fullResults = res; currentPage = 1; renderPage();
   });
 }
 
@@ -1089,12 +1107,8 @@ searchBtn.onclick = () => {
   const kw = searchInput.value.trim();
   const hasKw = kw.length > 0;
   const hasPeriod = startDateInput.value || endDateInput.value;
-  showView("search-view");
-  if (hasKw && hasPeriod) {
-    searchInput.value = "";
-    startDateInput.value = "";
-    endDateInput.value = "";
-    searchAll();
+  if (!hasKw && !hasPeriod) {
+    searchAll("");
   } else {
     searchAll(kw);
   }
@@ -1103,13 +1117,97 @@ listAllBtn.onclick = () => {
   searchInput.value = "";
   startDateInput.value = "";
   endDateInput.value = "";
-  showView("search-view");
-  searchAll();
+  pageSize = parseInt((pageSizeSelect && pageSizeSelect.value) || "50", 10) || 50;
+  currentPage = 1;
+  searchAll("");
 };
 
 /* ------------------------------
  * 管理者のみ：選択削除（cases と shipments の両方削除）
  * ------------------------------ */
+
+
+// ▼ 追加：ページ描画とページングUI
+function renderPage(){
+  const total = fullResults.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * pageSize;
+  const end   = start + pageSize;
+  const slice = fullResults.slice(start, end);
+  renderSearchResults(slice);
+  renderPagination(total, totalPages);
+}
+
+function renderPagination(total, totalPages){
+  if (!paginationDiv) return;
+  paginationDiv.innerHTML = "";
+
+  const first = document.createElement("button");
+  first.textContent = "≪";
+  first.title = "最初へ";
+  first.disabled = currentPage <= 1;
+  first.onclick = () => { currentPage = 1; renderPage(); };
+
+  const prev = document.createElement("button");
+  prev.textContent = "＜";
+  prev.title = "前へ";
+  prev.disabled = currentPage <= 1;
+  prev.onclick = () => { currentPage--; renderPage(); };
+
+  const info = document.createElement("div");
+  const from = total === 0 ? 0 : ((currentPage - 1) * pageSize + 1);
+  const to   = Math.min(currentPage * pageSize, total);
+  info.id = "page-info";
+  info.textContent = `${from}-${to} / ${total}件`;
+
+  const pageInput = document.createElement("input");
+  pageInput.type = "number";
+  pageInput.id = "page-number-input";
+  pageInput.min = 1;
+  pageInput.max = totalPages;
+  pageInput.value = String(currentPage);
+  pageInput.title = `1〜${totalPages}`;
+  pageInput.onkeydown = (e) => {
+    if (e.key === "Enter") {
+      const v = Math.max(1, Math.min(totalPages, parseInt(pageInput.value||"1", 10) || 1));
+      currentPage = v;
+      renderPage();
+    }
+  };
+
+  const gotoBtn = document.createElement("button");
+  gotoBtn.textContent = "移動";
+  gotoBtn.onclick = () => {
+    const v = Math.max(1, Math.min(totalPages, parseInt(pageInput.value||"1", 10) || 1));
+    currentPage = v;
+    renderPage();
+  };
+
+  const totalLabel = document.createElement("span");
+  totalLabel.textContent = ` / ${totalPages}ページ`;
+
+  const next = document.createElement("button");
+  next.textContent = "＞";
+  next.title = "次へ";
+  next.disabled = currentPage >= totalPages;
+  next.onclick = () => { currentPage++; renderPage(); };
+
+  const last = document.createElement("button");
+  last.textContent = "≫";
+  last.title = "最後へ";
+  last.disabled = currentPage >= totalPages;
+  last.onclick = () => { currentPage = totalPages; renderPage(); };
+
+  paginationDiv.appendChild(first);
+  paginationDiv.appendChild(prev);
+  paginationDiv.appendChild(info);
+  paginationDiv.appendChild(pageInput);
+  paginationDiv.appendChild(totalLabel);
+  paginationDiv.appendChild(gotoBtn);
+  paginationDiv.appendChild(next);
+  paginationDiv.appendChild(last);
+}
 deleteSelectedBtn.onclick = async () => {
   const checkboxes = searchResults.querySelectorAll(".select-case-checkbox:checked");
   const count = checkboxes.length;
