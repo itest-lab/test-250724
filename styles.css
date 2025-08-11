@@ -37,11 +37,7 @@ nav button {
   gap: 0.5em;
   margin-bottom: 0.5em;
 }
-.tracking-row select,
-.tracking-row input {
-  flex: 1;
-  padding: 0.5em;
-}
+.tracking-row select{ width:auto; min-width:calc(5em + 1.5em); flex:1 1 auto; }
 #search-results,
 #detail-shipments {
   list-style: none;
@@ -201,11 +197,7 @@ nav button {
   margin-bottom: 0.5em;
   align-items: center;
 }
-.tracking-row select,
-.tracking-row input {
-  flex: 1;
-  padding: 0.5em;
-}
+.tracking-row select{ width:auto; min-width:calc(5em + 1.5em); flex:1 1 auto; }
 
 /* 配送ステータス可視化 */
 #detail-shipments li { border-left: 4px solid transparent; }
@@ -296,41 +288,35 @@ html, body, button, input, select, textarea {
 #page-size-container select { width:auto; display:inline-block; }
 
 /* 追跡番号入力の最小幅: 14文字が確実に見えるようにする */
-.tracking-row input[type="text"] {
-  min-width: calc(14ch + 1em);  /* 14ch + 余白分のバッファ */
-  width: auto;      /* グローバルの width:100% を打ち消す */
-  flex: 1 1 auto;   /* 余白があれば広がるが min-width 未満に縮まない */
-}
+.tracking-row input[type="text"]{ width:auto; min-width:calc(15ch + 1em); flex:1 1 auto; }
 @media (max-width: 420px) {
   .tracking-row { flex-wrap: wrap; }
 }
 
 /* 14ch guarantee */
-.tracking-row input[type="text"] { width: auto; flex: 1 1 auto; }
+.tracking-row input[type="text"]{ width:auto; min-width:calc(15ch + 1em); flex:1 1 auto; }
 
 /* 運送会社<select>の最小幅: 全角4文字が見えるようにする */
-.tracking-row select,
-#fixed-carrier-select,
-#fixed-carrier-select-detail {
-  min-width: calc(4em + 1.5em); /* 4全角 + 矢印/左右paddingの余裕 */
-  width: auto;                  /* 全体の width:100% を上書き */
-  flex: 0 0 auto;               /* 伸縮させず幅を維持 */
-}
+.tracking-row select{ width:auto; min-width:calc(5em + 1.5em); flex:1 1 auto; }
 
 /* === 追跡行: 運送会社と追跡番号を横並びにする === */
 .tracking-row { display: flex; align-items: center; gap: .5em; flex-wrap: nowrap; }
-.tracking-row select { width: auto; min-width: calc(4em + 1.5em); flex: 0 0 auto; }
-.tracking-row input[type="text"] { width: auto; min-width: calc(14ch + 1em); flex: 1 1 260px; }
+.tracking-row select{ width:auto; min-width:calc(5em + 1.5em); flex:1 1 auto; }
+.tracking-row input[type="text"]{ width:auto; min-width:calc(15ch + 1em); flex:1 1 auto; }
 .tracking-row button { width: auto; flex: 0 0 auto; }
 @media (max-width: 480px) { .tracking-row { flex-wrap: wrap; } }
 
 /* === viewport fit for tracking row === */
 .tracking-row{ width:100%; display:flex; align-items:center; gap:.5em; flex-wrap:nowrap; }
-.tracking-row select{ width:auto; }
-.tracking-row input[type="text"]{ width:auto; }
+.tracking-row select{ width:auto; min-width:calc(5em + 1.5em); flex:1 1 auto; }
+.tracking-row input[type="text"]{ width:auto; min-width:calc(15ch + 1em); flex:1 1 auto; }
 
 /* === 追跡行: 画面幅フィット（カメラボタン含む） === */
 .tracking-row{ display:flex; align-items:center; gap:.5em; width:100%; flex-wrap:nowrap; overflow-x:visible; }
-.tracking-row select{ width:auto; min-width:calc(5em + 1.5em); flex:0 0 auto; }
+.tracking-row select{ width:auto; min-width:calc(5em + 1.5em); flex:1 1 auto; }
 .tracking-row input[type="text"]{ width:auto; min-width:calc(15ch + 1em); flex:1 1 auto; }
 .tracking-row .camera-btn{ width:auto; flex:0 1 auto; max-width:100%; white-space:nowrap; }
+
+/* viewport-fit-final */
+.tracking-row{ display:flex; align-items:center; gap:.5em; width:100%; flex-wrap:nowrap; overflow:visible; }
+.tracking-row .camera-btn{ flex:0 1 auto; max-width:100%; white-space:nowrap; }

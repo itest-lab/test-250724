@@ -746,31 +746,31 @@ function createTrackingRow(context="add"){
   sel.addEventListener('change', updateMissingHighlight);
 
   
-  // ▼ 幅自動調整: カメラボタンも含めて画面幅にフィット
+  // ▼ 幅自動調整: 運送会社<select>は最小5全角を下限にフレキシブル。カメラ含めて1行内に収める
   row.style.flexWrap = 'nowrap'; row.style.width = '100%';
-  sel.style.flex = '0 0 auto'; inp.style.flex = '1 1 auto';
+  sel.style.flex = '1 1 auto'; inp.style.flex = '1 1 auto';
   function fitRow(){
     try{
       const gap = parseFloat(getComputedStyle(row).gap || '8');
       const btn = row.querySelector('button.camera-btn');
-      const selW = sel.offsetWidth;
-      const btnMin = 48; // px 最小確保
-      const style = getComputedStyle(inp);
-      const ch = (parseFloat(style.fontSize || '16') * 0.5) || 8; // 半角幅推定
-      const minPx = Math.max(0, 15 * ch + 16); // 15ch + padding
+      const btnMin = 48; // px
+      const fs = parseFloat(getComputedStyle(inp).fontSize || '16');
+      const ch = fs * 0.5; const zen = fs;
+      const minInput = Math.round(15 * ch + 16);
+      const minSelect = Math.round(5 * zen + 24);
       let btnW = btn ? btn.offsetWidth : 0;
-      let avail = row.clientWidth - selW - btnW - gap*2;
-      if (avail < minPx && btn) {
-        const shrink = row.clientWidth - selW - gap*2 - minPx;
-        const newBtnW = Math.max(btnMin, shrink);
-        btn.style.maxWidth = newBtnW + 'px';
-        btn.style.flex = '0 1 auto';
-        btnW = btn.offsetWidth;
-        avail = row.clientWidth - selW - btnW - gap*2;
+      let availRow = row.clientWidth - gap*2;
+      let remain = availRow - btnW;
+      if (remain < minInput + minSelect && btn) {
+        const targetBtn = Math.max(btnMin, btnW - ((minInput + minSelect) - remain));
+        btn.style.flex = '0 1 auto'; btn.style.maxWidth = targetBtn + 'px';
+        btnW = btn.offsetWidth; remain = availRow - btnW;
       }
-      const w = Math.max(minPx, avail);
-      inp.style.maxWidth = w + 'px';
-      inp.style.width = Math.min(w, avail) + 'px';
+      let selectW = Math.max(minSelect, Math.min(remain - minInput, Math.floor(remain * 0.5)));
+      if (selectW < minSelect) selectW = minSelect;
+      const inputW = Math.max(minInput, remain - selectW);
+      sel.style.maxWidth = selectW + 'px'; sel.style.width = selectW + 'px';
+      inp.style.maxWidth = inputW + 'px'; inp.style.width = inputW + 'px';
     }catch(_){ }
   }
   setTimeout(fitRow, 0);
