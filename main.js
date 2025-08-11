@@ -171,19 +171,11 @@ async function startScanning(formats, inputId) {
       if (!inputEl) { stopScanning(); return; }
 
       let value = String(decoded);
-      if (Array.isArray(formats) && formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
-        value = normalizeCodabar(value);
-        if (!value) return; // 9文字以下は継続スキャン
-      }
 
-      // CODABARのスタート/ストップ文字除去
-      let value = decoded;
+      // CODABAR: 両端A/B/C/D除去 → 9文字以下なら継続スキャン（停止しない）
       if (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
-        if (decoded && decoded.length >= 2) {
-          const pre = decoded[0], suf = decoded[decoded.length - 1];
-          if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) value = decoded.substring(1, decoded.length - 1);
-          else return; // 正しい開始/終了でなければ無視
-        }
+        value = normalizeCodabar(value);
+        if (!value) return; // 継続
       }
 
       inputEl.value = value;
@@ -192,7 +184,10 @@ async function startScanning(formats, inputId) {
       // 案件バーコード欄のみ自動確定
       if (inputId === 'case-barcode') processCaseBarcode(value);
       stopScanning();
-    } catch (err) { console.error(err); stopScanning(); }
+    } catch (err) {
+      console.error(err);
+      stopScanning();
+    }
   };
 
   try {
@@ -928,8 +923,8 @@ confirmAddCaseBtn.onclick = async () => {
   const plateTs  = plateStr ? new Date(plateStr).getTime() : null;
 
   
-  if (!plateStr || isNaN(new Date(plateStr).getTime())) { addCaseMsg.textContent = \"下版日は必須です\"; return; }
-if (!orderId || !customer || !title) { addCaseMsg.textContent = "情報不足"; return; }
+  if (!plateStr || isNaN(new Date(plateStr).getTime())) { addCaseMsg.textContent = "下版日は必須です"; return; }
+  if (!orderId || !customer || !title) { addCaseMsg.textContent = "情報不足"; return; }
 
   showLoading();
   confirmAddCaseBtn.disabled = true;
@@ -1530,4 +1525,3 @@ document.addEventListener('change', (e) => {
     if (typeof applyFixedToUnselectedRows === 'function') applyFixedToUnselectedRows('detail');
   } catch(_) {}
 }, true);
-
