@@ -815,11 +815,6 @@ row.appendChild(inp);
    
   sel.style.flex = '1 1 auto'; 
   function fitRow(){ try{ sel.removeAttribute("style"); inp.removeAttribute("style"); row.style.removeProperty("width"); }catch(_){}}
-      if (selectW < minSelect) selectW = minSelect;
-      const inputW = Math.max(minInput, remain - selectW);
-       
-       
-    }catch(_){ }
   }
   setTimeout(fitRow, 0);
   window.addEventListener('resize', fitRow);
