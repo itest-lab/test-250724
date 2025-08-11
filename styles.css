@@ -1,4 +1,3 @@
-
 body {
   font-family: sans-serif;
   max-width: 600px;
@@ -41,15 +40,6 @@ nav button {
 .tracking-row input {
   flex: 1;
   padding: 0.5em;
-}
-/* 追跡番号入力の最小幅: 半角14文字を保証 */
-.tracking-row input[type="text"]{
-  min-width: calc(14ch + 1em); /* 左右padding 0.5em×2 を加味 */
-  width: auto;
-  flex: 1 1 auto;
-}
-@media (max-width: 420px) {
-  .tracking-row { flex-wrap: wrap; } /* 狭幅端末で折り返し許可 */
 }
 #search-results,
 #detail-shipments {
@@ -303,3 +293,25 @@ html, body, button, input, select, textarea {
 #pagination #page-number-input { width:5rem; }
 #page-size-container { margin: .5rem 0; }
 #page-size-container select { width:auto; display:inline-block; }
+
+/* 追跡番号入力の最小幅: 14文字が確実に見えるようにする */
+.tracking-row input[type="text"] {
+  min-width: calc(14ch + 1em);  /* 14ch + 余白分のバッファ */
+  width: auto;      /* グローバルの width:100% を打ち消す */
+  flex: 1 1 auto;   /* 余白があれば広がるが min-width 未満に縮まない */
+}
+@media (max-width: 420px) {
+  .tracking-row { flex-wrap: wrap; }
+}
+
+/* 14ch guarantee */
+.tracking-row input[type="text"] { width: auto; flex: 1 1 auto; }
+
+/* 運送会社<select>の最小幅: 全角4文字が見えるようにする */
+.tracking-row select,
+#fixed-carrier-select,
+#fixed-carrier-select-detail {
+  min-width: calc(4em + 1.5em); /* 4全角 + 矢印/左右paddingの余裕 */
+  width: auto;                  /* 全体の width:100% を上書き */
+  flex: 0 0 auto;               /* 伸縮させず幅を維持 */
+}
