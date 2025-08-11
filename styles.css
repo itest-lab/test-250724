@@ -300,9 +300,6 @@ html, body, button, input, select, textarea {
   width: auto;      /* グローバルの width:100% を打ち消す */
   flex: 1 1 auto;   /* 余白があれば広がるが min-width 未満に縮まない */
 }
-@media (max-width: 420px) {
-  .tracking-row { flex-wrap: wrap; }
-}
 
 /* 14ch guarantee */
 .tracking-row input[type="text"] { width: auto; flex: 1 1 auto; }
