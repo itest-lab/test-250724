@@ -1,10 +1,5 @@
 
-body {
-  font-family: sans-serif;
-  max-width: 600px;
-  margin: 2em auto;
-  padding: 0 1em;
-}
+
 h2, h3, h4 {
   margin-bottom: 0.5em;
 }
@@ -322,8 +317,8 @@ html, body, button, input, select, textarea {
 .tracking-row .camera-btn{ flex:0 1 auto; max-width:100%; white-space:nowrap; }
 
 /* === 全画面フィット: body 幅100% + 追跡行100% === */
-html, body { width: 100%; max-width: 100%; }
-body { max-width: 100% !important; }
+
+
 #tracking-rows, #detail-tracking-rows { width: 100%; }
 .tracking-row { width: 100%; display:flex; align-items:center; gap:.5em; flex-wrap:nowrap; }
 .tracking-row select { width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
@@ -345,3 +340,12 @@ body { max-width: 100% !important; }
   .tracking-row select { width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
   .tracking-row input[type="text"] { width:auto; min-width:calc(16ch + 1em); flex:1 1 auto; }
 }
+
+/* === 追跡入力コンテナの推奨幅（body 全幅は使わない） === */
+#tracking-rows, #detail-tracking-rows {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 .5rem;
+}
+.tracking-row { width: 100%; }

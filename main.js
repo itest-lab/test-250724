@@ -811,48 +811,7 @@ row.appendChild(inp);
   sel.addEventListener('change', updateMissingHighlight);
 
   
-  // ▼ 幅自動調整: 運送会社<select>は最小5全角を下限にフレキシブル。カメラ含めて1行内に収める
-  row.style.flexWrap = 'nowrap'; row.style.width = '100%';
-  sel.style.flex = '1 1 auto'; inp.style.flex = '1 1 auto';
-  function fitRow(){
-    try{
-      const gap = parseFloat(getComputedStyle(row).gap || '8');
-const btn = row.querySelector('button.camera-btn');
-const fs = parseFloat(getComputedStyle(inp).fontSize || '16');
-const ch = fs * 0.5, zen = fs;
-const minInput = Math.round(16 * ch + 16); // 16半角 + padding
-const minSelect = Math.round(4 * zen + 24); // 4全角 + 矢印/左右余白
-const isMobile = window.matchMedia('(max-width: 768px)').matches;
-let btnW = 0;
-if (btn){
-  if (isMobile){
-    btnW = 56; // 固定幅
-    btn.style.flex = '0 0 56px';
-    btn.style.width = '56px';
-    btn.style.maxWidth = '56px';
-  } else {
-    btn.style.flex = '0 1 auto';
-    btn.style.maxWidth = '';
-    btn.style.width = '';
-    btnW = btn.offsetWidth;
-  }
-}
-const availRow = row.clientWidth - gap*2 - btnW;
-let selectW = Math.max(minSelect, Math.floor(availRow * 0.4));
-let inputW  = Math.max(minInput, availRow - selectW);
-// もし input 最低幅確保で select が下回る場合は select を上げる
-if (inputW < minInput){
-  selectW = Math.max(minSelect, availRow - minInput);
-  inputW  = Math.max(minInput, availRow - selectW);
-}
-sel.style.maxWidth = selectW + 'px'; sel.style.width = selectW + 'px';
-inp.style.maxWidth = inputW + 'px';  inp.style.width  = inputW + 'px';
-}
-  }
-  setTimeout(fitRow, 0);
-  window.addEventListener('resize', fitRow);
-  sel.addEventListener('change', fitRow);
-// ▼ 幅自動調整: 画面幅に追従（ADD/DETAIL 共通）
+  // ▼ 幅自動調整: 画面幅に追従（ADD/DETAIL 共通）
   row.style.flexWrap = 'nowrap'; row.style.width = '100%';
   sel.style.flex = '1 1 auto'; inp.style.flex = '1 1 auto';
   function fitRow(){
@@ -865,7 +824,7 @@ inp.style.maxWidth = inputW + 'px';  inp.style.width  = inputW + 'px';
       const ch = fs * 0.5, zen = fs;
       const minInput = Math.round(16 * ch + 16);
       const minSelect = Math.round(4 * zen + 24);
-      let btnW = btn ? ( (window.matchMedia && (matchMedia('(pointer: coarse)').matches || matchMedia('(max-width: 768px)').matches)) ? 48 : btn.offsetWidth ) : 0;
+      let btnW = btn ? (isMobile ? 48 : btn.offsetWidth) : 0;
       let availRow = row.clientWidth - gap*2;
       let remain = availRow - btnW;
       if (!isMobile && remain < minInput + minSelect && btn) {
