@@ -340,6 +340,50 @@ const confirmAddCaseBtn     = document.getElementById("confirm-add-case-btn");
 const addCaseMsg            = document.getElementById("add-case-msg");
 const anotherCaseBtn        = document.getElementById("another-case-btn");
 
+// ▼ 追跡入力のキーボード移動（委譲）
+function wireDelegatedNav(container, addBtn, context){
+  if(!container) return;
+  container.addEventListener('keydown', e => {
+    const t = e.target;
+    if(!(t && t.matches && t.matches('input[type="text"].tracking-input'))) return;
+    if(e.key !== 'Enter' && e.key !== 'Tab') return;
+    e.preventDefault();
+    const inputs = Array.from(container.querySelectorAll('input[type="text"].tracking-input'));
+    const countBefore = inputs.length;
+    const idx = inputs.indexOf(t);
+    if(idx !== -1 && idx < countBefore - 1){
+      inputs[idx+1].focus();
+    } else {
+      if(addBtn) addBtn.click();
+      setTimeout(() => {
+        const newInputs = Array.from(container.querySelectorAll('input[type="text"].tracking-input'));
+        if(newInputs[countBefore]) newInputs[countBefore].focus();
+        try{ renumberTrackingRows(context||'add'); }catch(_){}
+      },0);
+    }
+  });
+  container.addEventListener('beforeinput', e => {
+    const t = e.target;
+    if(!(t && t.matches && t.matches('input[type="text"].tracking-input'))) return;
+    if(e.inputType !== 'insertLineBreak' && e.inputType !== 'insertParagraph') return;
+    e.preventDefault();
+    const inputs = Array.from(container.querySelectorAll('input[type="text"].tracking-input'));
+    const countBefore = inputs.length;
+    const idx = inputs.indexOf(t);
+    if(idx !== -1 && idx < countBefore - 1){ inputs[idx+1].focus(); }
+    else {
+      if(addBtn) addBtn.click();
+      setTimeout(() => {
+        const newInputs = Array.from(container.querySelectorAll('input[type="text"].tracking-input'));
+        if(newInputs[countBefore]) newInputs[countBefore].focus();
+        try{ renumberTrackingRows(context||'add'); }catch(_){}
+      },0);
+    }
+  });
+}
+wireDelegatedNav(trackingRows, addTrackingRowBtn, 'add');
+try{ wireDelegatedNav(document.getElementById('detail-tracking-rows'), document.getElementById('detail-add-tracking-row-btn'), 'detail'); }catch(_){}
+
 // 検索ビュー
 const searchView            = document.getElementById("search-view");
 const searchInput           = document.getElementById("search-input");
@@ -665,6 +709,7 @@ function createTrackingRow(context="add"){
 
   // 運送会社<select>は常に表示。固定ONなら未選択行に初期値を適用
   const sel = document.createElement("select");
+  sel.tabIndex = -1; // キーボード移動で選択肢に飛ばない
   sel.innerHTML = `
     <option value="">運送会社選択してください</option>
     <option value="yamato">ヤマト運輸</option>
@@ -681,6 +726,7 @@ function createTrackingRow(context="add"){
 
   // 追跡番号<input>
   const inp = document.createElement("input");
+  inp.classList.add("tracking-input");
   inp.type = "text";
   inp.placeholder = "追跡番号を入力してください";
   inp.inputMode = "numeric";
@@ -692,7 +738,7 @@ function createTrackingRow(context="add"){
   inp.addEventListener("keydown", e => {
     if(e.key === "Enter" || e.key === "Tab"){
       e.preventDefault();
-      const inputs = Array.from(row.parentElement.querySelectorAll('input[type="text"]'));
+      const inputs = Array.from(row.parentElement.querySelectorAll('input[type="text"].tracking-input'));
       const countBefore = inputs.length;
       const idx = inputs.indexOf(inp);
       if (idx !== -1 && idx < countBefore - 1) {
@@ -700,7 +746,7 @@ function createTrackingRow(context="add"){
       } else {
         if (context === "detail") { detailAddRowBtn.click(); } else { addTrackingRowBtn.click(); }
         setTimeout(() => {
-          const newInputs = Array.from(row.parentElement.querySelectorAll('input[type="text"]'));
+          const newInputs = Array.from(row.parentElement.querySelectorAll('input[type="text"].tracking-input'));
           if (newInputs[countBefore]) newInputs[countBefore].focus();
           try{ renumberTrackingRows(context); }catch(_){}
         }, 0);
@@ -711,7 +757,7 @@ function createTrackingRow(context="add"){
   const t = e.inputType;
   if (t === "insertLineBreak" || t === "insertParagraph") {
     e.preventDefault();
-    const inputs = Array.from(row.parentElement.querySelectorAll('input[type="text"]'));
+    const inputs = Array.from(row.parentElement.querySelectorAll('input[type="text"].tracking-input'));
     const countBefore = inputs.length;
     const idx = inputs.indexOf(inp);
     if (idx !== -1 && idx < countBefore - 1) {
@@ -719,7 +765,7 @@ function createTrackingRow(context="add"){
     } else {
       if (context === "detail") { detailAddRowBtn.click(); } else { addTrackingRowBtn.click(); }
       setTimeout(() => {
-        const newInputs = Array.from(row.parentElement.querySelectorAll('input[type="text"]'));
+        const newInputs = Array.from(row.parentElement.querySelectorAll('input[type="text"].tracking-input'));
         if (newInputs[countBefore]) newInputs[countBefore].focus();
         try{ renumberTrackingRows(context); }catch(_){ }
       }, 0);
