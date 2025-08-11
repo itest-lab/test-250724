@@ -782,25 +782,19 @@ row.appendChild(inp);
       row.insertBefore(badge, row.firstChild);
     }
   })();
-// モバイルならカメラボタンを添付
+  // モバイルならカメラボタンを添付（置換後）
   (function attachCaptureControls(){
     const canCamera = isMobileDevice() && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
-    if (canCamera) {
-      const camBtn = document.createElement('button');
-      camBtn.type = 'button';
-      camBtn.textContent = 'カメラ起動';
-      camBtn.className = 'camera-btn';
-      camBtn.addEventListener('click', () => {
-        startScanning([Html5QrcodeSupportedFormats.CODABAR], uniqueId);
-      // モバイルならカメラボタンを添付（生成部分の直後でOK）
-      const label = (window.innerWidth <= 480) ? 'カメラ' : 'カメラ起動';
-      camBtn.textContent = label;
-      window.addEventListener('resize', () => {
-        camBtn.textContent = (window.innerWidth <= 480) ? 'カメラ' : 'カメラ起動';
-      });
-
-      row.appendChild(camBtn);
-    }
+    if (!canCamera) return;
+  
+    const camBtn = document.createElement('button');
+    camBtn.type = 'button';
+    camBtn.textContent = (window.innerWidth <= 480) ? 'カメラ' : 'カメラ起動';
+    camBtn.className = 'camera-btn';
+    camBtn.addEventListener('click', () => {
+      startScanning([Html5QrcodeSupportedFormats.CODABAR], uniqueId);
+    });
+    row.appendChild(camBtn);
   })();
 
   // 行強調: 追跡入力済みなのにキャリア未選択なら強調（行選択 or 固定値）
