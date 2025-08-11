@@ -405,3 +405,39 @@ html, body, button, input, select, textarea {
     background: #fff;
   }
 }
+/* --- モバイル：折り返し禁止のまま幅内に収める --- */
+@media (max-width: 600px){
+  .tracking-row{
+    display:flex !important;
+    align-items:center;
+    gap:.375em;
+    flex-wrap:nowrap;       /* 折り返し禁止 */
+    width:100%;
+  }
+  /* 入力系は縮むことを許可 */
+  .tracking-row select,
+  .tracking-row input[type="text"]{
+    flex:1 1 0 !important;
+    min-width:0 !important;   /* 既存の 16ch 等を上書き */
+    width:auto;
+  }
+  /* カメラボタンは行内固定幅。絶対配置とブリードを無効化 */
+  .tracking-row .camera-btn{
+    position:static !important;
+    right:auto !important;
+    transform:none !important;
+    display:inline-flex;
+    flex:0 0 64px;            /* 目安幅 */
+    width:64px; max-width:64px;
+    white-space:nowrap;
+    box-sizing:border-box;
+  }
+}
+/* 既存の“右外ブリード”指定の保険的打ち消し */
+@media (max-width: 768px){
+  .tracking-row .camera-btn{
+    position:static !important;
+    right:auto !important;
+    transform:none !important;
+  }
+}
