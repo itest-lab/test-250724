@@ -756,8 +756,8 @@ function createTrackingRow(context="add"){
       const btnMin = 48; // px
       const fs = parseFloat(getComputedStyle(inp).fontSize || '16');
       const ch = fs * 0.5; const zen = fs;
-      const minInput = Math.round(15 * ch + 16);
-      const minSelect = Math.round(5 * zen + 24);
+      const minInput = Math.round(16 * ch + 16);
+      const minSelect = Math.round(4 * zen + 24);
       let btnW = btn ? btn.offsetWidth : 0;
       let availRow = row.clientWidth - gap*2;
       let remain = availRow - btnW;
