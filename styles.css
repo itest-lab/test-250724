@@ -300,7 +300,7 @@ html, body, button, input, select, textarea {
 
 /* === 追跡行: 運送会社と追跡番号を横並びにする === */
 .tracking-row { display: flex; align-items: center; gap: .5em; flex-wrap: nowrap; }
-.tracking-row select{ width:auto; min-width:calc(5em + 1.5em); flex:1 1 auto; }
+.tracking-row select{ width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
 .tracking-row input[type="text"]{ width:auto; min-width:calc(15ch + 1em); flex:1 1 auto; }
 .tracking-row button { width: auto; flex: 0 0 auto; }
 @media (max-width: 480px) { .tracking-row { flex-wrap: wrap; } }
