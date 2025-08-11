@@ -329,3 +329,19 @@ body { max-width: 100% !important; }
 .tracking-row select { width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
 .tracking-row input[type="text"] { width:auto; min-width:calc(16ch + 1em); flex:1 1 auto; }
 .tracking-row .camera-btn { flex:0 1 auto; max-width:100%; white-space:nowrap; }
+
+/* スマホ画面: カメラ起動ボタンを固定幅にし、他要素で自動調整 */
+@media (max-width: 768px){
+  .tracking-row{ width:100%; display:flex; align-items:center; gap:.5em; flex-wrap:nowrap; }
+  .tracking-row .camera-btn{ flex:0 0 56px; width:56px; max-width:56px; white-space:nowrap; }
+  .tracking-row select{ width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
+  .tracking-row input[type="text"]{ width:auto; min-width:calc(16ch + 1em); flex:1 1 auto; }
+}
+
+/* === モバイル専用: カメラ固定幅 + 他は自動調整 === */
+@media (pointer: coarse), (max-width: 768px) {
+  .tracking-row { width:100%; display:flex; align-items:center; gap:.5em; flex-wrap:nowrap; }
+  .tracking-row .camera-btn { flex:0 0 48px; width:48px; max-width:48px; white-space:nowrap; }
+  .tracking-row select { width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
+  .tracking-row input[type="text"] { width:auto; min-width:calc(16ch + 1em); flex:1 1 auto; }
+}

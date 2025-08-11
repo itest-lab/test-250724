@@ -817,26 +817,37 @@ row.appendChild(inp);
   function fitRow(){
     try{
       const gap = parseFloat(getComputedStyle(row).gap || '8');
-      const btn = row.querySelector('button.camera-btn');
-      const btnMin = 48; // px
-      const fs = parseFloat(getComputedStyle(inp).fontSize || '16');
-      const ch = fs * 0.5; const zen = fs;
-      const minInput = Math.round(16 * ch + 16);
-      const minSelect = Math.round(4 * zen + 24);
-      let btnW = btn ? btn.offsetWidth : 0;
-      let availRow = row.clientWidth - gap*2;
-      let remain = availRow - btnW;
-      if (remain < minInput + minSelect && btn) {
-        const targetBtn = Math.max(btnMin, btnW - ((minInput + minSelect) - remain));
-        btn.style.flex = '0 1 auto'; btn.style.maxWidth = targetBtn + 'px';
-        btnW = btn.offsetWidth; remain = availRow - btnW;
-      }
-      let selectW = Math.max(minSelect, Math.min(remain - minInput, Math.floor(remain * 0.5)));
-      if (selectW < minSelect) selectW = minSelect;
-      const inputW = Math.max(minInput, remain - selectW);
-      sel.style.maxWidth = selectW + 'px'; sel.style.width = selectW + 'px';
-      inp.style.maxWidth = inputW + 'px'; inp.style.width = inputW + 'px';
-    }catch(_){ }
+const btn = row.querySelector('button.camera-btn');
+const fs = parseFloat(getComputedStyle(inp).fontSize || '16');
+const ch = fs * 0.5, zen = fs;
+const minInput = Math.round(16 * ch + 16); // 16半角 + padding
+const minSelect = Math.round(4 * zen + 24); // 4全角 + 矢印/左右余白
+const isMobile = window.matchMedia('(max-width: 768px)').matches;
+let btnW = 0;
+if (btn){
+  if (isMobile){
+    btnW = 56; // 固定幅
+    btn.style.flex = '0 0 56px';
+    btn.style.width = '56px';
+    btn.style.maxWidth = '56px';
+  } else {
+    btn.style.flex = '0 1 auto';
+    btn.style.maxWidth = '';
+    btn.style.width = '';
+    btnW = btn.offsetWidth;
+  }
+}
+const availRow = row.clientWidth - gap*2 - btnW;
+let selectW = Math.max(minSelect, Math.floor(availRow * 0.4));
+let inputW  = Math.max(minInput, availRow - selectW);
+// もし input 最低幅確保で select が下回る場合は select を上げる
+if (inputW < minInput){
+  selectW = Math.max(minSelect, availRow - minInput);
+  inputW  = Math.max(minInput, availRow - selectW);
+}
+sel.style.maxWidth = selectW + 'px'; sel.style.width = selectW + 'px';
+inp.style.maxWidth = inputW + 'px';  inp.style.width  = inputW + 'px';
+}
   }
   setTimeout(fitRow, 0);
   window.addEventListener('resize', fitRow);
@@ -849,14 +860,15 @@ row.appendChild(inp);
       const gap = parseFloat(getComputedStyle(row).gap || '8');
       const btn = row.querySelector('button.camera-btn');
       const btnMin = 48; // px
+    const isMobile = (window.matchMedia && (matchMedia('(pointer: coarse)').matches || matchMedia('(max-width: 768px)').matches));
       const fs = parseFloat(getComputedStyle(inp).fontSize || '16');
       const ch = fs * 0.5, zen = fs;
       const minInput = Math.round(16 * ch + 16);
       const minSelect = Math.round(4 * zen + 24);
-      let btnW = btn ? btn.offsetWidth : 0;
+      let btnW = btn ? ( (window.matchMedia && (matchMedia('(pointer: coarse)').matches || matchMedia('(max-width: 768px)').matches)) ? 48 : btn.offsetWidth ) : 0;
       let availRow = row.clientWidth - gap*2;
       let remain = availRow - btnW;
-      if (remain < minInput + minSelect && btn) {
+      if (!isMobile && remain < minInput + minSelect && btn) {
         const targetBtn = Math.max(btnMin, btnW - ((minInput + minSelect) - remain));
         btn.style.flex = '0 1 auto'; btn.style.maxWidth = targetBtn + 'px';
         btnW = btn.offsetWidth; remain = availRow - btnW;
@@ -1765,3 +1777,16 @@ document.addEventListener('change', (e) => {
     if (typeof applyFixedToUnselectedRows === 'function') applyFixedToUnselectedRows('detail');
   } catch(_) {}
 }, true);
+
+
+// === 初期表示でもサイズ調整を走らせる ===
+function requestFitAll(){
+  try { window.dispatchEvent(new Event('resize')); } catch(_){}
+}
+document.addEventListener('DOMContentLoaded', () => setTimeout(requestFitAll, 0));
+try{
+  if (typeof showView === 'function'){
+    const __origShowView = showView;
+    window.showView = function(id){ __origShowView(id); if(id==='add-view'||id==='detail-view') setTimeout(requestFitAll, 0); };
+  }
+}catch(_){}
