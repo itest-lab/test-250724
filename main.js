@@ -744,6 +744,29 @@ function createTrackingRow(context="add"){
   }
   inp.addEventListener('input', updateMissingHighlight);
   sel.addEventListener('change', updateMissingHighlight);
+  
+  // ▼ 幅自動調整: 画面幅にフィット（折返し/行内スクロールなし）
+  row.style.flexWrap = 'nowrap'; row.style.width = '100%';
+  sel.style.flex = '0 0 auto';
+  inp.style.flex = '1 1 auto';
+  function fitRow(){
+    try{
+      const gap = parseFloat(getComputedStyle(row).gap || '8');
+      const btn = row.querySelector('button.camera-btn');
+      const btnW = btn ? btn.offsetWidth : 0;
+      const avail = row.clientWidth - sel.offsetWidth - btnW - gap*2; // 左右の隙間考慮
+      const style = getComputedStyle(inp);
+      const ch = parseFloat(style.fontSize || '16') * 0.5; // 約半角幅
+      const minPx = Math.max(0, 15 * ch + 16); // 15ch + padding相当
+      const w = Math.max(minPx, avail);
+      inp.style.maxWidth = w + 'px';
+      inp.style.width = Math.min(w, avail) + 'px';
+    }catch(_){ /* no-op */ }
+  }
+  // 初期 + リサイズで再計算
+  setTimeout(fitRow, 0);
+  window.addEventListener('resize', fitRow);
+
   return row;
 }
 
