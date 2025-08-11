@@ -322,8 +322,9 @@ html, body, button, input, select, textarea {
 .tracking-row button { width: auto; flex: 0 0 auto; }
 
 
-/* === 追跡行: 狭幅でも折り返し禁止 + 横スクロール許可 === */
-.tracking-row { display:flex; align-items:center; gap:.5em; flex-wrap:nowrap; overflow-x:auto; }
-.tracking-row select { width:auto; min-width:calc(4em + 1.5em); flex:0 0 auto; }
-.tracking-row input[type="text"] { width:auto; min-width:calc(14ch + 1em); flex:0 0 auto; }
-.tracking-row button { width:auto; flex:0 0 auto; }
+/* === 行内横スクロールなし + 折返し禁止（最終指定） === */
+.tracking-row { display:flex; align-items:center; gap:.5em; width:100%; flex-wrap:nowrap; overflow-x:visible; }
+.tracking-row select,
+#fixed-carrier-select,
+#fixed-carrier-select-detail { width:auto; min-width:calc(5em + 1.5em); flex:0 0 auto; }
+.tracking-row input[type="text"] { width:auto; min-width:calc(15ch + 1em); flex:1 1 auto; }
