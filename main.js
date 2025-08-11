@@ -113,10 +113,13 @@ function normalizeTrackingForSave(carrier, tracking) {
 /* ------------------------------
  * CODABAR の A/B/C/D を両端から除去（ラベル部）
  * ------------------------------ */
-function normalizeCodabar(value) {
+function normalizeCodabar(value){
   if (!value || value.length < 2) return value || '';
   const pre = value[0], suf = value[value.length - 1];
-  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) return value.substring(1, value.length - 1);
+  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) {
+    const core = value.substring(1, value.length - 1);
+    return (core.length <= 9) ? '' : core;
+  }
   return value;
 }
 
@@ -166,6 +169,12 @@ async function startScanning(formats, inputId) {
     try {
       const inputEl = document.getElementById(inputId);
       if (!inputEl) { stopScanning(); return; }
+
+      let value = String(decoded);
+      if (Array.isArray(formats) && formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
+        value = normalizeCodabar(value);
+        if (!value) return; // 9文字以下は継続スキャン
+      }
 
       // CODABARのスタート/ストップ文字除去
       let value = decoded;
@@ -562,7 +571,9 @@ async function scanFileForCodes(file){
   if (type.includes('pdf')) v = await decodeFromPdf(file);
   else v = await decodeFromImage(file);
   if (!v) return null;
-  return normalizeCodabar(String(v));
+
+  const n = normalizeCodabar(String(v));
+  return n ? n : null;
 }
 
 /* ------------------------------
@@ -855,10 +866,12 @@ manualConfirmBtn.onclick = () => {
   if(!manualOrderIdInput.value || !manualCustomerInput.value || !manualTitleInput.value){
     alert("必須項目を入力"); return;
   }
+  const plateNorm = normalizeDateString(manualPlateDateInput.value);
+  if(!plateNorm){ alert("下版日を入力してください（YYYY-MM-DD）"); return; }
   detailOrderId.textContent  = manualOrderIdInput.value.trim();
   detailCustomer.textContent = manualCustomerInput.value.trim();
   detailTitle.textContent    = manualTitleInput.value.trim();
-  detailPlateDate.textContent = manualPlateDateInput.value || "";
+  detailPlateDate.textContent = plateNorm;
   manualModeDiv.style.display = "none";
   caseDetailsDiv.style.display = "block";
 };
@@ -914,7 +927,9 @@ confirmAddCaseBtn.onclick = async () => {
   const plateStr = (detailPlateDate.textContent || "").trim();
   const plateTs  = plateStr ? new Date(plateStr).getTime() : null;
 
-  if (!orderId || !customer || !title) { addCaseMsg.textContent = "情報不足"; return; }
+  
+  if (!plateStr || isNaN(new Date(plateStr).getTime())) { addCaseMsg.textContent = \"下版日は必須です\"; return; }
+if (!orderId || !customer || !title) { addCaseMsg.textContent = "情報不足"; return; }
 
   showLoading();
   confirmAddCaseBtn.disabled = true;
