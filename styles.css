@@ -305,38 +305,38 @@ html, body, button, input, select, textarea {
 .tracking-row select{ width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
 
 /* === 追跡行: 運送会社と追跡番号を横並びにする === */
-.tracking-row { display: flex; align-items: center; gap: .5em; flex-wrap: nowrap; }
+.tracking-row { display: flex; align-items: center; gap: .4em; flex-wrap: nowrap; }
 .tracking-row select{ width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
 .tracking-row input[type="text"]{ width:auto; min-width:calc(16ch + 1em); flex:1 1 auto; }
 .tracking-row button { width: auto; flex: 0 0 auto; }
 @media (max-width: 480px) { .tracking-row { flex-wrap: wrap; } }
 
 /* === viewport fit for tracking row === */
-.tracking-row{ width:100%; display:flex; align-items:center; gap:.5em; flex-wrap:nowrap; }
+.tracking-row{ width:100%; display:flex; align-items:center; gap:.4em; flex-wrap:nowrap; }
 .tracking-row select{ width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
 .tracking-row input[type="text"]{ width:auto; min-width:calc(16ch + 1em); flex:1 1 auto; }
 
 /* === 追跡行: 画面幅フィット（カメラボタン含む） === */
-.tracking-row{ display:flex; align-items:center; gap:.5em; width:100%; flex-wrap:nowrap; overflow-x:visible; }
+.tracking-row{ display:flex; align-items:center; gap:.4em; width:100%; flex-wrap:nowrap; overflow-x:visible; }
 .tracking-row select{ width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
 .tracking-row input[type="text"]{ width:auto; min-width:calc(16ch + 1em); flex:1 1 auto; }
 .tracking-row .camera-btn{ width:auto; flex:0 1 auto; max-width:100%; white-space:nowrap; }
 
 /* viewport-fit-final */
-.tracking-row{ display:flex; align-items:center; gap:.5em; width:100%; flex-wrap:nowrap; overflow:visible; }
+.tracking-row{ display:flex; align-items:center; gap:.4em; width:100%; flex-wrap:nowrap; overflow:visible; }
 .tracking-row .camera-btn{ flex:0 1 auto; max-width:100%; white-space:nowrap; }
 
 /* === 全画面フィット: body 幅100% + 追跡行100% === */
 
 #tracking-rows, #detail-tracking-rows { width: 100%; }
-.tracking-row { width: 100%; display:flex; align-items:center; gap:.5em; flex-wrap:nowrap; }
+.tracking-row { width: 100%; display:flex; align-items:center; gap:.4em; flex-wrap:nowrap; }
 .tracking-row select { width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
 .tracking-row input[type="text"] { width:auto; min-width:calc(16ch + 1em); flex:1 1 auto; }
 .tracking-row .camera-btn { flex:0 1 auto; max-width:100%; white-space:nowrap; }
 
 /* スマホ画面: カメラ起動ボタンを固定幅にし、他要素で自動調整 */
 @media (max-width: 600px){
-  .tracking-row{ width:100%; display:flex; align-items:center; gap:.5em; flex-wrap:nowrap; }
+  .tracking-row{ width:100%; display:flex; align-items:center; gap:.4em; flex-wrap:nowrap; }
   .tracking-row .camera-btn{ flex:0 0 56px; width:56px; max-width:56px; white-space:nowrap; }
   .tracking-row select{ width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
   .tracking-row input[type="text"]{ width:auto; min-width:calc(16ch + 1em); flex:1 1 auto; }
@@ -344,7 +344,7 @@ html, body, button, input, select, textarea {
 
 /* === モバイル専用: カメラ固定幅 + 他は自動調整 === */
 @media (pointer: coarse), (max-width: 600px) {
-  .tracking-row { width:100%; display:flex; align-items:center; gap:.5em; flex-wrap:nowrap; }
+  .tracking-row { width:100%; display:flex; align-items:center; gap:.4em; flex-wrap:nowrap; }
   .tracking-row .camera-btn { flex:0 0 48px; width:48px; max-width:48px; white-space:nowrap; }
   .tracking-row select { width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
   .tracking-row input[type="text"] { width:auto; min-width:calc(16ch + 1em); flex:1 1 auto; }
@@ -366,12 +366,12 @@ html, body, button, input, select, textarea {
   display: grid;
   grid-template-columns: auto minmax(0,1fr) minmax(0,1.2fr);
   align-items: center;
-  gap: .5rem;
+  gap: .4rem;
   width: 100%;
   overflow: visible;
 }
 .tracking-row .row-no{
-  width: 3ch;
+  width: 2.2ch;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -398,7 +398,7 @@ html, body, button, input, select, textarea {
     width: var(--camera-btn-w);
     max-width: var(--camera-btn-w);
     height: 36px;
-    padding: 0 .5rem;
+    padding: 0 .4rem;
     white-space: nowrap;
     border: 1px solid #ccc;
     border-radius: 8px;
