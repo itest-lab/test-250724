@@ -116,7 +116,11 @@ function normalizeTrackingForSave(carrier, tracking) {
 function normalizeCodabar(value) {
   if (!value || value.length < 2) return value || '';
   const pre = value[0], suf = value[value.length - 1];
-  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) return value.substring(1, value.length - 1);
+  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) {
+    const core = value.substring(1, value.length - 1);
+    // 先頭・末を省いた9文字以下はスキップ（空文字を返す）
+    return (core.length <= 9) ? '' : core;
+  }
   return value;
 }
 
@@ -167,6 +171,12 @@ async function startScanning(formats, inputId) {
       const inputEl = document.getElementById(inputId);
       if (!inputEl) { stopScanning(); return; }
 
+      // CODABAR専用スキャン時は開始/終了除去＋長さチェック
+      if (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
+        value = normalizeCodabar(String(decoded));
+        if (!value) return; // 9文字以下は無視して継続
+      }
+      
       // CODABARのスタート/ストップ文字除去
       let value = decoded;
       if (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
@@ -555,13 +565,16 @@ async function decodeFromPdf(file){
   }
   return null;
 }
+
 async function scanFileForCodes(file){
   const type = (file.type || '').toLowerCase();
   let v = null;
   if (type.includes('pdf')) v = await decodeFromPdf(file);
   else v = await decodeFromImage(file);
   if (!v) return null;
-  return normalizeCodabar(String(v));
+
+  const n = normalizeCodabar(String(v));
+  return n ? n : null; // 9文字以下は null 扱いでスキップ
 }
 
 /* ------------------------------
