@@ -320,3 +320,12 @@ html, body, button, input, select, textarea {
 /* viewport-fit-final */
 .tracking-row{ display:flex; align-items:center; gap:.5em; width:100%; flex-wrap:nowrap; overflow:visible; }
 .tracking-row .camera-btn{ flex:0 1 auto; max-width:100%; white-space:nowrap; }
+
+/* === 全画面フィット: body 幅100% + 追跡行100% === */
+html, body { width: 100%; max-width: 100%; }
+body { max-width: 100% !important; }
+#tracking-rows, #detail-tracking-rows { width: 100%; }
+.tracking-row { width: 100%; display:flex; align-items:center; gap:.5em; flex-wrap:nowrap; }
+.tracking-row select { width:auto; min-width:calc(4em + 1.5em); flex:1 1 auto; }
+.tracking-row input[type="text"] { width:auto; min-width:calc(16ch + 1em); flex:1 1 auto; }
+.tracking-row .camera-btn { flex:0 1 auto; max-width:100%; white-space:nowrap; }

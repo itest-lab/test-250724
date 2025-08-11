@@ -841,6 +841,36 @@ row.appendChild(inp);
   setTimeout(fitRow, 0);
   window.addEventListener('resize', fitRow);
   sel.addEventListener('change', fitRow);
+// ▼ 幅自動調整: 画面幅に追従（ADD/DETAIL 共通）
+  row.style.flexWrap = 'nowrap'; row.style.width = '100%';
+  sel.style.flex = '1 1 auto'; inp.style.flex = '1 1 auto';
+  function fitRow(){
+    try{
+      const gap = parseFloat(getComputedStyle(row).gap || '8');
+      const btn = row.querySelector('button.camera-btn');
+      const btnMin = 48; // px
+      const fs = parseFloat(getComputedStyle(inp).fontSize || '16');
+      const ch = fs * 0.5, zen = fs;
+      const minInput = Math.round(16 * ch + 16);
+      const minSelect = Math.round(4 * zen + 24);
+      let btnW = btn ? btn.offsetWidth : 0;
+      let availRow = row.clientWidth - gap*2;
+      let remain = availRow - btnW;
+      if (remain < minInput + minSelect && btn) {
+        const targetBtn = Math.max(btnMin, btnW - ((minInput + minSelect) - remain));
+        btn.style.flex = '0 1 auto'; btn.style.maxWidth = targetBtn + 'px';
+        btnW = btn.offsetWidth; remain = availRow - btnW;
+      }
+      let selectW = Math.max(minSelect, Math.min(remain - minInput, Math.floor(remain * 0.5)));
+      if (selectW < minSelect) selectW = minSelect;
+      const inputW = Math.max(minInput, remain - selectW);
+      sel.style.maxWidth = selectW + 'px'; sel.style.width = selectW + 'px';
+      inp.style.maxWidth = inputW + 'px'; inp.style.width = inputW + 'px';
+    }catch(_){ }
+  }
+  setTimeout(fitRow, 0);
+  window.addEventListener('resize', fitRow);
+  sel.addEventListener('change', fitRow);
   return row;
 }
 
