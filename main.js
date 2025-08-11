@@ -75,23 +75,18 @@ function isMobileDevice() {
 }
 let html5QrCode = null;
 let torchOn = false;
-// 入力確定の信頼性向上用フラグとヘルパ
 let _scanCommitting = false;
+let _lastScan = null;
 async function commitToInput(inputId, value) {
   const el = document.getElementById(inputId);
   if (!el) return false;
-  // 値を設定
   el.value = value;
-  // input と change を両方発火
   el.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }));
   el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
-  // モバイルで拾われない場合の対策: focus → 次フレームで blur
   try { el.focus({ preventScroll: true }); } catch (_) {}
   await new Promise(r => requestAnimationFrame(r));
   try { el.blur(); } catch (_) {}
-  // DOM 反映待ち
   await new Promise(r => requestAnimationFrame(r));
-  // 念のため再試行
   if (!el.value) {
     el.value = value;
     el.dispatchEvent(new Event('input',  { bubbles: true }));
@@ -141,11 +136,7 @@ function normalizeTrackingForSave(carrier, tracking) {
 function normalizeCodabar(value) {
   if (!value || value.length < 2) return value || '';
   const pre = value[0], suf = value[value.length - 1];
-  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) {
-    const core = value.substring(1, value.length - 1);
-    // 先頭・末を省いた9文字以下はスキップ（空文字を返す）
-    return (core.length <= 9) ? '' : core;
-  }
+  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) return value.substring(1, value.length - 1);
   return value;
 }
 
@@ -191,34 +182,34 @@ async function startScanning(formats, inputId) {
   };
 
   // デコード成功時のハンドラ
-  
-const onSuccess = async (decoded) => {
+  const onSuccess = async (decoded) => {
   if (_scanCommitting) return;
   _scanCommitting = true;
   try {
     let value = String(decoded);
-
-    // CODABAR のときは先頭末尾(A/B/C/D)除去＋9文字以下は無視
     if (Array.isArray(formats) && formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
       value = normalizeCodabar(value);
-      if (!value) { _scanCommitting = false; return; } // 継続待機
+      if (!value) { _scanCommitting = false; return; }
     }
-
+    _lastScan = { inputId, value };
     const ok = await commitToInput(inputId, value);
-
     if (ok && inputId === 'case-barcode' && typeof processCaseBarcode === 'function') {
       await processCaseBarcode(value);
     }
-
     await stopScanning();
+    const el = document.getElementById(inputId);
+    if (!el || !el.value) {
+      await new Promise(r => setTimeout(r, 0));
+      await commitToInput(inputId, value);
+    }
   } catch (err) {
     console.error(err);
     await stopScanning();
   } finally {
+    _lastScan = null;
     _scanCommitting = false;
   }
 };
-
 
   try {
     await html5QrCode.start(cameraConfig, config, onSuccess, () => {});
@@ -1475,3 +1466,4 @@ document.addEventListener('change', (e) => {
     if (typeof applyFixedToUnselectedRows === 'function') applyFixedToUnselectedRows('detail');
   } catch(_) {}
 }, true);
+
