@@ -792,7 +792,13 @@ row.appendChild(inp);
       camBtn.className = 'camera-btn';
       camBtn.addEventListener('click', () => {
         startScanning([Html5QrcodeSupportedFormats.CODABAR], uniqueId);
+      // モバイルならカメラボタンを添付（生成部分の直後でOK）
+      const label = (window.innerWidth <= 480) ? 'カメラ' : 'カメラ起動';
+      camBtn.textContent = label;
+      window.addEventListener('resize', () => {
+        camBtn.textContent = (window.innerWidth <= 480) ? 'カメラ' : 'カメラ起動';
       });
+
       row.appendChild(camBtn);
     }
   })();
