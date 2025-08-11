@@ -171,15 +171,15 @@ async function startScanning(formats, inputId) {
       if (!inputEl) { stopScanning(); return; }
 
       let value = String(decoded);
-      // CODABAR最短長チェック: A-Dがなくても数字のみ9桁以下は無視
-      {
-        const hasCodabar = Array.isArray(formats) && formats.includes(Html5QrcodeSupportedFormats.CODABAR);
-        if (hasCodabar) {
-          const pre = value[0], suf = value[value.length - 1];
-          const core = (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) ? value.substring(1, value.length - 1) : value;
-          if (/^\d{1,9}$/.test(core)) return; // 継続スキャン
-        }
-      }
+// CODABAR最短長チェック: A-Dがなくても数字のみ9桁以下は無視
+{
+  const hasCodabar = Array.isArray(formats) && formats.includes(Html5QrcodeSupportedFormats.CODABAR);
+  if (hasCodabar) {
+    const pre = value[0], suf = value[value.length - 1];
+    const core = (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) ? value.substring(1, value.length - 1) : value;
+    if (/^\d{1,9}$/.test(core)) return; // 継続スキャン
+  }
+}
 
       // CODABAR: 両端A/B/C/Dが付いている場合は常に正規化。9文字以下は継続スキャン
       {
@@ -190,7 +190,13 @@ async function startScanning(formats, inputId) {
         }
       }
 
-      inputEl.value = value;
+            // 追跡番号系の短桁誤読防止: case-barcode 以外で純数字9桁以下は無視
+      if (inputId !== 'case-barcode') {
+        const pre2 = value[0], suf2 = value[value.length - 1];
+        const core2 = (/^[ABCD]$/i.test(pre2) && /^[ABCD]$/i.test(suf2)) ? value.substring(1, value.length - 1) : value;
+        if (/^\d{1,9}$/.test(core2)) return; // 継続スキャン
+      }
+inputEl.value = value;
       inputEl.dispatchEvent(new Event('input', { bubbles: true }));
 
       // 案件バーコード欄のみ自動確定
