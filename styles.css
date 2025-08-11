@@ -488,3 +488,36 @@ html, body, button, input, select, textarea {
     transform: none !important;
   }
 }
+
+
+
+/* === ログアウト確認モーダル === */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: none;
+  align-items: center; justify-content: center;
+  z-index: 9999;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: #fff; border-radius: 8px; padding: 16px 20px; max-width: 320px; width: 90%;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+.modal-title { font-weight: 600; margin: 0 0 12px; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.modal .btn { padding: 6px 12px; border: 1px solid #ccc; background: #f7f7f7; border-radius: 6px; cursor: pointer; }
+.modal .btn.primary { background: #1976d2; color: #fff; border-color: #1976d2; }
+.modal .btn:hover { filter: brightness(0.95); }
+
+/* === 案件詳細：各行 操作ボタン === */
+#detail-shipments li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#detail-shipments li .ship-actions { flex: 0 0 auto; display: flex; gap: 6px; }
+#detail-shipments li .ship-actions .mini { padding: 2px 6px; font-size: 12px; border: 1px solid #bbb; border-radius: 4px; background: #fff; cursor: pointer; }
+#detail-shipments li .ship-actions .mini:hover { background: #f0f0f0; }
+
+/* 編集フォーム（インライン） */
+.ship-edit-form { margin-top: 6px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.ship-edit-form select, .ship-edit-form input[type="text"] { padding: 4px 6px; }
+.ship-edit-form .save { padding: 2px 8px; }
+.ship-edit-form .cancel { padding: 2px 8px; }

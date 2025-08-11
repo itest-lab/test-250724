@@ -22,7 +22,7 @@
     <div class="spinner"></div>
   </div>
 
-  <!-- ログインビュー: メール/パスワードでFirebase Authを使用して認証します。 -->
+  <!-- ログインビュー -->
   <div id="login-view">
     <h2>ログイン</h2>
     <input id="email"    type="text"     placeholder="メールアドレス">
@@ -35,7 +35,7 @@
     <p id="login-error" class="error"></p>
   </div>
 
-  <!-- 新規登録ビュー: メール/パスワードでユーザー作成を行います。 -->
+  <!-- 新規登録ビュー -->
   <div id="signup-view" style="display:none;">
     <h2>新規登録</h2>
     <input id="signup-email" type="text" placeholder="メールアドレス">
@@ -46,7 +46,7 @@
     <p id="signup-error" class="error"></p>
   </div>
 
-  <!-- メインビュー: 案件追加/検索などのナビゲーションとサブビューを含みます。 -->
+  <!-- メインビュー -->
   <div id="main-view" style="display:none;">
     <button id="logout-btn">ログアウト</button>
     <nav>
@@ -54,7 +54,7 @@
       <button id="nav-search-btn">案件検索</button>
     </nav>
 
-    <!-- 案件追加ビュー: QR/バーコード読取または手動入力で案件情報を作成します。 -->
+    <!-- 案件追加ビュー -->
     <div id="add-case-view" class="subview" style="display:none">
       <h3>案件追加</h3>
 
@@ -111,7 +111,7 @@
       </div>
     </div>
 
-    <!-- 案件検索ビュー: キーワード・日付条件でRealtime Databaseから検索します。 -->
+    <!-- 案件検索ビュー -->
     <div id="search-view" class="subview" style="display:none;">
       <h3>案件検索</h3>
 
@@ -141,8 +141,8 @@
       <button id="list-all-btn">一覧表示</button>
       <ul id="search-results"></ul>
 
-    <!-- ページングUI -->
-    <div id="pagination"></div>
+  <!-- ページングUI -->
+  <div id="pagination"></div>
       <!-- 管理者専用: 全選択チェックボックスと選択削除ボタン -->
       <label id="select-all-container" style="display:none;">
         <input type="checkbox" id="select-all-checkbox">
@@ -151,14 +151,13 @@
       <button id="delete-selected-btn" style="display:none;">選択削除</button>
     </div>
 
-    <!-- 案件詳細ビュー: 追跡情報の確認と追跡番号の追加登録を行います。 -->
+    <!-- 案件詳細ビュー -->
     <div id="case-detail-view" class="subview" style="display:none;">
       <h3>案件詳細</h3>
       <div id="detail-info"></div>
 
       <h4>追跡情報</h4>
       <ul id="detail-shipments"></ul>
-
 
       <button id="show-add-tracking-btn">追跡番号追加</button>
       <div id="add-tracking-detail" style="display:none; margin-top:1em;">
@@ -192,7 +191,7 @@
     <button id="another-case-btn-2">別の案件を追加</button>
   </div>
 
-  <!-- カメラプレビュー用オーバーレイ: html5-qrcodeでバーコード/QRを読み取ります。 -->
+  <!-- カメラプレビューオーバーレイ -->
   <div id="scanner-overlay" style="display:none;">
     <div id="scanner-container">
       <button id="torch-button" class="overlay-btn" title="ライト">💡</button>
@@ -204,10 +203,19 @@
   <button id="back-to-top" title="ページの先頭へ">▲</button>
   <!-- モバイル メニューボタン＋パネル -->
   <button id="mobile-menu-btn" aria-label="メニュー" style="display:none">☰</button>
-  <!-- モバイル用メニューパネル: 追加/検索へクイック遷移します。 -->
   <div id="mobile-menu-panel" style="display:none">
     <button id="mobile-menu-add">案件追加</button>
     <button id="mobile-menu-search">案件検索</button>
     <script src="main.js"></script>
-</body>
+  <!-- ログアウト確認モーダル -->
+    <div id="logout-modal" class="modal-overlay" style="display:none">
+      <div class="modal">
+        <p class="modal-title">ログアウトしますか？</p>
+        <div class="modal-actions">
+          <button id="logout-yes" class="btn primary">はい</button>
+          <button id="logout-no" class="btn">いいえ</button>
+        </div>
+      </div>
+    </div>
+  </body>
 </html>
