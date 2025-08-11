@@ -360,3 +360,33 @@ html, body, button, input, select, textarea {
 }
 .tracking-row { width: 100%; }
 
+/* === 追跡行: body幅100%フィット（番号＋運送会社＋追跡番号＋カメラ） === */
+.tracking-row{
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) minmax(0,1.2fr) auto; /* 番号 | セレクト | 入力 | カメラ */
+  align-items: center;
+  gap: .5em;
+  width: 100%;
+  overflow: visible;
+}
+.tracking-row select,
+.tracking-row input[type="text"]{
+  width: 100%;
+  min-width: 0;
+}
+.row-no{
+  width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tracking-row .camera-btn{
+  width: 56px;
+  max-width: 56px;
+  flex: 0 0 56px;
+  white-space: nowrap;
+}
+@media (max-width: 768px){
+  .tracking-row{
+    grid-template-columns: auto minmax(0,1fr) minmax(0,1fr) 56px;
+  }
+}
