@@ -363,7 +363,7 @@ html, body, button, input, select, textarea {
   display: grid;
   grid-template-columns: auto minmax(0,1fr) minmax(0,1.2fr);
   align-items: center;
-  gap: .4rem;
+  gap: .2rem;
   width: 100%;
   overflow: visible;
 }
