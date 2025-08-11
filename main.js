@@ -576,11 +576,10 @@ function renumberTrackingRows(context="add"){
     let badge = row.querySelector('.row-no');
     if (!badge) {
       badge = document.createElement('span');
-      badge.className = 'row-no';
-      badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;min-width:2em;padding:0 .5em;margin-right:.5em;border-radius:9999px;font-weight:600;border:1px solid #999;';
+      badge.className = 'row-no'; badge.style.cssText = 'display:inline-block;width:3ch;text-align:right;margin-right:.25em;font-weight:600;font-variant-numeric:tabular-nums;';
       row.insertBefore(badge, row.firstChild);
     }
-    badge.textContent = String(idx + 1);
+    badge.textContent = String(Math.min(idx + 1, 999));
   });
 }
 function ensureFixedCarrierToolbar(context="add"){
@@ -591,13 +590,30 @@ function ensureFixedCarrierToolbar(context="add"){
   if (!bar) {
     bar = document.createElement('div');
     bar.id = toolbarId;
-    bar.style.cssText = 'padding:.5em;border:1px dashed #bbb;background:#f9fafb;margin:.5em 0;display:flex;align-items:center;gap:.75em;position:sticky;top:.5rem;z-index:20;';
-    const lbl = document.createElement('strong');
-    lbl.textContent = '運送会社を固定';
-    lbl.style.cssText = 'font-weight:700;';
-    bar.appendChild(lbl);
+    bar.style.cssText = 'padding:.5em .75em;border:1px dashed #bbb;background:#f9fafb;margin:.5em 0;display:flex;align-items:center;gap:.5em;position:sticky;top:.5rem;z-index:20;flex-wrap:wrap;';
     rows.parentElement.insertBefore(bar, rows);
   }
+  // 再構築して過剰な文言を排除
+  bar.textContent = '';
+  const group = document.createElement('div');
+  group.style.cssText = 'display:inline-flex;align-items:center;gap:.5em;';
+  const label = document.createElement('span');
+  label.textContent = '固定';
+  label.style.cssText = 'font-weight:600;';
+  group.appendChild(label);
+  const cb  = (context === "detail") ? fixedCarrierCheckboxDetail : fixedCarrierCheckbox;
+  const sel = (context === "detail") ? fixedCarrierSelectDetail   : fixedCarrierSelect;
+  if (cb) { cb.style.margin = '0'; cb.style.transform = 'scale(1.0)'; group.appendChild(cb); }
+  if (sel) {
+    sel.style.display = (cb && cb.checked) ? 'inline-block' : 'none';
+    sel.style.width = 'auto';
+    sel.style.minWidth = '140px';
+    sel.style.maxWidth = '180px';
+    sel.style.flex = '0 0 auto';
+    group.appendChild(sel);
+  }
+  bar.appendChild(group);
+}
   const cb  = (context === "detail") ? fixedCarrierCheckboxDetail : fixedCarrierCheckbox;
   const sel = (context === "detail") ? fixedCarrierSelectDetail   : fixedCarrierSelect;
   if (cb && cb.parentElement !== bar) bar.appendChild(cb);
@@ -664,8 +680,7 @@ function createTrackingRow(context="add"){
   (function ensureBadge(){
     if (!row.querySelector('.row-no')) {
       const badge = document.createElement('span');
-      badge.className = 'row-no';
-      badge.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;min-width:2em;padding:0 .5em;margin-right:.5em;border-radius:9999px;font-weight:600;border:1px solid #999;';
+      badge.className = 'row-no'; badge.style.cssText = 'display:inline-block;width:3ch;text-align:right;margin-right:.25em;font-weight:600;font-variant-numeric:tabular-nums;';
       row.insertBefore(badge, row.firstChild);
     }
   })();
