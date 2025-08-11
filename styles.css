@@ -42,11 +42,11 @@ nav button {
   flex: 1;
   padding: 0.5em;
 }
-/* 追跡番号入力の最小幅: 14文字が確実に見えるようにする */
-.tracking-row input[type="text"] {
-  min-width: 18ch;  /* 14ch + 余白バッファ */
-  width: auto;      /* グローバルの width:100% を打ち消し */
-  flex: 1 1 auto;   /* 余白があれば広がるが min-width 未満に縮まない */
+/* 追跡番号入力の最小幅: 半角14文字を保証 */
+.tracking-row input[type="text"]{
+  min-width: calc(14ch + 1em); /* 左右padding 0.5em×2 を加味 */
+  width: auto;
+  flex: 1 1 auto;
 }
 @media (max-width: 420px) {
   .tracking-row { flex-wrap: wrap; } /* 狭幅端末で折り返し許可 */
