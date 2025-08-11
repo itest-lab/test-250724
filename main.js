@@ -75,6 +75,31 @@ function isMobileDevice() {
 }
 let html5QrCode = null;
 let torchOn = false;
+// 入力確定の信頼性向上用フラグとヘルパ
+let _scanCommitting = false;
+async function commitToInput(inputId, value) {
+  const el = document.getElementById(inputId);
+  if (!el) return false;
+  // 値を設定
+  el.value = value;
+  // input と change を両方発火
+  el.dispatchEvent(new Event('input',  { bubbles: true, cancelable: true }));
+  el.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+  // モバイルで拾われない場合の対策: focus → 次フレームで blur
+  try { el.focus({ preventScroll: true }); } catch (_) {}
+  await new Promise(r => requestAnimationFrame(r));
+  try { el.blur(); } catch (_) {}
+  // DOM 反映待ち
+  await new Promise(r => requestAnimationFrame(r));
+  // 念のため再試行
+  if (!el.value) {
+    el.value = value;
+    el.dispatchEvent(new Event('input',  { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => requestAnimationFrame(r));
+  }
+  return !!el.value;
+}
 function mmToPx(mm) { return mm * (96 / 25.4); }
 
 // 背面カメラ優先選択
@@ -116,11 +141,7 @@ function normalizeTrackingForSave(carrier, tracking) {
 function normalizeCodabar(value) {
   if (!value || value.length < 2) return value || '';
   const pre = value[0], suf = value[value.length - 1];
-  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) {
-    const core = value.substring(1, value.length - 1);
-    // 先頭・末を省いた9文字以下はスキップ（空文字を返す）
-    return (core.length <= 9) ? '' : core;
-  }
+  if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) return value.substring(1, value.length - 1);
   return value;
 }
 
@@ -166,35 +187,34 @@ async function startScanning(formats, inputId) {
   };
 
   // デコード成功時のハンドラ
-  const onSuccess = decoded => {
-    try {
-      const inputEl = document.getElementById(inputId);
-      if (!inputEl) { stopScanning(); return; }
+  
+const onSuccess = async (decoded) => {
+  if (_scanCommitting) return;
+  _scanCommitting = true;
+  try {
+    let value = String(decoded);
 
-      // CODABAR専用スキャン時は開始/終了除去＋長さチェック
-      if (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
-        value = normalizeCodabar(String(decoded));
-        if (!value) return; // 9文字以下は無視して継続
-      }
-      
-      // CODABARのスタート/ストップ文字除去
-      let value = decoded;
-      if (formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
-        if (decoded && decoded.length >= 2) {
-          const pre = decoded[0], suf = decoded[decoded.length - 1];
-          if (/[ABCD]/i.test(pre) && /[ABCD]/i.test(suf)) value = decoded.substring(1, decoded.length - 1);
-          else return; // 正しい開始/終了でなければ無視
-        }
-      }
+    // CODABAR のときは先頭末尾(A/B/C/D)除去＋9文字以下は無視
+    if (Array.isArray(formats) && formats.length === 1 && formats[0] === Html5QrcodeSupportedFormats.CODABAR) {
+      value = normalizeCodabar(value);
+      if (!value) { _scanCommitting = false; return; } // 継続待機
+    }
 
-      inputEl.value = value;
-      inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+    const ok = await commitToInput(inputId, value);
 
-      // 案件バーコード欄のみ自動確定
-      if (inputId === 'case-barcode') processCaseBarcode(value);
-      stopScanning();
-    } catch (err) { console.error(err); stopScanning(); }
-  };
+    if (ok && inputId === 'case-barcode' && typeof processCaseBarcode === 'function') {
+      await processCaseBarcode(value);
+    }
+
+    await stopScanning();
+  } catch (err) {
+    console.error(err);
+    await stopScanning();
+  } finally {
+    _scanCommitting = false;
+  }
+};
+
 
   try {
     await html5QrCode.start(cameraConfig, config, onSuccess, () => {});
@@ -565,16 +585,13 @@ async function decodeFromPdf(file){
   }
   return null;
 }
-
 async function scanFileForCodes(file){
   const type = (file.type || '').toLowerCase();
   let v = null;
   if (type.includes('pdf')) v = await decodeFromPdf(file);
   else v = await decodeFromImage(file);
   if (!v) return null;
-
-  const n = normalizeCodabar(String(v));
-  return n ? n : null; // 9文字以下は null 扱いでスキップ
+  return normalizeCodabar(String(v));
 }
 
 /* ------------------------------
@@ -1454,4 +1471,3 @@ document.addEventListener('change', (e) => {
     if (typeof applyFixedToUnselectedRows === 'function') applyFixedToUnselectedRows('detail');
   } catch(_) {}
 }, true);
-
