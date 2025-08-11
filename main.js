@@ -614,12 +614,6 @@ function ensureFixedCarrierToolbar(context="add"){
   }
   bar.appendChild(group);
 }
-  const cb  = (context === "detail") ? fixedCarrierCheckboxDetail : fixedCarrierCheckbox;
-  const sel = (context === "detail") ? fixedCarrierSelectDetail   : fixedCarrierSelect;
-  if (cb && cb.parentElement !== bar) bar.appendChild(cb);
-  if (sel && sel.parentElement !== bar) bar.appendChild(sel);
-  if (cb && sel) sel.style.display = cb.checked ? (context === "detail" ? "inline-block" : "block") : "none";
-}
 /* ------------------------------
  * 追跡番号入力行の生成（add/detailで共通。常に<select>を持つ）
  * ------------------------------ */
