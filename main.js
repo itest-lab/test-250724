@@ -125,13 +125,7 @@ row.appendChild(inp);
       row.style.removeProperty('flexWrap');
     }catch(_){}
 }
-      let selectW = Math.max(minSelect, Math.min(remain - minInput, Math.floor(remain * 0.5)));
-      if (selectW < minSelect) selectW = minSelect;
-      const inputW = Math.max(minInput, remain - selectW);
-      /* width via CSS */ /* width via CSS */
-      /* width via CSS */ /* width via CSS */
-    }catch(_){ }
-  }
+
   setTimeout(fitRow, 0);
   window.addEventListener('resize', fitRow);
   sel.addEventListener('change', fitRow);
