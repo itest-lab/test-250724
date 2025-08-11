@@ -703,9 +703,6 @@ function ensureFixedCarrierToolbar(context="add"){
 function createTrackingRow(context="add"){
   const row = document.createElement("div");
   row.className = "tracking-row";
-  
-  row.style.alignItems = row.style.alignItems || "center";
-  row.style.gap = row.style.gap || ".5em";
 
   // 運送会社<select>は常に表示。固定ONなら未選択行に初期値を適用
   const sel = document.createElement("select");
