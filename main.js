@@ -22,10 +22,8 @@ const firebaseConfig = {
   measurementId:     "G-5WGPKD9BP2"
 };
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-// 明示的に “実データのある RTDB URL” に接続する
-const db = firebase.database(firebaseConfig.databaseURL);
-try { firebase.database().goOnline(); } catch (_) {}
+const auth = firebase.auth(); 
+const db = firebase.database();
 
 /* ------------------------------
  * Firebase 認証エラーメッセージ整形
