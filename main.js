@@ -1045,6 +1045,23 @@ async function decryptForUser(uid, encObj){
   const pt = await crypto.subtle.decrypt({ name:"AES-GCM", iv }, key, ct);
   return JSON.parse(new TextDecoder().decode(new Uint8Array(pt)));
 }
+function buildUidCandidates(obj){
+  const list = [];
+  if (obj && obj.ownerUid) list.push(obj.ownerUid);                // 生成者UID（あれば最優先）
+  const cur = (auth.currentUser && auth.currentUser.uid) || "guest";
+  if (!list.includes(cur))   list.push(cur);                       // 閲覧者UID
+  if (!list.includes("guest")) list.push("guest");                 // ゲスト鍵
+  return list;
+}
+async function tryDecryptWithCandidates(encObj, uidCandidates){
+  for (const uid of uidCandidates){
+    try{
+      const v = await decryptForUser(uid, encObj);
+      if (v && typeof v === "object") return v;
+    }catch(_){}
+  }
+  return null;
+}
 
 /* ------------------------------
  * 案件登録（案件情報 + 追跡）
@@ -1198,7 +1215,9 @@ function searchAll(kw=""){
         createdAt: obj.createdAt,
         得意先: dec?.得意先 || "",
         品名:   dec?.品名   || "",
-        下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "")
+        下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
+        enc: obj.enc,
+        ownerUid: obj.ownerUid || null      
       }
 
       const matchKw = !kw || orderId.includes(kw) || (view.得意先 || "").includes(kw) || (view.品名 || "").includes(kw);
