@@ -518,7 +518,7 @@ mobileMenuSearch.addEventListener('click', ()=>{
  * 認証操作（ログイン/新規/匿名/再発行/サインアウト）
  * ------------------------------ */
 
-loginBtn.onclick = async () => {
+if (loginBtn) loginBtn.onclick = async () => {
   const email = (emailInput.value || "").trim();
   const password = passwordInput.value || "";
   loginErrorEl.textContent = "";
@@ -533,7 +533,7 @@ loginBtn.onclick = async () => {
   }
 };
 
-signupBtn.onclick = () => {
+if (signupBtn) signupBtn.onclick = () => {
   loginView.style.display = "none";
   signupView.style.display = "block";
   signupEmail.value = emailInput.value.trim() || "";
@@ -541,15 +541,15 @@ signupBtn.onclick = () => {
   signupConfirmPassword.value = "";
   signupErrorEl.textContent = "";
 };
-guestBtn.onclick = () => { auth.signInAnonymously().catch(e => loginErrorEl.textContent = e.message); };
-resetBtn.onclick = () => {
+if (guestBtn) guestBtn.onclick = () => { auth.signInAnonymously().catch(e => loginErrorEl.textContent = e.message); };
+if (resetBtn) resetBtn.onclick = () => {
   const email = emailInput.value.trim();
   auth.sendPasswordResetEmail(email)
     .then(() => loginErrorEl.textContent = "再発行メール送信")
     .catch(e => loginErrorEl.textContent = e.message);
 };
 // ログアウトボタン押下時: 確認モーダルを表示
-logoutBtn.onclick = async () => {
+if (logoutBtn) logoutBtn.onclick = async () => {
   if (logoutModal && logoutYesBtn && logoutNoBtn) {
     logoutModal.classList.add('show');
     logoutModal.style.display = 'flex';
@@ -581,7 +581,7 @@ logoutBtn.onclick = async () => {
 /* ------------------------------
  * 新規登録処理
  * ------------------------------ */
-signupConfirmBtn.onclick = async () => {
+if (signupConfirmBtn) signupConfirmBtn.onclick = async () => {
   const email = signupEmail.value.trim();
   const pass  = signupPassword.value;
   const confirmPass = signupConfirmPassword.value;
@@ -591,7 +591,7 @@ signupConfirmBtn.onclick = async () => {
   try { await auth.createUserWithEmailAndPassword(email, pass); markLoginTime(); }
   catch (e) { signupErrorEl.textContent = e.message; }
 };
-backToLoginBtn.onclick = () => {
+if (backToLoginBtn) backToLoginBtn.onclick = () => {
   signupView.style.display = "none"; loginView.style.display  = "block";
   signupErrorEl.textContent = ""; loginErrorEl.textContent = "";
 };
@@ -599,8 +599,8 @@ backToLoginBtn.onclick = () => {
 /* ------------------------------
  * ナビゲーション
  * ------------------------------ */
-navAddBtn.addEventListener("click", () => { showView("add-case-view"); initAddCaseView(); });
-navSearchBtn.addEventListener("click", () => {
+if (navAddBtn) navAddBtn.addEventListener("click", () => { showView("add-case-view"); initAddCaseView(); });
+if (navSearchBtn) navSearchBtn.addEventListener("click", () => {
   showView("search-view");
   if (pageSizeSelect) pageSizeSelect.value = "50";
   pageSize = parseInt((pageSizeSelect && pageSizeSelect.value) || "50", 10) || 50;
@@ -1864,7 +1864,7 @@ function startSessionTimer() {
 
 // Enter でログイン
 if (passwordInput) {
-  passwordInput.addEventListener('keydown', (e) => {
+  if (passwordInput) passwordInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); if (loginBtn) loginBtn.click(); }
   });
 }
