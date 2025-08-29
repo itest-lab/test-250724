@@ -1046,6 +1046,11 @@ async function decryptForUser(uid, encObj){
   const pt = await crypto.subtle.decrypt({ name:"AES-GCM", iv }, key, ct);
   return JSON.parse(new TextDecoder().decode(new Uint8Array(pt)));
 }
+// 復号失敗は握りつぶして null を返す
+async function safeDecrypt(uid, enc){
+  try { return await decryptForUser(uid || "guest", enc); }
+  catch(e){ console.warn("decrypt skip:", e?.name || e); return null; }
+}
 
 /* ------------------------------
  * 案件登録（案件情報 + 追跡）
@@ -1170,51 +1175,60 @@ function updateSelectAllState() {
 /* ------------------------------
  * 検索／全件一覧（createdAt or plateDateTs）
  * ------------------------------ */
+// 復号失敗は null を返してスキップ
+async function safeDecrypt(uid, enc){
+  try { return await decryptForUser(uid || "guest", enc); }
+  catch(e){ console.warn("decrypt skip:", e?.name || e); return null; }
+}
 async function searchAll(kw=""){
-  try{
-    const snap = await db.ref("cases").once("value");
-    const data = snap.val() || {};
-    const res = [];
-    const startVal = startDateInput.value;
-    const endVal   = endDateInput.value;
-    const basis    = (searchDateType && searchDateType.value) === 'created' ? 'createdAt' : 'plateDateTs';
-    let startTs = null, endTs = null;
-    if (startVal) startTs = new Date(startVal + 'T00:00:00').getTime();
-    if (endVal)   endTs   = new Date(endVal   + 'T23:59:59').getTime();
-
-    for (const [orderId, obj] of Object.entries(data)) {
-      const baseTs = obj[basis] ?? obj.createdAt ?? 0;
-      if (startTs !== null && baseTs < startTs) continue;
-      if (endTs   !== null && baseTs > endTs)   continue;
-
-      const dec = obj.enc
-        ? await decryptForUser((auth.currentUser && auth.currentUser.uid) || "guest", obj.enc)
-        : null;
-      const view = {
-        orderId,
-        注番: orderId,
-        plateDateTs: obj.plateDateTs,
-        createdAt: obj.createdAt,
-        得意先: dec?.得意先 || "",
-        品名:   dec?.品名   || "",
-        下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
-        enc: obj.enc,
-        ownerUid: obj.ownerUid || null
-      };
-      const matchKw = !kw || orderId.includes(kw) || (view.得意先||"").includes(kw) || (view.品名||"").includes(kw);
-      if (matchKw) res.push(view);
-    }
-
-    res.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-    fullResults = res; currentPage = 1; renderPage();
-
-    // 0件でもプレースホルダを出す
-    if (res.length === 0) {
-      searchResults.innerHTML = '<li class="ship-empty">該当データがありません</li>';
-      if (paginationDiv) paginationDiv.innerHTML = '';
-    }
+  // DB読み取りのみ監視
+  let snap;
+  try {
+    snap = await db.ref("cases").once("value");
   } catch(e){
     handleDbError('cases 読み取り', e);
+    return;
+  }
+
+  const data = snap.val() || {};
+  const res = [];
+
+  const startVal = startDateInput.value;
+  const endVal   = endDateInput.value;
+  const basis    = (searchDateType && searchDateType.value) === 'created' ? 'createdAt' : 'plateDateTs';
+  let startTs = null, endTs = null;
+  if (startVal) startTs = new Date(startVal + 'T00:00:00').getTime();
+  if (endVal)   endTs   = new Date(endVal   + 'T23:59:59').getTime();
+
+  for (const [orderId, obj] of Object.entries(data)) {
+    const baseTs = obj[basis] ?? obj.createdAt ?? 0;
+    if (startTs !== null && baseTs < startTs) continue;
+    if (endTs   !== null && baseTs > endTs)   continue;
+
+    // 復号はレコード単位で握りつぶす（OperationError対策）
+    const dec = obj.enc ? await safeDecrypt(auth.currentUser?.uid, obj.enc) : null;
+
+    const view = {
+      orderId,
+      注番: orderId,
+      plateDateTs: obj.plateDateTs,
+      createdAt: obj.createdAt,
+      得意先: dec?.得意先 || "",
+      品名:   dec?.品名   || "",
+      下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
+      enc: obj.enc,
+      ownerUid: obj.ownerUid || null
+    };
+    const matchKw = !kw || orderId.includes(kw) || (view.得意先||"").includes(kw) || (view.品名||"").includes(kw);
+    if (matchKw) res.push(view);
+  }
+
+  res.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+  fullResults = res; currentPage = 1; renderPage();
+
+  if (res.length === 0) {
+    searchResults.innerHTML = '<li class="ship-empty">該当データがありません</li>';
+    if (paginationDiv) paginationDiv.innerHTML = '';
   }
 }
 
