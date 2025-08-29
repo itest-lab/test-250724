@@ -1631,8 +1631,6 @@ async function showCaseDetail(orderId, obj){
 
 backToSearchBtn.onclick = () => showView("search-view");
 
-db.ref('/cases').limitToFirst(1).once('value').then(s => console.log('cases sample:', s.val()));
-
 /* ------------------------------
  * 追跡番号追加（詳細画面）
  *  - 行<select>優先、未選択は固定値。
