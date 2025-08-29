@@ -1104,7 +1104,8 @@ confirmAddCaseBtn.onclick = async () => {
       下版日: plateStr,        // ← 平文（検索用に残す）
       createdAt: Date.now(),
       plateDateTs: plateTs,
-      enc                      // 既存の暗号化データも維持
+      enc,                     // 暗号化データ
+      ownerUid: uid            // ★ 追加：暗号化時のUID
     });
 
     // 追跡を追加
@@ -1198,8 +1199,7 @@ function searchAll(kw=""){
       view.下版日 = obj.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
       if (obj.enc && (!view.得意先 || !view.品名)) {
         try {
-          const baseUid = obj.ownerUid || uid; // 作成者のUIDで復号
-          const dec = await decryptForUser(baseUid, obj.enc);
+          const dec = await tryDecryptWithCandidates(obj.enc, buildUidCandidates(obj));
           view.得意先 = view.得意先 || dec?.得意先 || "";
           view.品名   = view.品名   || dec?.品名   || "";
           view.下版日 = view.下版日 || dec?.下版日 || view.下版日;
@@ -1422,8 +1422,7 @@ async function showCaseDetail(orderId, obj){
   let view = { 注番: orderId, 得意先: obj?.得意先 || "", 品名: obj?.品名 || "", 下版日: obj?.下版日 || "", plateDateTs: obj?.plateDateTs, createdAt: obj?.createdAt };
   try {
     if ((!view.得意先 || !view.品名) && obj && obj.enc) {
-      const baseUid = obj.ownerUid || ((auth.currentUser && auth.currentUser.uid) || "guest");
-      const dec = await decryptForUser(baseUid, obj.enc);
+      const dec = await tryDecryptWithCandidates(obj.enc, buildUidCandidates(obj));
       view.得意先 = view.得意先 || dec?.得意先 || "";
       view.品名   = view.品名   || dec?.品名   || "";
       view.下版日 = view.下版日 || dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
