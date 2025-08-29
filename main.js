@@ -1169,53 +1169,50 @@ function updateSelectAllState() {
 /* ------------------------------
  * 検索／全件一覧（createdAt or plateDateTs）
  * ------------------------------ */
-function searchAll(kw=""){
-  db.ref("cases").once("value").then(async snap => {
+async function searchAll(kw=""){
+  try{
+    const snap = await db.ref("cases").once("value");
     const data = snap.val() || {};
     const res = [];
     const startVal = startDateInput.value;
     const endVal   = endDateInput.value;
     const basis    = (searchDateType && searchDateType.value) === 'created' ? 'createdAt' : 'plateDateTs';
-
     let startTs = null, endTs = null;
     if (startVal) startTs = new Date(startVal + 'T00:00:00').getTime();
     if (endVal)   endTs   = new Date(endVal   + 'T23:59:59').getTime();
-
-    const uid = (auth.currentUser && auth.currentUser.uid) || "guest";
 
     for (const [orderId, obj] of Object.entries(data)) {
       const baseTs = obj[basis] ?? obj.createdAt ?? 0;
       if (startTs !== null && baseTs < startTs) continue;
       if (endTs   !== null && baseTs > endTs)   continue;
 
-      // 復号（表示用）
-      let view = { orderId, 注番: orderId, plateDateTs: obj.plateDateTs, createdAt: obj.createdAt };
-      if (obj.enc) {
-        try {
-          const dec = await decryptForUser(uid, obj.enc);
-          view.得意先 = dec?.得意先 || "";
-          view.品名   = dec?.品名   || "";
-          view.下版日 = dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
-        } catch(_) {
-          view.得意先 = obj.得意先 || "";
-          view.品名   = obj.品名   || "";
-          view.下版日 = obj.下版日 || "";
-        }
-      } else {
-        view.得意先 = obj.得意先 || "";
-        view.品名   = obj.品名   || "";
-        view.下版日 = obj.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
-      }
-
-      const matchKw = !kw || orderId.includes(kw) || (view.得意先 || "").includes(kw) || (view.品名 || "").includes(kw);
-      if (!matchKw) continue;
-      res.push(view);
+      const dec = obj.enc ? await tryDecryptWithCandidates(obj.enc, buildUidCandidates(obj)) : null;
+      const view = {
+        orderId,
+        注番: orderId,
+        plateDateTs: obj.plateDateTs,
+        createdAt: obj.createdAt,
+        得意先: dec?.得意先 || "",
+        品名:   dec?.品名   || "",
+        下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
+        enc: obj.enc,
+        ownerUid: obj.ownerUid || null
+      };
+      const matchKw = !kw || orderId.includes(kw) || (view.得意先||"").includes(kw) || (view.品名||"").includes(kw);
+      if (matchKw) res.push(view);
     }
 
-    // 登録日の新→古
     res.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
     fullResults = res; currentPage = 1; renderPage();
-  });
+
+    // 0件でもプレースホルダを出す
+    if (res.length === 0) {
+      searchResults.innerHTML = '<li class="ship-empty">該当データがありません</li>';
+      if (paginationDiv) paginationDiv.innerHTML = '';
+    }
+  } catch(e){
+    handleDbError('cases 読み取り', e);
+  }
 }
 
 // 検索UI
@@ -1401,6 +1398,17 @@ function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
  *  - pushキー昇順で描画し、非同期でもラベル連番を固定
  *  - 最後の fetch が終わるまでホイール維持
  * ------------------------------ */
+function handleDbError(where, e){
+  const msg = String(e && (e.code || e.message || e));
+  console.error(`[DB] ${where} 失敗:`, e);
+  alert('一覧を表示できません: ' + msg);
+  // 空でも「何も出ない」にならないようプレースホルダ表示
+  if (window.searchResults) {
+    searchResults.innerHTML = '<li class="ship-empty">読み取りエラー（' + where + '）</li>';
+  }
+  if (window.paginationDiv) paginationDiv.innerHTML = '';
+}
+
 async function showCaseDetail(orderId, obj){
   showLoading();
   showView("case-detail-view");
@@ -1436,9 +1444,9 @@ async function showCaseDetail(orderId, obj){
   showAddTrackingBtn.style.display = "inline-block";
 
   try {
-    // pushキー昇順（= 追加順）で取得
+    // pushキー昇順で取得
     const snap = await db.ref(`shipments/${orderId}`).orderByKey().once("value");
-
+  
     if (!snap.exists()) {
       const li = document.createElement("li");
       li.textContent = "追跡が登録されていません";
@@ -1446,10 +1454,10 @@ async function showCaseDetail(orderId, obj){
       detailShipmentsUl.appendChild(li);
       return;
     }
-
+  
     let lastStatusPromise = null;
-    let rowSeq = 1; // 画面上の連番
-
+    let rowSeq = 1;
+  
     snap.forEach(child => {
       const it = child.val();
       const label = carrierLabels[it.carrier] || it.carrier;
@@ -1541,38 +1549,38 @@ async function showCaseDetail(orderId, obj){
           editBtn.onclick = openEditForm;
 
           delBtn.onclick = async () => {
-  try {
-    // 登録数を取得
-    const snapCount = await db.ref(`shipments/${orderId}`).once("value");
-    const count = snapCount.numChildren();
-    if (count <= 1) {
-      // 案件自体を削除する確認
-      const ok = confirm("この案件は登録が1件のみです。案件自体を削除します。よろしいですか？");
-      if (!ok) return;
-      try {
-        await db.ref(`shipments/${orderId}`).remove();
-        await db.ref(`cases/${orderId}`).remove();
-      } catch (e) {
-        console.error("案件削除失敗:", e);
-        alert("案件の削除に失敗しました");
-        return;
-      }
-      // 検索画面へ戻る
-      showView("search-view");
-      try { if (typeof searchAll === 'function') searchAll(searchInput.value || ""); } catch(_){}
-      return;
-    }
-    // 2件以上ある場合は対象追跡のみ削除（確認付き）
-    const __carrierName = carrierLabels[it.carrier] || it.carrier;
-const __trackDisp  = formatTrackingForDisplay(it.carrier, it.tracking);
-if (!confirm(`[${__carrierName}：${__trackDisp}]　を削除しますか？`)) return;
-    await db.ref(`shipments/${orderId}/${child.key}`).remove();
-    await showCaseDetail(orderId, obj);
-  } catch (e) {
-    console.error("削除処理中エラー:", e);
-    alert("削除処理に失敗しました");
-  }
-};
+            try {
+              // 登録数を取得
+              const snapCount = await db.ref(`shipments/${orderId}`).once("value");
+              const count = snapCount.numChildren();
+              if (count <= 1) {
+                // 案件自体を削除する確認
+                const ok = confirm("この案件は登録が1件のみです。案件自体を削除します。よろしいですか？");
+                if (!ok) return;
+                try {
+                  await db.ref(`shipments/${orderId}`).remove();
+                  await db.ref(`cases/${orderId}`).remove();
+                } catch (e) {
+                  console.error("案件削除失敗:", e);
+                  alert("案件の削除に失敗しました");
+                  return;
+                }
+                // 検索画面へ戻る
+                showView("search-view");
+                try { if (typeof searchAll === 'function') searchAll(searchInput.value || ""); } catch(_){}
+                return;
+              }
+              // 2件以上ある場合は対象追跡のみ削除（確認付き）
+              const __carrierName = carrierLabels[it.carrier] || it.carrier;
+          const __trackDisp  = formatTrackingForDisplay(it.carrier, it.tracking);
+          if (!confirm(`[${__carrierName}：${__trackDisp}]　を削除しますか？`)) return;
+              await db.ref(`shipments/${orderId}/${child.key}`).remove();
+              await showCaseDetail(orderId, obj);
+            } catch (e) {
+              console.error("削除処理中エラー:", e);
+              alert("削除処理に失敗しました");
+            }
+          };
         }
 
         detailShipmentsUl.appendChild(li);
@@ -1590,11 +1598,16 @@ if (!confirm(`[${__carrierName}：${__trackDisp}]　を削除しますか？`)) 
 
       lastStatusPromise = p;
     });
-
+  
     if (lastStatusPromise) await lastStatusPromise;
+  
+  } catch(e) {
+    // #1 を入れていればこれでOK
+    handleDbError(`shipments/${orderId} 読み取り`, e);
+    // #1 をまだ入れていない場合は最小限の代替：
+    // alert('詳細を表示できません: ' + (e?.message || e));
   } finally {
     hideLoading();
-  }
 }
 
 backToSearchBtn.onclick = () => showView("search-view");
