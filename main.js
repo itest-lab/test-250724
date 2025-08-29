@@ -1191,20 +1191,22 @@ function searchAll(kw=""){
       if (startTs !== null && baseTs < startTs) continue;
       if (endTs   !== null && baseTs > endTs)   continue;
 
-      // 復号（表示用）
+      // 平文優先で表示。足りない場合のみ復号（ownerUid を使用）
       let view = { orderId, 注番: orderId, plateDateTs: obj.plateDateTs, createdAt: obj.createdAt };
-      if (obj.enc) {
+      view.得意先 = obj.得意先 || "";
+      view.品名   = obj.品名   || "";
+      view.下版日 = obj.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
+      if (obj.enc && (!view.得意先 || !view.品名)) {
         try {
-          const dec = await decryptForUser(uid, obj.enc);
-          view.得意先 = dec?.得意先 || "";
-          view.品名   = dec?.品名   || "";
-          view.下版日 = dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
-          // ★バックフィル：平文が未格納なら補完
-          if ((!obj.得意先 || !obj.品名 || !obj.下版日) && (dec?.得意先 || dec?.品名 || dec?.下版日)) {
+          const baseUid = obj.ownerUid || uid; // 作成者のUIDで復号
+          const dec = await decryptForUser(baseUid, obj.enc);
+          view.得意先 = view.得意先 || dec?.得意先 || "";
+          view.品名   = view.品名   || dec?.品名   || "";
+          view.下版日 = view.下版日 || dec?.下版日 || view.下版日;
+          // バックフィル（平文が未格納なら補完）
+          if (!obj.得意先 || !obj.品名 || !obj.下版日) {
             db.ref(`cases/${orderId}`).update({
-              得意先: dec?.得意先 || obj.得意先 || "",
-              品名:   dec?.品名   || obj.品名   || "",
-              下版日: dec?.下版日 || obj.下版日 || ""
+              得意先: view.得意先, 品名: view.品名, 下版日: view.下版日
             }).catch(()=>{});
           }
         } catch(_) {
@@ -1417,27 +1419,19 @@ async function showCaseDetail(orderId, obj){
   showView("case-detail-view");
 
   // 復号＋ヘッダ表示
-  let view = { 注番: orderId, 得意先: "", 品名: "", 下版日: "", plateDateTs: obj?.plateDateTs, createdAt: obj?.createdAt };
+  let view = { 注番: orderId, 得意先: obj?.得意先 || "", 品名: obj?.品名 || "", 下版日: obj?.下版日 || "", plateDateTs: obj?.plateDateTs, createdAt: obj?.createdAt };
   try {
-    if (obj && obj.enc) {
-      const dec = await decryptForUser((auth.currentUser && auth.currentUser.uid) || "guest", obj.enc);
-      view.得意先 = dec?.得意先 || "";
-      view.品名   = dec?.品名   || "";
-      view.下版日 = dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
-      // ★バックフィル
-      if ((!obj.得意先 || !obj.品名 || !obj.下版日) && (dec?.得意先 || dec?.品名 || dec?.下版日)) {
-        db.ref(`cases/${orderId}`).update({
-          得意先: dec?.得意先 || obj.得意先 || "",
-          品名:   dec?.品名   || obj.品名   || "",
-          下版日: dec?.下版日 || obj.下版日 || ""
-        }).catch(()=>{});
+    if ((!view.得意先 || !view.品名) && obj && obj.enc) {
+      const baseUid = obj.ownerUid || ((auth.currentUser && auth.currentUser.uid) || "guest");
+      const dec = await decryptForUser(baseUid, obj.enc);
+      view.得意先 = view.得意先 || dec?.得意先 || "";
+      view.品名   = view.品名   || dec?.品名   || "";
+      view.下版日 = view.下版日 || dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
+      if (!obj.得意先 || !obj.品名 || !obj.下版日) {
+        db.ref(`cases/${orderId}`).update({ 得意先: view.得意先, 品名: view.品名, 下版日: view.下版日 }).catch(()=>{});
       }
-    } else {
-      view.得意先 = obj?.得意先 || "";
-      view.品名   = obj?.品名   || "";
-      view.下版日 = obj?.下版日 || (obj?.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
     }
-  } catch(_) {}
+  } catch(_) { /* 平文で表示継続 */ }
   const plateView = view.下版日 || (view.plateDateTs ? new Date(view.plateDateTs).toLocaleDateString('ja-JP') : "");
   detailInfoDiv.innerHTML = `<div>受注番号: ${orderId}</div><div>得意先: ${view.得意先}</div><div>品名: ${view.品名}</div><div>下版日: ${plateView}</div>`;
 
