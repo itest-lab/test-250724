@@ -1013,10 +1013,11 @@ const PEPPER = "p9r7WqZ1-LocalPepper-ChangeIfNeeded";
 function b64(bytes){ return btoa(String.fromCharCode(...bytes)); }
 function b64dec(str){ return new Uint8Array([...atob(str)].map(c=>c.charCodeAt(0))); }
 
-async function deriveKey(uid, saltBytes){
+// === 共有鍵（全ユーザー共通） ===
+async function deriveSharedKey(saltBytes){
   const material = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(uid + ":" + PEPPER),
+    new TextEncoder().encode(PEPPER), // ← uid非依存
     "PBKDF2",
     false,
     ["deriveKey"]
@@ -1029,27 +1030,43 @@ async function deriveKey(uid, saltBytes){
     ["encrypt","decrypt"]
   );
 }
-async function encryptForUser(uid, payloadObj){
+async function encryptShared(payloadObj){
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const key = await deriveKey(uid || "guest", salt);
+  const key = await deriveSharedKey(salt);
   const data = new TextEncoder().encode(JSON.stringify(payloadObj));
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name:"AES-GCM", iv }, key, data));
   return { iv: b64(iv), s: b64(salt), c: b64(ct) };
 }
-async function decryptForUser(uid, encObj){
+async function decryptShared(encObj){
   if (!encObj) return null;
   const iv = b64dec(encObj.iv);
   const salt = b64dec(encObj.s);
-  const key = await deriveKey(uid || "guest", salt);
+  const key = await deriveSharedKey(salt);
   const ct = b64dec(encObj.c);
   const pt = await crypto.subtle.decrypt({ name:"AES-GCM", iv }, key, ct);
   return JSON.parse(new TextDecoder().decode(new Uint8Array(pt)));
 }
-// 復号失敗は握りつぶして null を返す
+
+// レガシー互換付きの安全復号（まず共有鍵→だめなら旧uid鍵）
 async function safeDecrypt(uid, enc){
-  try { return await decryptForUser(uid || "guest", enc); }
-  catch(e){ console.warn("decrypt skip:", e?.name || e); return null; }
+  try { return await decryptShared(enc); }
+  catch (_) {
+    try { return await decryptForUser(uid || "guest", enc); }
+    catch(e){ console.warn("decrypt fallback failed:", e?.name || e); return null; }
+  }
+}
+async function migrateCasesToShared(){
+  const uid = auth.currentUser?.uid || "guest";
+  const snap = await db.ref("/cases").once("value");
+  const all = snap.val() || {};
+  for (const [orderId, obj] of Object.entries(all)) {
+    if (!obj.enc) continue;
+    const dec = await safeDecrypt(uid, obj.enc); // 作成者で実行する想定
+    if (!dec) { console.warn("migrate skip:", orderId); continue; }
+    const encNew = await encryptShared(dec);
+    await db.ref(`/cases/${orderId}`).update({ enc: encNew });
+  }
 }
 
 /* ------------------------------
@@ -1100,8 +1117,7 @@ confirmAddCaseBtn.onclick = async () => {
     if (items.length === 0) { alert("新規追跡なし"); return; }
 
     // 案件情報を暗号化し保存
-    const uid = (auth.currentUser && auth.currentUser.uid) || "guest";
-    const enc = await encryptForUser(uid, { 得意先: customer, 品名: title, 下版日: plateStr || null });
+    const enc = await encryptShared({ 得意先: customer, 品名: title, 下版日: plateStr || null });
 
     await db.ref(`/cases/${orderId}`).set({
       注番: orderId,
@@ -1431,16 +1447,10 @@ async function showCaseDetail(orderId, obj){
   // 復号＋ヘッダ表示
   let view = { 注番: orderId, 得意先: "", 品名: "", 下版日: "", plateDateTs: obj?.plateDateTs, createdAt: obj?.createdAt };
   try {
-    if (obj && obj.enc) {
-      const dec = await decryptForUser((auth.currentUser && auth.currentUser.uid) || "guest", obj.enc);
-      view.得意先 = dec?.得意先 || "";
-      view.品名   = dec?.品名   || "";
-      view.下版日 = dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
-    } else {
-      view.得意先 = obj?.得意先 || "";
-      view.品名   = obj?.品名   || "";
-      view.下版日 = obj?.下版日 || (obj?.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
-    }
+    const dec = obj?.enc ? await safeDecrypt((auth.currentUser && auth.currentUser.uid) || "guest", obj.enc) : null;
+    view.得意先 = dec?.得意先 || "";
+    view.品名   = dec?.品名   || "";
+    view.下版日 = dec?.下版日 || (obj?.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
   } catch(_) {}
   const plateView = view.下版日 || (view.plateDateTs ? new Date(view.plateDateTs).toLocaleDateString('ja-JP') : "");
   detailInfoDiv.innerHTML = `<div>受注番号: ${orderId}</div><div>得意先: ${view.得意先}</div><div>品名: ${view.品名}</div><div>下版日: ${plateView}</div>`;
