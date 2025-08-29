@@ -1177,11 +1177,6 @@ function updateSelectAllState() {
 /* ------------------------------
  * 検索／全件一覧（createdAt or plateDateTs）
  * ------------------------------ */
-// 復号失敗は null を返してスキップ
-async function safeDecrypt(uid, enc){
-  try { return await decryptForUser(uid || "guest", enc); }
-  catch(e){ console.warn("decrypt skip:", e?.name || e); return null; }
-}
 async function searchAll(kw=""){
   // DB読み取りのみ監視
   let snap;
@@ -1352,8 +1347,8 @@ deleteSelectedBtn.onclick = async () => {
   for (const cb of checkboxes) {
     const orderId = cb.dataset.orderId;
     try {
-      await db.ref(`cases/${orderId}`).remove();
-      await db.ref(`shipments/${orderId}`).remove();
+      await db.ref(`/cases/${orderId}`).remove();
+      await db.ref(`/shipments/${orderId}`).remove();
     } catch (e) { console.error(e); }
     cb.closest('li').remove();
   }
@@ -1373,20 +1368,24 @@ function classifyStatus(status){
 }
 
 // Cloudflare Worker 経由でステータス取得
-async function fetchStatus(carrier, tracking) {
+async function fetchStatus(carrier, tracking, { timeoutMs = 12000 } = {}) {
   const c = carrier;
   if (c === 'hida') return { status: '非対応', time: null };
   const sendTracking = trackingForApi(c, tracking);
   const url = `https://track-api.hr46-ksg.workers.dev/?carrier=${encodeURIComponent(c)}&tracking=${encodeURIComponent(sendTracking)}`;
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort('timeout'), timeoutMs);
   let res;
-  try { res = await fetch(url); }
+  try { res = await fetch(url, { signal: controller.signal }); }
   catch (e) { console.error('fetch network error', { url, carrier: c, tracking: sendTracking, error: e }); throw e; }
   if (!res.ok) {
     const msg = await res.text().catch(()=> '');
     console.error('fetch http error', { url, status: res.status, body: msg });
     throw new Error(`HTTP ${res.status} ${msg}`);
   }
-  return res.json();
+  const json = await res.json();
+  clearTimeout(tid);
+  return json;
 }
 function getTimeLabel(carrier, status, time) {
   if (!time || time.includes('：')) return '';
@@ -1473,7 +1472,7 @@ async function showCaseDetail(orderId, obj){
       return;
     }
   
-    let lastStatusPromise = null;
+    const pending = [];
     let rowSeq = 1;
   
     snap.forEach(child => {
@@ -1614,10 +1613,10 @@ async function showCaseDetail(orderId, obj){
           li.className = "ship-exception";
         });
 
-      lastStatusPromise = p;
+      pending.push(p);
     });
   
-    if (lastStatusPromise) await lastStatusPromise;
+    if (pending.length) await Promise.allSettled(pending);
   
   } catch(e) {
     // #1 を入れていればこれでOK
@@ -1742,7 +1741,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // 即時描画＋ステータス反映
       let seqBase = detailShipmentsUl.children.length;
-      let lastP = null;
+      const pending = [];
       for (const it of items) {
         const li = document.createElement("li");
         const label = carrierLabels[it.carrier] || it.carrier;
@@ -1765,9 +1764,9 @@ document.addEventListener("DOMContentLoaded", () => {
             li.className = 'ship-exception';
           });
 
-        lastP = p;
+        pending.push(p);
       }
-      if (lastP) await lastP;
+      if (pending.length) await Promise.allSettled(pending);
 
       // 追加登録完了時のUI処理
       detailAddMsg.textContent = "追加しました";
@@ -1809,7 +1808,7 @@ document.addEventListener("DOMContentLoaded", () => {
 auth.onAuthStateChanged(async user => {
   if (user) {
     try {
-      const snap = await db.ref(`admins/${user.uid}`).once("value");
+      const snap = await db.ref(`/admins/${user.uid}`).once("value");
       isAdmin = snap.val() === true;
     } catch (e) {
       console.error("管理者判定エラー:", e);
@@ -1891,6 +1890,6 @@ document.addEventListener('DOMContentLoaded', () => setTimeout(requestFitAll, 0)
 try{
   if (typeof showView === 'function'){
     const __origShowView = showView;
-    window.showView = function(id){ __origShowView(id); if(id==='add-view'||id==='detail-view') setTimeout(requestFitAll, 0); };
+    window.showView = function(id){ __origShowView(id); if(id==='add-case-view'||id==='case-detail-view') setTimeout(requestFitAll, 0); };
   }
 }catch(_){}
