@@ -849,17 +849,18 @@ function createTrackingRow(context="add"){
 }
 
 /* ------------------------------
- * 詳細画面：固定キャリア切替（行<select>は消さない）
- *  - 固定ON/変更時に全行へ固定値を適用（手動選択済みも上書き）
+ * 固定キャリア適用：未選択行のみ補完（行選択が優先）
  * ------------------------------ */
 function applyFixedToUnselectedRows(context = "detail"){
-  const rows = Array.from((context === "detail" ? detailTrackingRows : trackingRows).children);
-  const fixedOn = (context === "detail") ? (fixedCarrierCheckboxDetail?.checked) : (fixedCarrierCheckbox?.checked);
+  const container = (context === "detail") ? detailTrackingRows : trackingRows;
+  if (!container) return;
+  const fixedOn  = (context === "detail") ? !!fixedCarrierCheckboxDetail?.checked : !!fixedCarrierCheckbox?.checked;
   const fixedVal = (context === "detail") ? (fixedCarrierSelectDetail?.value || "") : (fixedCarrierSelect?.value || "");
   if (!fixedOn || !fixedVal) return;
-  rows.forEach(row => {
+  container.querySelectorAll(".tracking-row").forEach(row => {
     const sel = row.querySelector("select");
-    if (sel) sel.value = fixedVal;
+    if (!sel) return;
+    if (!sel.value) sel.value = fixedVal; // 未選択のみ反映
   });
 }
 // 詳細側
@@ -1186,7 +1187,9 @@ async function searchAll(kw=""){
       if (startTs !== null && baseTs < startTs) continue;
       if (endTs   !== null && baseTs > endTs)   continue;
 
-      const dec = obj.enc ? await tryDecryptWithCandidates(obj.enc, buildUidCandidates(obj)) : null;
+      const dec = obj.enc
+        ? await decryptForUser((auth.currentUser && auth.currentUser.uid) || "guest", obj.enc)
+        : null;
       const view = {
         orderId,
         注番: orderId,
@@ -1238,7 +1241,6 @@ listAllBtn.onclick = () => {
 /* ------------------------------
  * 管理者のみ：選択削除（cases と shipments の両方削除）
  * ------------------------------ */
-
 
 // ▼ 追加：ページ描画とページングUI
 function renderPage(){
@@ -1403,10 +1405,10 @@ function handleDbError(where, e){
   console.error(`[DB] ${where} 失敗:`, e);
   alert('一覧を表示できません: ' + msg);
   // 空でも「何も出ない」にならないようプレースホルダ表示
-  if (window.searchResults) {
+  if (searchResults) {
     searchResults.innerHTML = '<li class="ship-empty">読み取りエラー（' + where + '）</li>';
   }
-  if (window.paginationDiv) paginationDiv.innerHTML = '';
+  if (paginationDiv) paginationDiv.innerHTML = '';
 }
 
 async function showCaseDetail(orderId, obj){
@@ -1608,6 +1610,7 @@ async function showCaseDetail(orderId, obj){
     // alert('詳細を表示できません: ' + (e?.message || e));
   } finally {
     hideLoading();
+  }
 }
 
 backToSearchBtn.onclick = () => showView("search-view");
