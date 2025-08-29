@@ -1099,13 +1099,10 @@ confirmAddCaseBtn.onclick = async () => {
 
     await db.ref(`cases/${orderId}`).set({
       注番: orderId,
-      得意先: customer,        // ← 平文
-      品名:   title,           // ← 平文
-      下版日: plateStr,        // ← 平文（検索用に残す）
       createdAt: Date.now(),
-      plateDateTs: plateTs,
-      enc,                     // 暗号化データ
-      ownerUid: uid            // ★ 追加：暗号化時のUID
+      plateDateTs: plateTs,  // 期間検索用のメタのみ保持
+      enc,                   // 秘匿データ本体
+      ownerUid: uid          // 復号用メタ
     });
 
     // 追跡を追加
@@ -1192,32 +1189,16 @@ function searchAll(kw=""){
       if (startTs !== null && baseTs < startTs) continue;
       if (endTs   !== null && baseTs > endTs)   continue;
 
-      // 平文優先で表示。足りない場合のみ復号（ownerUid を使用）
-      let view = { orderId, 注番: orderId, plateDateTs: obj.plateDateTs, createdAt: obj.createdAt };
-      view.得意先 = obj.得意先 || "";
-      view.品名   = obj.品名   || "";
-      view.下版日 = obj.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
-      if (obj.enc && (!view.得意先 || !view.品名)) {
-        try {
-          const dec = await tryDecryptWithCandidates(obj.enc, buildUidCandidates(obj));
-          view.得意先 = view.得意先 || dec?.得意先 || "";
-          view.品名   = view.品名   || dec?.品名   || "";
-          view.下版日 = view.下版日 || dec?.下版日 || view.下版日;
-          // バックフィル（平文が未格納なら補完）
-          if (!obj.得意先 || !obj.品名 || !obj.下版日) {
-            db.ref(`cases/${orderId}`).update({
-              得意先: view.得意先, 品名: view.品名, 下版日: view.下版日
-            }).catch(()=>{});
-          }
-        } catch(_) {
-          view.得意先 = obj.得意先 || "";
-          view.品名   = obj.品名   || "";
-          view.下版日 = obj.下版日 || "";
-        }
-      } else {
-        view.得意先 = obj.得意先 || "";
-        view.品名   = obj.品名   || "";
-        view.下版日 = obj.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
+      // 常に enc を復号して表示。平文フィールドは参照しない・書き戻さない
+      const dec = obj.enc ? await tryDecryptWithCandidates(obj.enc, buildUidCandidates(obj)) : null;
+      const view = {
+        orderId,
+        注番: orderId,
+        plateDateTs: obj.plateDateTs,
+        createdAt: obj.createdAt,
+        得意先: dec?.得意先 || "",
+        品名:   dec?.品名   || "",
+        下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "")
       }
 
       const matchKw = !kw || orderId.includes(kw) || (view.得意先 || "").includes(kw) || (view.品名 || "").includes(kw);
@@ -1421,14 +1402,11 @@ async function showCaseDetail(orderId, obj){
   // 復号＋ヘッダ表示
   let view = { 注番: orderId, 得意先: obj?.得意先 || "", 品名: obj?.品名 || "", 下版日: obj?.下版日 || "", plateDateTs: obj?.plateDateTs, createdAt: obj?.createdAt };
   try {
-    if ((!view.得意先 || !view.品名) && obj && obj.enc) {
+    if (obj && obj.enc) {
       const dec = await tryDecryptWithCandidates(obj.enc, buildUidCandidates(obj));
-      view.得意先 = view.得意先 || dec?.得意先 || "";
-      view.品名   = view.品名   || dec?.品名   || "";
-      view.下版日 = view.下版日 || dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
-      if (!obj.得意先 || !obj.品名 || !obj.下版日) {
-        db.ref(`cases/${orderId}`).update({ 得意先: view.得意先, 品名: view.品名, 下版日: view.下版日 }).catch(()=>{});
-      }
+      view.得意先 = dec?.得意先 || "";
+      view.品名   = dec?.品名   || "";
+      view.下版日 = dec?.下版日 || (view.plateDateTs ? new Date(view.plateDateTs).toISOString().slice(0,10) : "");
     }
   } catch(_) { /* 平文で表示継続 */ }
   const plateView = view.下版日 || (view.plateDateTs ? new Date(view.plateDateTs).toLocaleDateString('ja-JP') : "");
