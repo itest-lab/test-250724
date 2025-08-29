@@ -1099,9 +1099,12 @@ confirmAddCaseBtn.onclick = async () => {
 
     await db.ref(`cases/${orderId}`).set({
       注番: orderId,
+      得意先: customer,        // ← 平文
+      品名:   title,           // ← 平文
+      下版日: plateStr,        // ← 平文（検索用に残す）
       createdAt: Date.now(),
       plateDateTs: plateTs,
-      enc
+      enc                      // 既存の暗号化データも維持
     });
 
     // 追跡を追加
@@ -1196,6 +1199,14 @@ function searchAll(kw=""){
           view.得意先 = dec?.得意先 || "";
           view.品名   = dec?.品名   || "";
           view.下版日 = dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
+          // ★バックフィル：平文が未格納なら補完
+          if ((!obj.得意先 || !obj.品名 || !obj.下版日) && (dec?.得意先 || dec?.品名 || dec?.下版日)) {
+            db.ref(`cases/${orderId}`).update({
+              得意先: dec?.得意先 || obj.得意先 || "",
+              品名:   dec?.品名   || obj.品名   || "",
+              下版日: dec?.下版日 || obj.下版日 || ""
+            }).catch(()=>{});
+          }
         } catch(_) {
           view.得意先 = obj.得意先 || "";
           view.品名   = obj.品名   || "";
@@ -1413,6 +1424,14 @@ async function showCaseDetail(orderId, obj){
       view.得意先 = dec?.得意先 || "";
       view.品名   = dec?.品名   || "";
       view.下版日 = dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "");
+      // ★バックフィル
+      if ((!obj.得意先 || !obj.品名 || !obj.下版日) && (dec?.得意先 || dec?.品名 || dec?.下版日)) {
+        db.ref(`cases/${orderId}`).update({
+          得意先: dec?.得意先 || obj.得意先 || "",
+          品名:   dec?.品名   || obj.品名   || "",
+          下版日: dec?.下版日 || obj.下版日 || ""
+        }).catch(()=>{});
+      }
     } else {
       view.得意先 = obj?.得意先 || "";
       view.品名   = obj?.品名   || "";
