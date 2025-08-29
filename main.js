@@ -23,7 +23,9 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-const db = firebase.database();
+// 明示的に “実データのある RTDB URL” に接続する
+const db = firebase.database(firebaseConfig.databaseURL);
+try { firebase.database().goOnline(); } catch (_) {}
 
 /* ------------------------------
  * Firebase 認証エラーメッセージ整形
@@ -1103,7 +1105,7 @@ confirmAddCaseBtn.onclick = async () => {
     const uid = (auth.currentUser && auth.currentUser.uid) || "guest";
     const enc = await encryptForUser(uid, { 得意先: customer, 品名: title, 下版日: plateStr || null });
 
-    await db.ref(`cases/${orderId}`).set({
+    await db.ref(`/cases/${orderId}`).set({
       注番: orderId,
       createdAt: Date.now(),
       plateDateTs: plateTs,
@@ -1112,7 +1114,7 @@ confirmAddCaseBtn.onclick = async () => {
 
     // 追跡を追加
     for (const it of items) {
-      await db.ref(`shipments/${orderId}`).push({
+      await db.ref(`/shipments/${orderId}`).push({
         carrier: it.carrier,
         tracking: it.tracking,
         createdAt: Date.now()
@@ -1184,7 +1186,7 @@ async function searchAll(kw=""){
   // DB読み取りのみ監視
   let snap;
   try {
-    snap = await db.ref("cases").once("value");
+    snap = await db.ref("/cases").once("value");
   } catch(e){
     handleDbError('cases 読み取り', e);
     return;
@@ -1461,7 +1463,7 @@ async function showCaseDetail(orderId, obj){
 
   try {
     // pushキー昇順で取得
-    const snap = await db.ref(`shipments/${orderId}`).orderByKey().once("value");
+    const snap = await db.ref(`/shipments/${orderId}`).orderByKey().once("value");
   
     if (!snap.exists()) {
       const li = document.createElement("li");
@@ -1551,7 +1553,7 @@ async function showCaseDetail(orderId, obj){
               if (!newCarrier || !rawTracking) { alert("運送会社と追跡番号を入力してください"); return; }
               const normalized = normalizeTrackingForSave(newCarrier, rawTracking);
               try {
-                await db.ref(`shipments/${orderId}/${child.key}`).update({ carrier: newCarrier, tracking: normalized });
+                await db.ref(`/shipments/${orderId}/${child.key}`).update({ carrier: newCarrier, tracking: normalized });
               } catch (e) {
                 console.error("更新失敗:", e);
                 alert("更新に失敗しました");
@@ -1567,15 +1569,15 @@ async function showCaseDetail(orderId, obj){
           delBtn.onclick = async () => {
             try {
               // 登録数を取得
-              const snapCount = await db.ref(`shipments/${orderId}`).once("value");
+              const snapCount = await db.ref(`/shipments/${orderId}`).once("value");
               const count = snapCount.numChildren();
               if (count <= 1) {
                 // 案件自体を削除する確認
                 const ok = confirm("この案件は登録が1件のみです。案件自体を削除します。よろしいですか？");
                 if (!ok) return;
                 try {
-                  await db.ref(`shipments/${orderId}`).remove();
-                  await db.ref(`cases/${orderId}`).remove();
+                  await db.ref(`/shipments/${orderId}`).remove();
+                  await db.ref(`/cases/${orderId}`).remove();
                 } catch (e) {
                   console.error("案件削除失敗:", e);
                   alert("案件の削除に失敗しました");
@@ -1590,7 +1592,7 @@ async function showCaseDetail(orderId, obj){
               const __carrierName = carrierLabels[it.carrier] || it.carrier;
           const __trackDisp  = formatTrackingForDisplay(it.carrier, it.tracking);
           if (!confirm(`[${__carrierName}：${__trackDisp}]　を削除しますか？`)) return;
-              await db.ref(`shipments/${orderId}/${child.key}`).remove();
+              await db.ref(`/shipments/${orderId}/${child.key}`).remove();
               await showCaseDetail(orderId, obj);
             } catch (e) {
               console.error("削除処理中エラー:", e);
@@ -1628,6 +1630,8 @@ async function showCaseDetail(orderId, obj){
 }
 
 backToSearchBtn.onclick = () => showView("search-view");
+
+db.ref('/cases').limitToFirst(1).once('value').then(s => console.log('cases sample:', s.val()));
 
 /* ------------------------------
  * 追跡番号追加（詳細画面）
@@ -1697,7 +1701,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!currentOrderId) throw new Error("currentOrderId 未設定");
 
       // 既存重複の抑止
-      const snap = await db.ref(`shipments/${currentOrderId}`).once("value");
+      const snap = await db.ref(`/shipments/${currentOrderId}`).once("value");
       const exist = snap.val() || {};
       const existSet = new Set(Object.values(exist).map(v => `${v.carrier}:${v.tracking}`));
 
@@ -1735,7 +1739,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (items.length === 0) { detailAddMsg.textContent = "追加対象がありません"; return; }
 
       // DB 登録（並列）
-      const ref = db.ref(`shipments/${currentOrderId}`);
+      const ref = db.ref(`/shipments/${currentOrderId}`);
       await Promise.all(items.map(it => ref.push({ carrier: it.carrier, tracking: it.tracking, createdAt: Date.now() })));
 
       // 即時描画＋ステータス反映
