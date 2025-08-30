@@ -1070,7 +1070,6 @@ async function decryptShared(encObj){
 }
 
 // === enc 復号ユーティリティ ===
-const SHARED_ENC_KEY = "REPLACE_WITH_SHARED_KEY"; // 共有鍵に置換
 const PBKDF2_ITER = 100000;
 
 const b64ToBuf = (b64) => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
@@ -1092,7 +1091,7 @@ async function decryptEnc(encObj) {
   const salt = b64ToBuf(encObj.s);
   const iv = b64ToBuf(encObj.iv);     // 12 bytes
   const cipher = b64ToBuf(encObj.c);  // ciphertext+tag
-  const key = await deriveAesGcmKey(SHARED_ENC_KEY, salt);
+  const key = await deriveAesGcmKey(window.APP_CONFIG.SHARED_ENC_KEY, salt);
   const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipher);
   return new TextDecoder().decode(plain); // "得意先・品名"
 }
