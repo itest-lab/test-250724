@@ -857,41 +857,6 @@ function createTrackingRow(context="add"){
 /* ------------------------------
  * 固定キャリア適用：未選択行のみ補完（行選択が優先）
  * ------------------------------ */
-function applyFixedToUnselectedRows(context = "detail"){
-  const container = (context === "detail") ? detailTrackingRows : trackingRows;
-  if (!container) return;
-  const fixedOn  = (context === "detail") ? !!fixedCarrierCheckboxDetail?.checked : !!fixedCarrierCheckbox?.checked;
-  const fixedVal = (context === "detail") ? (fixedCarrierSelectDetail?.value || "") : (fixedCarrierSelect?.value || "");
-  if (!fixedOn || !fixedVal) return;
-  container.querySelectorAll(".tracking-row").forEach(row => {
-    const sel = row.querySelector("select");
-    if (!sel) return;
-    if (!sel.value) sel.value = fixedVal; // 未選択のみ反映
-  });
-}
-// 詳細側
-if (fixedCarrierCheckboxDetail) {
-  fixedCarrierCheckboxDetail.onchange = () => {
-    fixedCarrierSelectDetail.style.display = fixedCarrierCheckboxDetail.checked ? "inline-block" : "none";
-    applyFixedToUnselectedRows("detail");
-  };
-}
-if (fixedCarrierSelectDetail) {
-  fixedCarrierSelectDetail.onchange = () => {
-    if (!fixedCarrierCheckboxDetail.checked) return;
-    applyFixedToUnselectedRows("detail");
-  };
-}
-
-// 追加画面側（同じロジック）
-if (fixedCarrierCheckbox) {
-  fixedCarrierCheckbox.onchange = () => {
-    fixedCarrierSelect.style.display = fixedCarrierCheckbox.checked ? "block" : "none";
-    try{ ensureFixedCarrierToolbar('add'); }catch(_){}
-    applyFixedToUnselectedRows("add");
-  };
-}
-
 // 前回の固定キャリア値を保持する変数
 let prevFixedCarrierAdd = "";
 let prevFixedCarrierDetail = "";
