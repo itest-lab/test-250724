@@ -1,15 +1,4 @@
 html { width: 100%; }
-body {
-  font-family: sans-serif;
-  max-width: 600px;
-  margin: 2em auto;
-  padding: 0 1em;
-}body {
-  font-family: sans-serif;
-  max-width: 600px;
-  margin: 2em auto;
-  padding: 0 1em;
-}
 h2, h3, h4 {
   margin-bottom: 0.5em;
 }
@@ -521,3 +510,29 @@ html, body, button, input, select, textarea {
 .ship-edit-form select, .ship-edit-form input[type="text"] { padding: 4px 6px; }
 .ship-edit-form .save { padding: 2px 8px; }
 .ship-edit-form .cancel { padding: 2px 8px; }
+
+/* :root に日本語優先のフォントスタックを定義 */
+:root {
+  --app-font: -apple-system, BlinkMacSystemFont, "Segoe UI",
+              "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Hiragino Sans",
+              "Meiryo", sans-serif;
+}
+
+/* 既定フォントを一括適用 */
+html, body, button, input, select, textarea {
+  font-family: var(--app-font);
+}
+
+/* 追跡一覧とその子要素にもフォントを明示的に適用 */
+#search-results,
+#search-results * ,
+#detail-shipments,
+#detail-shipments * {
+  font-family: var(--app-font);
+  letter-spacing: 0.02em;
+}
+
+/* 必要であれば pre / code 要素にもフォントを指定 */
+pre, code {
+  font-family: var(--app-font);
+}
