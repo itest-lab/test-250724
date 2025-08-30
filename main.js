@@ -1402,45 +1402,8 @@ listAllBtn.onclick = () => {
 
 /* ------------------------------
  * 管理者用：案件データのダウンロード
- *  - 全件を取得しJSON形式でダウンロードします
+ * （廃止済み。ダウンロード機能は利用できません）
  * ------------------------------ */
-async function downloadCases() {
-  showLoading();
-  try {
-    const snap = await db.ref("/cases").once("value");
-    const data = snap.val() || {};
-    const uid = (auth.currentUser && auth.currentUser.uid) || "guest";
-    const items = [];
-    for (const [orderId, obj] of Object.entries(data)) {
-      let dec = null;
-      try {
-        dec = obj.enc ? await safeDecrypt(uid, obj.enc) : null;
-      } catch (_) {}
-      items.push({
-        注番: orderId,
-        得意先: dec?.得意先 || "",
-        品名:   dec?.品名   || "",
-        下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
-        createdAt: obj.createdAt || null,
-        plateDateTs: obj.plateDateTs || null
-      });
-    }
-    const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "cases.json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  } catch (e) {
-    console.error("download error", e);
-    alert("ダウンロードに失敗しました");
-  } finally {
-    hideLoading();
-  }
-}
 
 /* ------------------------------
  * 管理者のみ：選択削除（cases と shipments の両方削除）
@@ -2034,11 +1997,7 @@ auth.onAuthStateChanged(async user => {
     initAddCaseView();
     startSessionTimer();
     deleteSelectedBtn.style.display = isAdmin ? "block" : "none";
-    // 管理者のみダウンロードボタンを表示
-    try {
-      const dlBtn = document.getElementById('download-btn');
-      if (dlBtn) dlBtn.style.display = isAdmin ? 'inline-block' : 'none';
-    } catch (_) {}
+    // ダウンロードボタンの表示制御は不要（廃止）
 
     // ログイン後に案件一覧をリフレッシュし、暗号化された得意先・品名を表示できるようにする
     try {
@@ -2057,11 +2016,7 @@ auth.onAuthStateChanged(async user => {
     signupView.style.display = "none";
     mainView.style.display = "none";
 
-    // ログアウト時はダウンロードボタンを非表示にする
-    try {
-      const dlBtn = document.getElementById('download-btn');
-      if (dlBtn) dlBtn.style.display = 'none';
-    } catch (_) {}
+    // ログアウト時のダウンロードボタン制御は不要（廃止）
 
     // ログアウトまたはゲスト状態でも案件一覧を再描画し、復号不要の状態に更新する
     try {
@@ -2175,20 +2130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     insertPostOption(document.getElementById('fixed-carrier-select'));
     insertPostOption(document.getElementById('fixed-carrier-select-detail'));
 
-    // --- ダウンロードボタンの生成 ---
-    const listAll = document.getElementById('list-all-btn');
-    if (listAll && !document.getElementById('download-btn')) {
-      const btn = document.createElement('button');
-      btn.id = 'download-btn';
-      btn.textContent = 'ダウンロード';
-      btn.style.display = 'none';
-      listAll.parentNode.insertBefore(btn, listAll.nextSibling);
-    }
-    // ボタンのイベントを設定（イベントが複数回設定されないように既存をオフ）
-    const dlBtn = document.getElementById('download-btn');
-    if (dlBtn) {
-      dlBtn.onclick = () => downloadCases();
-    }
+    // --- ダウンロード機能は廃止されたためボタンは生成しない ---
   } catch(e) {
     console.error('初期化処理でエラーが発生しました', e);
   }
