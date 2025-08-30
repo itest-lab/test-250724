@@ -2136,116 +2136,76 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 /* ==============================
- * PATCH: 固定キャリアの再選択反映 + 明示フラグ管理
- *  - 固定により自動補完した<select>へ data-fixed-applied="1" を付与
- *  - 固定<select>変更時は data-fixed-applied=1 の行も含めて置換
- *  - 手動変更された行（data-fixed-applied削除）は上書きしない
+ * FIX: 詳細画面の「運送会社を固定」再選択時に下行へ反映
+ *  - 直前の固定値(prev) or 空の<select>だけを新固定値(next)へ置換
+ *  - 手動変更は上書きしない（prevに一致しないため）
+ *  - 行追加時も固定ONなら即時補完
  * ============================== */
 (function(){
-  // createTrackingRow をラップして、自動補完フラグを付与＋手動変更でフラグ解除
-  const __origCreateTrackingRow = window.createTrackingRow;
-  window.createTrackingRow = function(context="add"){
-    const row = __origCreateTrackingRow(context);
-    try {
-      const sel = row.querySelector('select');
-      if (!sel) return row;
+  // 直前の固定値を保持
+  window.__lastFixedCarrierDetail = "";
 
-      // 固定ON時の現在値
-      const fixedOn  = (context === "detail")
-        ? !!(window.fixedCarrierCheckboxDetail && fixedCarrierCheckboxDetail.checked)
-        : !!(window.fixedCarrierCheckbox && fixedCarrierCheckbox.checked);
-      const fixedVal = (context === "detail")
-        ? ((window.fixedCarrierSelectDetail && fixedCarrierSelectDetail.value) || "")
-        : ((window.fixedCarrierSelect && fixedCarrierSelect.value) || "");
-
-      // 既に orig が初期値を入れているケースを含め、固定値と一致しているなら「固定で自動補完」とみなす
-      if (fixedOn && fixedVal && sel.value === fixedVal) {
-        sel.dataset.fixedApplied = "1";
-      }
-      // 手動変更が入ったらフラグを外す（以後は固定<select>変更でも上書きしない）
-      sel.addEventListener('change', () => { delete sel.dataset.fixedApplied; });
-    } catch(_){}
-    return row;
-  };
-
-  // applyFixedToUnselectedRows を上書きして、未選択 + 自動補完済み行の両方を新固定値で更新
-  window.applyFixedToUnselectedRows = function(context = "detail"){
-    const container = (context === "detail") ? window.detailTrackingRows : window.trackingRows;
-    if (!container) return;
-
-    const fixedOn  = (context === "detail")
-      ? !!(window.fixedCarrierCheckboxDetail && fixedCarrierCheckboxDetail.checked)
-      : !!(window.fixedCarrierCheckbox && fixedCarrierCheckbox.checked);
-    const fixedVal = (context === "detail")
-      ? ((window.fixedCarrierSelectDetail && fixedCarrierSelectDetail.value) || "")
-      : ((window.fixedCarrierSelect && fixedCarrierSelect.value) || "");
-    if (!fixedOn || !fixedVal) return;
-
-    container.querySelectorAll(".tracking-row").forEach(row => {
-      const sel = row.querySelector("select");
+  function applyFixedDetail(prev, next){
+    const container = window.detailTrackingRows;
+    if (!container || !next) return;
+    container.querySelectorAll(".tracking-row select").forEach(sel => {
       if (!sel) return;
-      // 条件：未選択 もしくは 以前に固定で自動補完された行
-      if (!sel.value || sel.dataset.fixedApplied === "1") {
-        sel.value = fixedVal;
-        sel.dataset.fixedApplied = "1";
-        // 行の強調更新など既存のchangeハンドラを動かす
+      if (!sel.value || sel.value === prev) {
+        sel.value = next;
         sel.dispatchEvent(new Event('change', { bubbles: true }));
       }
     });
-  };
-})();
-/* ==============================
- * PATCH: 案件詳細のナンバリングを常に上から連番に補正
- *  - 非同期取得後を含め、表示完了時に再採番
- *  - 追跡追加完了後にも再採番
- * ============================== */
-(function(){
-  function renumberDetailList(){
-    if (!window.detailShipmentsUl) return;
-    const lis = Array.from(detailShipmentsUl.querySelectorAll('li'));
-    let n = 1;
-    for (const li of lis){
-      const a = li.querySelector('a');
-      if (!a) continue;
-      const t = a.textContent || "";
-      // 先頭の「数字＋全角コロン」を剥がして付け直す
-      const body = t.replace(/^\s*\d+：/, '');
-      a.textContent = `${n}：${body}`;
-      n++;
-    }
   }
 
-  // showCaseDetail 完了後に再採番
-  const __origShowCaseDetail = window.showCaseDetail;
-  window.showCaseDetail = async function(orderId, obj){
-    await __origShowCaseDetail(orderId, obj);
-    try { renumberDetailList(); } catch(_){}
-  };
+  // 固定チェック切替
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (!t) return;
 
-  // 追跡追加の完了後にも再採番（既存 onclick をラップ）
-  document.addEventListener('DOMContentLoaded', () => {
-    try {
-      const btn = window.confirmDetailAddBtn;
-      if (!btn || typeof btn.onclick !== 'function') return;
-      const __orig = btn.onclick;
-      btn.onclick = async function(ev){
-        const r = await __orig.call(this, ev);
-        try { renumberDetailList(); } catch(_){}
-        return r;
-      };
-    } catch(_){}
-  });
+    // 固定チェックON/OFF
+    if (t.id === 'fixed-carrier-checkbox-detail') {
+      const on = !!t.checked;
+      const sel = window.fixedCarrierSelectDetail;
+      if (!sel) return;
+      if (on) {
+        // 直前の固定値をクリアして、現在値で空行へ即時適用
+        const next = sel.value || "";
+        applyFixedDetail("", next);
+        window.__lastFixedCarrierDetail = next;
+      } else {
+        // OFF時は保持クリアのみ
+        window.__lastFixedCarrierDetail = "";
+      }
+      return;
+    }
 
-  // 変化が多い環境向けの保険：DOM更新が入ったら短い遅延で再採番
-  document.addEventListener('DOMContentLoaded', () => {
-    try{
-      if (!window.detailShipmentsUl) return;
-      let tid = null;
-      const mo = new MutationObserver(() => {
-        clearTimeout(tid);
-        tid = setTimeout(renumberDetailList, 50);
-      });
-      mo.observe(detailShipmentsUl, { childList: true, subtree: true, characterData: true });
-    }catch(_){}
-  });
+    // 固定<select>の値変更
+    if (t.id === 'fixed-carrier-select-detail') {
+      const chk = window.fixedCarrierCheckboxDetail;
+      if (!chk || !chk.checked) return;
+      const prev = window.__lastFixedCarrierDetail || "";
+      const next = t.value || "";
+      applyFixedDetail(prev, next);
+      window.__lastFixedCarrierDetail = next;
+      return;
+    }
+  }, true);
+
+  // 行追加後にも固定適用（詳細側）
+  if (window.detailAddRowBtn && typeof window.detailAddRowBtn.onclick === 'function') {
+    const orig = window.detailAddRowBtn.onclick;
+    window.detailAddRowBtn.onclick = function(ev){
+      const r = orig.call(this, ev);
+      try{
+        const chk = window.fixedCarrierCheckboxDetail;
+        const sel = window.fixedCarrierSelectDetail;
+        if (chk && chk.checked && sel && sel.value) {
+          // 直前の固定値を prev として扱い、空行に適用
+          applyFixedDetail("", sel.value);
+          window.__lastFixedCarrierDetail = sel.value;
+        }
+      }catch(_){}
+      return r;
+    };
+  }
 })();
