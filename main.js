@@ -1076,50 +1076,79 @@ async function decryptEnc(encObj) {
   return new TextDecoder().decode(plain); // "得意先・品名"
 }
 
-async function encToDisplay(encObj) {
-  try {
-    const t = await decryptEnc(encObj);
-    return t || "";
-  } catch (e) {
-    console.warn("enc decrypt failed", e);
-    return "未解読";
-  }
-}
-
-// 例: スナップショットから cases を得た後
-// const cases = snapshot.val() || {};
-
-async function renderCases(cases) {
-  const entries = Object.entries(cases || {});
-  // 復号を含む並列処理
-  const viewRows = await Promise.all(entries.map(async ([id, v]) => {
-    const displayName = v.enc ? await encToDisplay(v.enc) : "";
-    return { id, displayName, raw: v };
-  }));
-
-  // 既存の描画ロジックに合わせて反映
-  // 例)
-  const tbody = document.querySelector("#cases tbody");
-  tbody.innerHTML = "";
-  for (const row of viewRows) {
-    const tr = document.createElement("tr");
-    const tdName = document.createElement("td");
-    tdName.className = "case__name";
-    tdName.textContent = row.displayName || "(未設定)";
-    tr.appendChild(tdName);
-    // 必要に応じて他カラムも
-    tbody.appendChild(tr);
-  }
-}
-
 // レガシー互換付きの安全復号（まず共有鍵→だめなら旧uid鍵）
 async function safeDecrypt(uid, enc){
-  try { return await decryptShared(enc); }
-  catch (_) {
-    try { return await decryptForUser(uid || "guest", enc); }
-    catch(e){ console.warn("decrypt fallback failed:", e?.name || e); return null; }
-  }
+  // 1) 共有鍵方式（全ユーザー共通）
+  try { return await decryptShared(enc); } catch (_) {}
+
+  // 2) 旧：ユーザー個別鍵（関数が定義されている環境のみ）
+  try {
+    if (typeof decryptForUser === 'function') {
+      return await decryptForUser(uid || "guest", enc);
+    }
+  } catch(__){}
+
+  // 3) 旧：共通パスフレーズ（平文 or JSON の両方に対応）
+  try {
+    if (typeof decryptEnc === 'function') {
+      const t = await decryptEnc(enc);              // "得意先・品名" または JSON
+      if (!t) return null;
+      const s = String(t).trim();
+      if (s.startsWith('{')) return JSON.parse(s);  // JSONならそのまま
+      const parts = s.split(/[・,\/\t ]+/);
+      return { 得意先: parts[0] || "", 品名: parts[1] || "", 下版日: null };
+    }
+  } catch(__){}
+
+  return null;
 }
+
+// 置換：searchAll 内の cases 走査部分（for...of で await していた箇所）
+const entries = Object.entries(data);
+
+// 復号を並列実行
+const decodedList = await Promise.all(entries.map(async ([orderId, obj]) => {
+  const dec = obj.enc ? await safeDecrypt(auth.currentUser?.uid, obj.enc) : null;
+  return { orderId, obj, dec };
+}));
+
+const res = [];
+const startVal = startDateInput.value;
+const endVal   = endDateInput.value;
+const basis    = (searchDateType && searchDateType.value) === 'created' ? 'createdAt' : 'plateDateTs';
+let startTs = null, endTs = null;
+if (startVal) startTs = new Date(startVal + 'T00:00:00').getTime();
+if (endVal)   endTs   = new Date(endVal   + 'T23:59:59').getTime();
+
+for (const { orderId, obj, dec } of decodedList) {
+  const baseTs = obj[basis] ?? obj.createdAt ?? 0;
+  if (startTs !== null && baseTs < startTs) continue;
+  if (endTs   !== null && baseTs > endTs)   continue;
+
+  const view = {
+    orderId,
+    注番: orderId,
+    plateDateTs: obj.plateDateTs,
+    createdAt: obj.createdAt,
+    得意先: dec?.得意先 || "",
+    品名:   dec?.品名   || "",
+    下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
+    enc: obj.enc,
+    ownerUid: obj.ownerUid || null
+  };
+  const kw = (searchInput.value || "").trim();
+  const matchKw = !kw || orderId.includes(kw) || (view.得意先||"").includes(kw) || (view.品名||"").includes(kw);
+  if (matchKw) res.push(view);
+}
+
+res.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+fullResults = res; currentPage = 1; renderPage();
+
+if (res.length === 0) {
+  searchResults.innerHTML = '<li class="ship-empty">該当データがありません</li>';
+  if (paginationDiv) paginationDiv.innerHTML = '';
+}
+
 async function migrateCasesToShared(){
   const uid = auth.currentUser?.uid || "guest";
   const snap = await db.ref("/cases").once("value");
