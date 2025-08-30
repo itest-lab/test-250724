@@ -1344,14 +1344,30 @@ function updateSelectAllState() {
  * 検索／全件一覧（createdAt or plateDateTs）
  * ------------------------------ */
 async function searchAll(kw=""){
+  // 先に期間・基準を確定
+  const startVal = startDateInput.value;
+  const endVal   = endDateInput.value;
+  const basis    = (searchDateType && searchDateType.value) === 'created' ? 'createdAt' : 'plateDateTs';
+  
+  let startTs = 0, endTs = Date.now();
+  if (startVal) startTs = new Date(startVal + 'T00:00:00').getTime();
+  if (endVal)   endTs   = new Date(endVal   + 'T23:59:59').getTime();
+  
+  const limit = pageSize || 50;  // 既存の pageSize を利用
+  
   let snap;
   try {
-    snap = await db.ref("/cases").once("value");
-  } catch(e){
+    snap = await db.ref('/cases')
+      .orderByChild(basis)   // 'createdAt' または 'plateDateTs'
+      .startAt(startTs)
+      .endAt(endTs)
+      .limitToLast(limit)
+      .once('value');
+  } catch (e) {
     handleDbError('cases 読み取り', e);
     return;
   }
-
+  
   const data = snap.val() || {};
   const startVal = startDateInput.value;
   const endVal   = endDateInput.value;
@@ -2052,8 +2068,7 @@ auth.onAuthStateChanged(async user => {
       // 検索UIが存在する場合のみ検索を再実行する
       if (typeof searchAll === 'function') {
         const kwCurrent = (typeof searchInput !== 'undefined' && searchInput) ? (searchInput.value || "").trim() : "";
-        // 現在入力されているキーワードで案件一覧を再取得
-        searchAll(kwCurrent);
+
       }
     } catch (e) {
       console.error("search refresh error:", e);
