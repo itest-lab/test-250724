@@ -1806,13 +1806,16 @@ async function showCaseDetail(orderId, obj){
   
     if (pending.length) await Promise.allSettled(pending);
   
-  } catch(e) {
-    // #1 を入れていればこれでOK
+  } catch (e) {
+    // 読み取り中のエラーはダイアログ表示などで通知
     handleDbError(`shipments/${orderId} 読み取り`, e);
-    // #1 をまだ入れていない場合は最小限の代替：
-    // alert('詳細を表示できません: ' + (e?.message || e));
   } finally {
-    renumberDetailShipments();
+    // ナンバリング処理が失敗してもローディングを解除する
+    try {
+      renumberDetailShipments();
+    } catch (err) {
+      console.error('renumberDetailShipments error:', err);
+    }
     hideLoading();
   }
 }
