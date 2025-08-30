@@ -1014,27 +1014,71 @@ const DEFAULT_PEPPER = "p9r7WqZ1-LocalPepper-ChangeIfNeeded"; // 既存データ
 let SHARED_PASSPHRASE = null; // /shared/pepper から取得してセット
 let SHARED_ENC_KEY    = localStorage.getItem('legacySharedKey') || "REPLACE_WITH_SHARED_KEY"; // 旧互換（任意）
 
-async function loadSharedKeys(user){
+async function loadSharedKeys(user) {
   // 匿名は鍵を持たせない（必要なら isAnonymous 条件を外してください）
-  if (!user || user.isAnonymous) { SHARED_PASSPHRASE = null; return; }
+  if (!user || user.isAnonymous) {
+    SHARED_PASSPHRASE = null;
+    return;
+  }
   try {
-    const p = (await db.ref('/shared/pepper').once('value')).val();
-    const l = (await db.ref('/shared/legacyKey').once('value')).val(); // 任意（旧方式用）
-        if (p) {
-          SHARED_PASSPHRASE = p;
-          localStorage.setItem('sharedPepper', p);
+    // 共有ペッパーと旧方式鍵を読み込む
+    const pSnap = await db.ref('/shared/pepper').once('value');
+    const lSnap = await db.ref('/shared/legacyKey').once('value');
+    const p = pSnap.val();
+    const l = lSnap.val();
+
+    // ペッパーが無い場合はフォールバック値を利用してDBへ格納する
+    if (!p) {
+      // フォールバック: ローカルに保存されているsharedPepperがあれば優先し、無ければ既定値
+      let fallbackPepper = localStorage.getItem('sharedPepper') || DEFAULT_PEPPER;
+      SHARED_PASSPHRASE = fallbackPepper;
+      // DBに永続化（他端末でも共有できるようにする）
+      try {
+        await db.ref('/shared/pepper').set(fallbackPepper);
+      } catch (_) {
+        // 書き込みに失敗した場合でも処理継続
+      }
+      localStorage.setItem('sharedPepper', fallbackPepper);
+    } else {
+      SHARED_PASSPHRASE = p;
+      localStorage.setItem('sharedPepper', p);
+    }
+
+    // 旧方式の暗号化鍵が無い場合はローカルにある値を利用するか新規生成してDBへ格納する
+    if (!l) {
+      let key = localStorage.getItem('legacySharedKey');
+      // 未設定またはプレースホルダの場合は乱数から生成する（32文字のhex）
+      if (!key || key === 'REPLACE_WITH_SHARED_KEY') {
+        const randomBytes = new Uint8Array(32);
+        crypto.getRandomValues(randomBytes);
+        key = Array.from(randomBytes)
+          .map(b => ('0' + b.toString(16)).slice(-2))
+          .join('')
+          .slice(0, 32);
+      }
+      SHARED_ENC_KEY = key;
+      // DBに保存
+      try {
+        await db.ref('/shared/legacyKey').set(key);
+      } catch (_) {
+        // 書き込みに失敗した場合でもローカル保存
+      }
+      localStorage.setItem('legacySharedKey', key);
+      try {
+        if (window && window.APP_CONFIG) {
+          window.APP_CONFIG.SHARED_ENC_KEY = key;
         }
-        if (l) {
-          // 共有暗号化鍵（旧方式）の読込: すべてのデバイスで利用できるよう APP_CONFIG にも反映する
-          SHARED_ENC_KEY = l;
-          localStorage.setItem('legacySharedKey', l);
-          try {
-            if (window && window.APP_CONFIG) {
-              window.APP_CONFIG.SHARED_ENC_KEY = l;
-            }
-          } catch (_) {}
+      } catch (_) {}
+    } else {
+      SHARED_ENC_KEY = l;
+      localStorage.setItem('legacySharedKey', l);
+      try {
+        if (window && window.APP_CONFIG) {
+          window.APP_CONFIG.SHARED_ENC_KEY = l;
         }
-  } catch(e){
+      } catch (_) {}
+    }
+  } catch (e) {
     console.warn('共有カギの取得に失敗:', e);
     // オフラインでも動くようローカルをフォールバック
     SHARED_PASSPHRASE = localStorage.getItem('sharedPepper') || SHARED_PASSPHRASE;
