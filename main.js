@@ -48,13 +48,15 @@ auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
   .catch(err => console.error("永続化設定エラー:", err));
 
 // 事業者名ラベルと各社の追跡ページURL
+// 郵便局（ゆうパック等）を追加サポート
 const carrierLabels = {
   yamato:  "ヤマト運輸",
   fukuyama: "福山通運",
   seino:   "西濃運輸",
   tonami:  "トナミ運輸",
   hida:    "飛騨運輸",
-  sagawa:  "佐川急便"
+  sagawa:  "佐川急便",
+  post:    "郵便局"
 };
 const carrierUrls = {
   yamato:  "https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
@@ -63,7 +65,9 @@ const carrierUrls = {
   tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
   // 飛騨運輸: 追跡API非対応のため固定URL
   hida:    "http://www.hida-unyu.co.jp/WP_HIDAUNYU_WKSHO_GUEST/KW_UD04015.do?_Action_=a_srcAction",
-  sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo="
+  sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo=",
+  // 郵便局（ゆうパックなど）: 国内郵便追跡サービス
+  post:    "https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1="
 };
 
 /* ------------------------------
@@ -736,6 +740,7 @@ function createTrackingRow(context="add"){
   // 運送会社<select>は常に表示。固定ONなら未選択行に初期値を適用
   const sel = document.createElement("select");
   sel.tabIndex = -1; // キーボード移動で選択肢に飛ばない
+  // 選択肢に郵便局（post）を追加し、佐川急便の直前に配置する
   sel.innerHTML = `
     <option value="">運送会社選択してください</option>
     <option value="yamato">ヤマト運輸</option>
@@ -743,6 +748,7 @@ function createTrackingRow(context="add"){
     <option value="seino">西濃運輸</option>
     <option value="tonami">トナミ運輸</option>
     <option value="hida">飛騨運輸</option>
+    <option value="post">郵便局</option>
     <option value="sagawa">佐川急便</option>`;
   const fixedValInit = (context === "add")
     ? (fixedCarrierCheckbox && fixedCarrierCheckbox.checked ? (fixedCarrierSelect?.value || "") : "")
@@ -1395,6 +1401,48 @@ listAllBtn.onclick = () => {
 };
 
 /* ------------------------------
+ * 管理者用：案件データのダウンロード
+ *  - 全件を取得しJSON形式でダウンロードします
+ * ------------------------------ */
+async function downloadCases() {
+  showLoading();
+  try {
+    const snap = await db.ref("/cases").once("value");
+    const data = snap.val() || {};
+    const uid = (auth.currentUser && auth.currentUser.uid) || "guest";
+    const items = [];
+    for (const [orderId, obj] of Object.entries(data)) {
+      let dec = null;
+      try {
+        dec = obj.enc ? await safeDecrypt(uid, obj.enc) : null;
+      } catch (_) {}
+      items.push({
+        注番: orderId,
+        得意先: dec?.得意先 || "",
+        品名:   dec?.品名   || "",
+        下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
+        createdAt: obj.createdAt || null,
+        plateDateTs: obj.plateDateTs || null
+      });
+    }
+    const blob = new Blob([JSON.stringify(items, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "cases.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    console.error("download error", e);
+    alert("ダウンロードに失敗しました");
+  } finally {
+    hideLoading();
+  }
+}
+
+/* ------------------------------
  * 管理者のみ：選択削除（cases と shipments の両方削除）
  * ------------------------------ */
 
@@ -1563,7 +1611,15 @@ function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
 function handleDbError(where, e){
   const msg = String(e && (e.code || e.message || e));
   console.error(`[DB] ${where} 失敗:`, e);
-  alert('一覧を表示できません: ' + msg);
+  // 未ログイン（匿名）時は警告ダイアログを出さない
+  try {
+    const user = auth && auth.currentUser;
+    if (user && !user.isAnonymous) {
+      alert('一覧を表示できません: ' + msg);
+    }
+  } catch (_) {
+    // authが未初期化の可能性
+  }
   // 空でも「何も出ない」にならないようプレースホルダ表示
   if (searchResults) {
     searchResults.innerHTML = '<li class="ship-empty">読み取りエラー（' + where + '）</li>';
@@ -1667,9 +1723,16 @@ async function showCaseDetail(orderId, obj){
               sel.appendChild(opt);
             });
 
-            // 追跡番号入力
+            // 追跡番号入力（数字のみを許可）
             const inp = document.createElement("input");
-            inp.type = "text"; inp.value = it.tracking; inp.placeholder = "追跡番号";
+            inp.type = "text";
+            inp.value = it.tracking;
+            inp.placeholder = "追跡番号";
+            // 数字のみを入力できるように設定（モバイルキーボード対応）
+            inp.inputMode = "numeric";
+            inp.addEventListener("input", (e) => {
+              e.target.value = e.target.value.replace(/\D/g, "");
+            });
 
             const save = document.createElement("button");
             save.type = "button"; save.className = "save mini"; save.textContent = "保存";
@@ -1971,6 +2034,11 @@ auth.onAuthStateChanged(async user => {
     initAddCaseView();
     startSessionTimer();
     deleteSelectedBtn.style.display = isAdmin ? "block" : "none";
+    // 管理者のみダウンロードボタンを表示
+    try {
+      const dlBtn = document.getElementById('download-btn');
+      if (dlBtn) dlBtn.style.display = isAdmin ? 'inline-block' : 'none';
+    } catch (_) {}
 
     // ログイン後に案件一覧をリフレッシュし、暗号化された得意先・品名を表示できるようにする
     try {
@@ -1988,6 +2056,12 @@ auth.onAuthStateChanged(async user => {
     loginView.style.display = "block";
     signupView.style.display = "none";
     mainView.style.display = "none";
+
+    // ログアウト時はダウンロードボタンを非表示にする
+    try {
+      const dlBtn = document.getElementById('download-btn');
+      if (dlBtn) dlBtn.style.display = 'none';
+    } catch (_) {}
 
     // ログアウトまたはゲスト状態でも案件一覧を再描画し、復号不要の状態に更新する
     try {
@@ -2079,3 +2153,43 @@ try{
     return originalSafeDecrypt(uid, enc);
   };
 })();
+
+// DOM初期化時に郵便局オプションとダウンロードボタンを動的に追加
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    // --- 郵便局オプションの挿入 ---
+    const insertPostOption = (select) => {
+      if (!select) return;
+      // 既に追加済みならスキップ
+      if (select.querySelector('option[value="post"]')) return;
+      const sagawaOpt = select.querySelector('option[value="sagawa"]');
+      const opt = document.createElement('option');
+      opt.value = 'post';
+      opt.textContent = '郵便局';
+      if (sagawaOpt && sagawaOpt.parentElement === select) {
+        select.insertBefore(opt, sagawaOpt);
+      } else {
+        select.appendChild(opt);
+      }
+    };
+    insertPostOption(document.getElementById('fixed-carrier-select'));
+    insertPostOption(document.getElementById('fixed-carrier-select-detail'));
+
+    // --- ダウンロードボタンの生成 ---
+    const listAll = document.getElementById('list-all-btn');
+    if (listAll && !document.getElementById('download-btn')) {
+      const btn = document.createElement('button');
+      btn.id = 'download-btn';
+      btn.textContent = 'ダウンロード';
+      btn.style.display = 'none';
+      listAll.parentNode.insertBefore(btn, listAll.nextSibling);
+    }
+    // ボタンのイベントを設定（イベントが複数回設定されないように既存をオフ）
+    const dlBtn = document.getElementById('download-btn');
+    if (dlBtn) {
+      dlBtn.onclick = () => downloadCases();
+    }
+  } catch(e) {
+    console.error('初期化処理でエラーが発生しました', e);
+  }
+});
