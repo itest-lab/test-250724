@@ -1820,10 +1820,6 @@ async function showCaseDetail(orderId, obj){
   }
 }
 
-function renumberderailShipments() {
-  return renumberDetailShipments();
-}
-
 function renumberDetailShipments() {
   const lis = detailShipmentsUl.querySelectorAll('li');
   let idx = 1;
@@ -1831,15 +1827,17 @@ function renumberDetailShipments() {
     const aTag = li.querySelector('a');
     if (aTag) {
       const text = aTag.textContent || "";
-      // 「：」で区切られている手前の数字を更新する
       const colonIdx = text.indexOf('：');
       if (colonIdx >= 0) {
-        // `idx` の後ろに残りの文字列を付けて書き換え
         aTag.textContent = idx + text.slice(colonIdx);
       }
     }
     idx++;
   });
+}
+// 誤字で呼ばれる場合のエイリアス
+function renumberderailShipments() {
+  return renumberDetailShipments();
 }
 
 backToSearchBtn.onclick = () => showView("search-view");
