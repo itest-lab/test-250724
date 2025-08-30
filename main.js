@@ -1812,12 +1812,16 @@ async function showCaseDetail(orderId, obj){
   } finally {
     // ナンバリング処理が失敗してもローディングを解除する
     try {
-      renumberDetailShipments();
+      renumberDetailShipments();;;;;;;
     } catch (err) {
       console.error('renumberDetailShipments error:', err);
     }
     hideLoading();
   }
+}
+
+function renumberderailShipments() {
+  return renumberDetailShipments();
 }
 
 backToSearchBtn.onclick = () => showView("search-view");
@@ -1959,7 +1963,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pending.push(p);
       }
       if (pending.length) await Promise.allSettled(pending);
-      renumberDetailShipments();
+      renumberDetailShipments();;;;;;;
 
       // 追加登録完了時のUI処理
       detailAddMsg.textContent = "追加しました";
