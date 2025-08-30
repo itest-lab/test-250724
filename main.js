@@ -1048,6 +1048,70 @@ async function decryptShared(encObj){
   return JSON.parse(new TextDecoder().decode(new Uint8Array(pt)));
 }
 
+// === enc 復号ユーティリティ ===
+const SHARED_ENC_KEY = "REPLACE_WITH_SHARED_KEY"; // 共有鍵に置換
+const PBKDF2_ITER = 100000;
+
+const b64ToBuf = (b64) => Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+
+async function deriveAesGcmKey(passphrase, salt) {
+  const te = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey("raw", te.encode(passphrase), { name: "PBKDF2" }, false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: PBKDF2_ITER, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["decrypt"]
+  );
+}
+
+async function decryptEnc(encObj) {
+  if (!encObj || !encObj.c || !encObj.iv || !encObj.s) return "";
+  const salt = b64ToBuf(encObj.s);
+  const iv = b64ToBuf(encObj.iv);     // 12 bytes
+  const cipher = b64ToBuf(encObj.c);  // ciphertext+tag
+  const key = await deriveAesGcmKey(SHARED_ENC_KEY, salt);
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipher);
+  return new TextDecoder().decode(plain); // "得意先・品名"
+}
+
+async function encToDisplay(encObj) {
+  try {
+    const t = await decryptEnc(encObj);
+    return t || "";
+  } catch (e) {
+    console.warn("enc decrypt failed", e);
+    return "未解読";
+  }
+}
+
+// 例: スナップショットから cases を得た後
+// const cases = snapshot.val() || {};
+
+async function renderCases(cases) {
+  const entries = Object.entries(cases || {});
+  // 復号を含む並列処理
+  const viewRows = await Promise.all(entries.map(async ([id, v]) => {
+    const displayName = v.enc ? await encToDisplay(v.enc) : "";
+    return { id, displayName, raw: v };
+  }));
+
+  // 既存の描画ロジックに合わせて反映
+  // 例)
+  const tbody = document.querySelector("#cases tbody");
+  tbody.innerHTML = "";
+  for (const row of viewRows) {
+    const tr = document.createElement("tr");
+    const tdName = document.createElement("td");
+    tdName.className = "case__name";
+    tdName.textContent = row.displayName || "(未設定)";
+    tr.appendChild(tdName);
+    // 必要に応じて他カラムも
+    tbody.appendChild(tr);
+  }
+}
+
 // レガシー互換付きの安全復号（まず共有鍵→だめなら旧uid鍵）
 async function safeDecrypt(uid, enc){
   try { return await decryptShared(enc); }
