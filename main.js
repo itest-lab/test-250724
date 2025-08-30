@@ -1906,11 +1906,33 @@ auth.onAuthStateChanged(async user => {
     initAddCaseView();
     startSessionTimer();
     deleteSelectedBtn.style.display = isAdmin ? "block" : "none";
+
+    // ログイン後に案件一覧をリフレッシュし、暗号化された得意先・品名を表示できるようにする
+    try {
+      // 検索UIが存在する場合のみ検索を再実行する
+      if (typeof searchAll === 'function') {
+        const kwCurrent = (typeof searchInput !== 'undefined' && searchInput) ? (searchInput.value || "").trim() : "";
+        // 現在入力されているキーワードで案件一覧を再取得
+        searchAll(kwCurrent);
+      }
+    } catch (e) {
+      console.error("search refresh error:", e);
+    }
   } else {
     isAdmin = false;
     loginView.style.display = "block";
     signupView.style.display = "none";
     mainView.style.display = "none";
+
+    // ログアウトまたはゲスト状態でも案件一覧を再描画し、復号不要の状態に更新する
+    try {
+      if (typeof searchAll === 'function') {
+        const kwCurrent = (typeof searchInput !== 'undefined' && searchInput) ? (searchInput.value || "").trim() : "";
+        searchAll(kwCurrent);
+      }
+    } catch (e) {
+      console.error("search refresh error:", e);
+    }
   }
 });
 
