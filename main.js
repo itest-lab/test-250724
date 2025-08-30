@@ -1020,8 +1020,20 @@ async function loadSharedKeys(user){
   try {
     const p = (await db.ref('/shared/pepper').once('value')).val();
     const l = (await db.ref('/shared/legacyKey').once('value')).val(); // 任意（旧方式用）
-    if (p) { SHARED_PASSPHRASE = p; localStorage.setItem('sharedPepper', p); }
-    if (l) { SHARED_ENC_KEY = l;    localStorage.setItem('legacySharedKey', l); }
+        if (p) {
+          SHARED_PASSPHRASE = p;
+          localStorage.setItem('sharedPepper', p);
+        }
+        if (l) {
+          // 共有暗号化鍵（旧方式）の読込: すべてのデバイスで利用できるよう APP_CONFIG にも反映する
+          SHARED_ENC_KEY = l;
+          localStorage.setItem('legacySharedKey', l);
+          try {
+            if (window && window.APP_CONFIG) {
+              window.APP_CONFIG.SHARED_ENC_KEY = l;
+            }
+          } catch (_) {}
+        }
   } catch(e){
     console.warn('共有カギの取得に失敗:', e);
     // オフラインでも動くようローカルをフォールバック
