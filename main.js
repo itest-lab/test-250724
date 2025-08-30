@@ -1891,6 +1891,15 @@ document.addEventListener("DOMContentLoaded", () => {
 auth.onAuthStateChanged(async user => {
   if (user) {
     await loadSharedKeys(user);
+
+    // 既存案件も共有カギで復号できるよう、ログイン後に共有方式への移行を試みる
+    try {
+      if (typeof migrateCasesToShared === 'function') {
+        await migrateCasesToShared();
+      }
+    } catch (e) {
+      console.error('migrateCasesToShared error:', e);
+    }
     try {
       const snap = await db.ref(`/admins/${user.uid}`).once("value");
       isAdmin = snap.val() === true;
