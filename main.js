@@ -1344,16 +1344,22 @@ function updateSelectAllState() {
  * 検索／全件一覧（createdAt or plateDateTs）
  * ------------------------------ */
 async function searchAll(kw = "") {
-  // 期間・基準を先に確定
+  // 検索ビュー用のローディング表示（まずプレースホルダ）
+  if (searchResults) {
+    searchResults.innerHTML = '<li class="ship-loading">データ取得中…</li>';
+    if (paginationDiv) paginationDiv.innerHTML = '';
+  }
+
+  // 期間・基準を確定
   const startVal = startDateInput.value;
   const endVal   = endDateInput.value;
   const basis    = (searchDateType && searchDateType.value) === 'created' ? 'createdAt' : 'plateDateTs';
-
-  let startTs = startVal ? new Date(startVal + 'T00:00:00').getTime() : 0;
-  let endTs   = endVal   ? new Date(endVal   + 'T23:59:59').getTime() : Date.now();
+  const startTs  = startVal ? new Date(startVal + 'T00:00:00').getTime() : 0;
+  const endTs    = endVal   ? new Date(endVal   + 'T23:59:59').getTime() : Date.now();
 
   const limit = pageSize || 50;
 
+  // DB読み取り
   let snap;
   try {
     snap = await db.ref('/cases')
@@ -1368,39 +1374,68 @@ async function searchAll(kw = "") {
   }
 
   const data = snap.val() || {};
+  if (!snap.exists() || Object.keys(data).length === 0) {
+    // データが無い場合はローディングではなく「該当なし」を出す
+    searchResults.innerHTML = '<li class="ship-empty">該当データがありません</li>';
+    if (paginationDiv) paginationDiv.innerHTML = '';
+    fullResults = [];
+    currentPage = 1;
+    return;
+  }
 
-  // 復号を並列実行
-  const decodedList = await Promise.all(
-    Object.entries(data).map(async ([orderId, obj]) => {
-      const baseTs = obj[basis] ?? obj.createdAt ?? 0;
-      // サーバ側で期間絞り済みだが念のため再チェック
-      if ((startVal && baseTs < startTs) || (endVal && baseTs > endTs)) return null;
+  // 以降は本取得（データがあるので「データ取得中…」のまま処理）
+  const kwTrim   = (kw || "").trim();
+  const entries  = Object.entries(data);
 
-      const dec = obj.enc ? await safeDecrypt(auth.currentUser?.uid, obj.enc) : null;
-      return {
-        orderId,
-        注番: orderId,
-        plateDateTs: obj.plateDateTs,
-        createdAt: obj.createdAt,
-        得意先: dec?.得意先 || "",
-        品名:   dec?.品名   || "",
-        下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
-        enc: obj.enc,
-        ownerUid: obj.ownerUid || null
-      };
-    })
-  );
+  let decodedList;
 
-  const kwTrim = (kw || "").trim();
-  const res = decodedList
-    .filter(Boolean)
-    .filter(v =>
-      !kwTrim ||
-      v.orderId.includes(kwTrim) ||
-      (v.得意先 || "").includes(kwTrim) ||
-      (v.品名   || "").includes(kwTrim)
+  if (kwTrim === "") {
+    // 復号をスキップする軽量経路（一覧は得意先/品名が空欄になるが高速）
+    decodedList = entries.map(([orderId, obj]) => ({
+      orderId,
+      注番: orderId,
+      plateDateTs: obj.plateDateTs,
+      createdAt: obj.createdAt,
+      得意先: "",
+      品名:   "",
+      下版日: obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : "",
+      enc: obj.enc,
+      ownerUid: obj.ownerUid || null
+    }));
+  } else {
+    // キーワード検索時のみ復号（得意先・品名でもヒットさせる）
+    decodedList = await Promise.all(
+      entries.map(async ([orderId, obj]) => {
+        const baseTs = obj[basis] ?? obj.createdAt ?? 0;
+        if ((startVal && baseTs < startTs) || (endVal && baseTs > endTs)) return null;
+
+        const dec = obj.enc ? await safeDecrypt(auth.currentUser?.uid, obj.enc) : null;
+        return {
+          orderId,
+          注番: orderId,
+          plateDateTs: obj.plateDateTs,
+          createdAt: obj.createdAt,
+          得意先: dec?.得意先 || "",
+          品名:   dec?.品名   || "",
+          下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
+          enc: obj.enc,
+          ownerUid: obj.ownerUid || null
+        };
+      })
     )
-    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    .then(list => list.filter(v =>
+      v && (
+        v.orderId.includes(kwTrim) ||
+        (v.得意先 || "").includes(kwTrim) ||
+        (v.品名   || "").includes(kwTrim)
+      )
+    ));
+  }
+
+  // 並び替え・描画
+  const res = (decodedList || [])
+    .filter(Boolean)
+    .sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   fullResults = res;
   currentPage = 1;
@@ -1431,15 +1466,6 @@ listAllBtn.onclick = () => {
   currentPage = 1;
   searchAll("");
 };
-
-/* ------------------------------
- * 管理者用：案件データのダウンロード
- * （廃止済み。ダウンロード機能は利用できません）
- * ------------------------------ */
-
-/* ------------------------------
- * 管理者のみ：選択削除（cases と shipments の両方削除）
- * ------------------------------ */
 
 // ▼ 追加：ページ描画とページングUI
 function renderPage(){
@@ -1604,6 +1630,7 @@ function formatShipmentText(seqNum, carrier, tracking, status, time, location) {
  *  - 最後の fetch が終わるまでホイール維持
  * ------------------------------ */
 function handleDbError(where, e){
+  hideLoading();
   const msg = String(e && (e.code || e.message || e));
   console.error(`[DB] ${where} 失敗:`, e);
   // 未ログイン（匿名）時は警告ダイアログを出さない
