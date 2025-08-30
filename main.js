@@ -1103,52 +1103,6 @@ async function safeDecrypt(uid, enc){
   return null;
 }
 
-// 置換：searchAll 内の cases 走査部分（for...of で await していた箇所）
-const entries = Object.entries(data);
-
-// 復号を並列実行
-const decodedList = await Promise.all(entries.map(async ([orderId, obj]) => {
-  const dec = obj.enc ? await safeDecrypt(auth.currentUser?.uid, obj.enc) : null;
-  return { orderId, obj, dec };
-}));
-
-const res = [];
-const startVal = startDateInput.value;
-const endVal   = endDateInput.value;
-const basis    = (searchDateType && searchDateType.value) === 'created' ? 'createdAt' : 'plateDateTs';
-let startTs = null, endTs = null;
-if (startVal) startTs = new Date(startVal + 'T00:00:00').getTime();
-if (endVal)   endTs   = new Date(endVal   + 'T23:59:59').getTime();
-
-for (const { orderId, obj, dec } of decodedList) {
-  const baseTs = obj[basis] ?? obj.createdAt ?? 0;
-  if (startTs !== null && baseTs < startTs) continue;
-  if (endTs   !== null && baseTs > endTs)   continue;
-
-  const view = {
-    orderId,
-    注番: orderId,
-    plateDateTs: obj.plateDateTs,
-    createdAt: obj.createdAt,
-    得意先: dec?.得意先 || "",
-    品名:   dec?.品名   || "",
-    下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
-    enc: obj.enc,
-    ownerUid: obj.ownerUid || null
-  };
-  const kw = (searchInput.value || "").trim();
-  const matchKw = !kw || orderId.includes(kw) || (view.得意先||"").includes(kw) || (view.品名||"").includes(kw);
-  if (matchKw) res.push(view);
-}
-
-res.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-fullResults = res; currentPage = 1; renderPage();
-
-if (res.length === 0) {
-  searchResults.innerHTML = '<li class="ship-empty">該当データがありません</li>';
-  if (paginationDiv) paginationDiv.innerHTML = '';
-}
-
 async function migrateCasesToShared(){
   const uid = auth.currentUser?.uid || "guest";
   const snap = await db.ref("/cases").once("value");
@@ -1285,7 +1239,6 @@ function updateSelectAllState() {
  * 検索／全件一覧（createdAt or plateDateTs）
  * ------------------------------ */
 async function searchAll(kw=""){
-  // DB読み取りのみ監視
   let snap;
   try {
     snap = await db.ref("/cases").once("value");
@@ -1295,8 +1248,6 @@ async function searchAll(kw=""){
   }
 
   const data = snap.val() || {};
-  const res = [];
-
   const startVal = startDateInput.value;
   const endVal   = endDateInput.value;
   const basis    = (searchDateType && searchDateType.value) === 'created' ? 'createdAt' : 'plateDateTs';
@@ -1304,31 +1255,42 @@ async function searchAll(kw=""){
   if (startVal) startTs = new Date(startVal + 'T00:00:00').getTime();
   if (endVal)   endTs   = new Date(endVal   + 'T23:59:59').getTime();
 
-  for (const [orderId, obj] of Object.entries(data)) {
-    const baseTs = obj[basis] ?? obj.createdAt ?? 0;
-    if (startTs !== null && baseTs < startTs) continue;
-    if (endTs   !== null && baseTs > endTs)   continue;
+  // 復号を並列実行
+  const decodedList = await Promise.all(
+    Object.entries(data).map(async ([orderId, obj]) => {
+      const baseTs = obj[basis] ?? obj.createdAt ?? 0;
+      if ((startTs !== null && baseTs < startTs) || (endTs !== null && baseTs > endTs)) {
+        return null;
+      }
+      const dec = obj.enc ? await safeDecrypt(auth.currentUser?.uid, obj.enc) : null;
+      return {
+        orderId,
+        注番: orderId,
+        plateDateTs: obj.plateDateTs,
+        createdAt: obj.createdAt,
+        得意先: dec?.得意先 || "",
+        品名:   dec?.品名   || "",
+        下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
+        enc: obj.enc,
+        ownerUid: obj.ownerUid || null
+      };
+    })
+  );
 
-    // 復号はレコード単位で握りつぶす（OperationError対策）
-    const dec = obj.enc ? await safeDecrypt(auth.currentUser?.uid, obj.enc) : null;
+  const kwTrim = (kw || "").trim();
+  const res = decodedList
+    .filter(v => !!v)
+    .filter(v =>
+      !kwTrim ||
+      v.orderId.includes(kwTrim) ||
+      (v.得意先||"").includes(kwTrim) ||
+      (v.品名||"").includes(kwTrim)
+    )
+    .sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
 
-    const view = {
-      orderId,
-      注番: orderId,
-      plateDateTs: obj.plateDateTs,
-      createdAt: obj.createdAt,
-      得意先: dec?.得意先 || "",
-      品名:   dec?.品名   || "",
-      下版日: dec?.下版日 || (obj.plateDateTs ? new Date(obj.plateDateTs).toISOString().slice(0,10) : ""),
-      enc: obj.enc,
-      ownerUid: obj.ownerUid || null
-    };
-    const matchKw = !kw || orderId.includes(kw) || (view.得意先||"").includes(kw) || (view.品名||"").includes(kw);
-    if (matchKw) res.push(view);
-  }
-
-  res.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-  fullResults = res; currentPage = 1; renderPage();
+  fullResults = res;
+  currentPage = 1;
+  renderPage();
 
   if (res.length === 0) {
     searchResults.innerHTML = '<li class="ship-empty">該当データがありません</li>';
