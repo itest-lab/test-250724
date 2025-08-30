@@ -891,11 +891,64 @@ if (fixedCarrierCheckbox) {
     applyFixedToUnselectedRows("add");
   };
 }
+// 固定キャリア変更用の状態変数
+let prevFixedCarrierAdd = "";
+let prevFixedCarrierDetail = "";
+
+// 追加画面の固定キャリア選択変更
 if (fixedCarrierSelect) {
   fixedCarrierSelect.onchange = () => {
     if (!fixedCarrierCheckbox.checked) return;
+    const newVal = fixedCarrierSelect.value || "";
+    const rows = trackingRows.querySelectorAll('.tracking-row');
+    rows.forEach(row => {
+      const sel = row.querySelector('select');
+      if (sel) {
+        // 前回の固定値か未選択のものは新しい固定値に置き換える
+        if (!sel.value || sel.value === prevFixedCarrierAdd) {
+          sel.value = newVal;
+        }
+      }
+    });
+    prevFixedCarrierAdd = newVal;
     applyFixedToUnselectedRows("add");
   };
+}
+
+// 詳細画面の固定キャリア選択変更
+if (fixedCarrierSelectDetail) {
+  fixedCarrierSelectDetail.onchange = () => {
+    if (!fixedCarrierCheckboxDetail.checked) return;
+    const newVal = fixedCarrierSelectDetail.value || "";
+    const rows = detailTrackingRows.querySelectorAll('.tracking-row');
+    rows.forEach(row => {
+      const sel = row.querySelector('select');
+      if (sel) {
+        if (!sel.value || sel.value === prevFixedCarrierDetail) {
+          sel.value = newVal;
+        }
+      }
+    });
+    prevFixedCarrierDetail = newVal;
+    applyFixedToUnselectedRows("detail");
+  };
+}
+
+// 追跡番号リストのナンバリングを整列する関数
+function renumberDetailShipments() {
+  const lis = detailShipmentsUl.querySelectorAll('li');
+  let idx = 1;
+  lis.forEach(li => {
+    const aTag = li.querySelector('a');
+    if (aTag) {
+      const text = aTag.textContent || "";
+      const colonIdx = text.indexOf('：');
+      if (colonIdx >= 0) {
+        aTag.textContent = `${idx}${text.slice(colonIdx)}`;
+      }
+    }
+    idx++;
+  });
 }
 
 /* ------------------------------
@@ -1789,6 +1842,7 @@ async function showCaseDetail(orderId, obj){
     // #1 をまだ入れていない場合は最小限の代替：
     // alert('詳細を表示できません: ' + (e?.message || e));
   } finally {
+    renumberDetailShipments();
     hideLoading();
   }
 }
@@ -1932,6 +1986,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pending.push(p);
       }
       if (pending.length) await Promise.allSettled(pending);
+      renumberDetailShipments();
 
       // 追加登録完了時のUI処理
       detailAddMsg.textContent = "追加しました";
@@ -2135,77 +2190,3 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('初期化処理でエラーが発生しました', e);
   }
 });
-/* ==============================
- * FIX: 詳細画面の「運送会社を固定」再選択時に下行へ反映
- *  - 直前の固定値(prev) or 空の<select>だけを新固定値(next)へ置換
- *  - 手動変更は上書きしない（prevに一致しないため）
- *  - 行追加時も固定ONなら即時補完
- * ============================== */
-(function(){
-  // 直前の固定値を保持
-  window.__lastFixedCarrierDetail = "";
-
-  function applyFixedDetail(prev, next){
-    const container = window.detailTrackingRows;
-    if (!container || !next) return;
-    container.querySelectorAll(".tracking-row select").forEach(sel => {
-      if (!sel) return;
-      if (!sel.value || sel.value === prev) {
-        sel.value = next;
-        sel.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    });
-  }
-
-  // 固定チェック切替
-  document.addEventListener('change', (e) => {
-    const t = e.target;
-    if (!t) return;
-
-    // 固定チェックON/OFF
-    if (t.id === 'fixed-carrier-checkbox-detail') {
-      const on = !!t.checked;
-      const sel = window.fixedCarrierSelectDetail;
-      if (!sel) return;
-      if (on) {
-        // 直前の固定値をクリアして、現在値で空行へ即時適用
-        const next = sel.value || "";
-        applyFixedDetail("", next);
-        window.__lastFixedCarrierDetail = next;
-      } else {
-        // OFF時は保持クリアのみ
-        window.__lastFixedCarrierDetail = "";
-      }
-      return;
-    }
-
-    // 固定<select>の値変更
-    if (t.id === 'fixed-carrier-select-detail') {
-      const chk = window.fixedCarrierCheckboxDetail;
-      if (!chk || !chk.checked) return;
-      const prev = window.__lastFixedCarrierDetail || "";
-      const next = t.value || "";
-      applyFixedDetail(prev, next);
-      window.__lastFixedCarrierDetail = next;
-      return;
-    }
-  }, true);
-
-  // 行追加後にも固定適用（詳細側）
-  if (window.detailAddRowBtn && typeof window.detailAddRowBtn.onclick === 'function') {
-    const orig = window.detailAddRowBtn.onclick;
-    window.detailAddRowBtn.onclick = function(ev){
-      const r = orig.call(this, ev);
-      try{
-        const chk = window.fixedCarrierCheckboxDetail;
-        const sel = window.fixedCarrierSelectDetail;
-        if (chk && chk.checked && sel && sel.value) {
-          // 直前の固定値を prev として扱い、空行に適用
-          applyFixedDetail("", sel.value);
-          window.__lastFixedCarrierDetail = sel.value;
-        }
-      }catch(_){}
-      return r;
-    };
-  }
-})();
