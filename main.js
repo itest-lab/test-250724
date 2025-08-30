@@ -55,8 +55,8 @@ const carrierLabels = {
   seino:   "西濃運輸",
   tonami:  "トナミ運輸",
   hida:    "飛騨運輸",
-  sagawa:  "佐川急便",
-  post:    "郵便局"
+  post:    "郵便局",
+  sagawa:  "佐川急便"
 };
 const carrierUrls = {
   yamato:  "https://member.kms.kuronekoyamato.co.jp/parcel/detail?pno=",
@@ -65,9 +65,9 @@ const carrierUrls = {
   tonami:  "https://trc1.tonami.co.jp/trc/search3/excSearch3?id[0]=",
   // 飛騨運輸: 追跡API非対応のため固定URL
   hida:    "http://www.hida-unyu.co.jp/WP_HIDAUNYU_WKSHO_GUEST/KW_UD04015.do?_Action_=a_srcAction",
-  sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo=",
   // 郵便局（ゆうパックなど）: 国内郵便追跡サービス
-  post:    "https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1="
+  post:    "https://trackings.post.japanpost.jp/services/srv/search/direct?reqCodeNo1=",
+  sagawa:  "https://k2k.sagawa-exp.co.jp/p/web/okurijosearch.do?okurijoNo="
 };
 
 /* ------------------------------
