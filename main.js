@@ -1977,3 +1977,18 @@ try{
     window.showView = function(id){ __origShowView(id); if(id==='add-case-view'||id==='case-detail-view') setTimeout(requestFitAll, 0); };
   }
 }catch(_){}
+
+// safeDecryptをラップして、ゲストの場合は復号を行わない
+(function() {
+  const originalSafeDecrypt = safeDecrypt;
+  safeDecrypt = async function(uid, enc) {
+    // 現在のユーザーを取得
+    const user = auth.currentUser;
+    // 未ログインまたはゲストの場合は復号せず空を返す
+    if (!user || user.isAnonymous) {
+      return null;
+    }
+    // 通常の復号処理
+    return originalSafeDecrypt(uid, enc);
+  };
+})();
