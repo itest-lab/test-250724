@@ -891,64 +891,69 @@ if (fixedCarrierCheckbox) {
     applyFixedToUnselectedRows("add");
   };
 }
-// 固定キャリア変更用の状態変数
+
+// 前回の固定キャリア値を保持する変数
 let prevFixedCarrierAdd = "";
 let prevFixedCarrierDetail = "";
 
-// 追加画面の固定キャリア選択変更
+/**
+ * 未選択行や前回の固定値だった行に新しい固定値をセットする。
+ */
+function applyFixedToUnselectedRows(context = "detail") {
+  const container = (context === "detail") ? detailTrackingRows : trackingRows;
+  if (!container) return;
+  const fixedOn  = (context === "detail")
+    ? !!fixedCarrierCheckboxDetail?.checked
+    : !!fixedCarrierCheckbox?.checked;
+  const fixedVal = (context === "detail")
+    ? (fixedCarrierSelectDetail?.value || "")
+    : (fixedCarrierSelect?.value || "");
+  if (!fixedOn || !fixedVal) return;
+
+  // 前回値を取得
+  const prevVal = (context === "detail") ? prevFixedCarrierDetail : prevFixedCarrierAdd;
+
+  container.querySelectorAll(".tracking-row").forEach(row => {
+    const sel = row.querySelector("select");
+    if (!sel) return;
+    // 未選択か、前回の固定キャリアだった場合は新しい値に置き換える
+    if (!sel.value || (prevVal && sel.value === prevVal)) {
+      sel.value = fixedVal;
+    }
+  });
+
+  // 前回値を更新
+  if (context === "detail") prevFixedCarrierDetail = fixedVal;
+  else prevFixedCarrierAdd = fixedVal;
+}
+
+// チェックボックス切り替え時やセレクト変更時には applyFixedToUnselectedRows を呼ぶ
+if (fixedCarrierCheckbox) {
+  fixedCarrierCheckbox.onchange = () => {
+    fixedCarrierSelect.style.display = fixedCarrierCheckbox.checked ? "block" : "none";
+    ensureFixedCarrierToolbar('add');
+    applyFixedToUnselectedRows("add");
+  };
+}
 if (fixedCarrierSelect) {
   fixedCarrierSelect.onchange = () => {
     if (!fixedCarrierCheckbox.checked) return;
-    const newVal = fixedCarrierSelect.value || "";
-    const rows = trackingRows.querySelectorAll('.tracking-row');
-    rows.forEach(row => {
-      const sel = row.querySelector('select');
-      if (sel) {
-        // 前回の固定値か未選択のものは新しい固定値に置き換える
-        if (!sel.value || sel.value === prevFixedCarrierAdd) {
-          sel.value = newVal;
-        }
-      }
-    });
-    prevFixedCarrierAdd = newVal;
     applyFixedToUnselectedRows("add");
   };
 }
 
-// 詳細画面の固定キャリア選択変更
-if (fixedCarrierSelectDetail) {
-  fixedCarrierSelectDetail.onchange = () => {
-    if (!fixedCarrierCheckboxDetail.checked) return;
-    const newVal = fixedCarrierSelectDetail.value || "";
-    const rows = detailTrackingRows.querySelectorAll('.tracking-row');
-    rows.forEach(row => {
-      const sel = row.querySelector('select');
-      if (sel) {
-        if (!sel.value || sel.value === prevFixedCarrierDetail) {
-          sel.value = newVal;
-        }
-      }
-    });
-    prevFixedCarrierDetail = newVal;
+// 詳細側も同様に
+if (fixedCarrierCheckboxDetail) {
+  fixedCarrierCheckboxDetail.onchange = () => {
+    fixedCarrierSelectDetail.style.display = fixedCarrierCheckboxDetail.checked ? "inline-block" : "none";
     applyFixedToUnselectedRows("detail");
   };
 }
-
-// 追跡番号リストのナンバリングを整列する関数
-function renumberDetailShipments() {
-  const lis = detailShipmentsUl.querySelectorAll('li');
-  let idx = 1;
-  lis.forEach(li => {
-    const aTag = li.querySelector('a');
-    if (aTag) {
-      const text = aTag.textContent || "";
-      const colonIdx = text.indexOf('：');
-      if (colonIdx >= 0) {
-        aTag.textContent = `${idx}${text.slice(colonIdx)}`;
-      }
-    }
-    idx++;
-  });
+if (fixedCarrierSelectDetail) {
+  fixedCarrierSelectDetail.onchange = () => {
+    if (!fixedCarrierCheckboxDetail.checked) return;
+    applyFixedToUnselectedRows("detail");
+  };
 }
 
 /* ------------------------------
