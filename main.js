@@ -1812,7 +1812,7 @@ async function showCaseDetail(orderId, obj){
   } finally {
     // ナンバリング処理が失敗してもローディングを解除する
     try {
-      renumberDetailShipments();;;;;;;
+      renumberDetailShipments();
     } catch (err) {
       console.error('renumberDetailShipments error:', err);
     }
@@ -1822,6 +1822,24 @@ async function showCaseDetail(orderId, obj){
 
 function renumberderailShipments() {
   return renumberDetailShipments();
+}
+
+function renumberDetailShipments() {
+  const lis = detailShipmentsUl.querySelectorAll('li');
+  let idx = 1;
+  lis.forEach(li => {
+    const aTag = li.querySelector('a');
+    if (aTag) {
+      const text = aTag.textContent || "";
+      // 「：」で区切られている手前の数字を更新する
+      const colonIdx = text.indexOf('：');
+      if (colonIdx >= 0) {
+        // `idx` の後ろに残りの文字列を付けて書き換え
+        aTag.textContent = idx + text.slice(colonIdx);
+      }
+    }
+    idx++;
+  });
 }
 
 backToSearchBtn.onclick = () => showView("search-view");
@@ -1963,7 +1981,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pending.push(p);
       }
       if (pending.length) await Promise.allSettled(pending);
-      renumberDetailShipments();;;;;;;
+      renumberDetailShipments();
 
       // 追加登録完了時のUI処理
       detailAddMsg.textContent = "追加しました";
