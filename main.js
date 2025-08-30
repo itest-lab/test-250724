@@ -1343,22 +1343,21 @@ function updateSelectAllState() {
 /* ------------------------------
  * 検索／全件一覧（createdAt or plateDateTs）
  * ------------------------------ */
-async function searchAll(kw=""){
-  // 先に期間・基準を確定
+async function searchAll(kw = "") {
+  // 期間・基準を先に確定
   const startVal = startDateInput.value;
   const endVal   = endDateInput.value;
   const basis    = (searchDateType && searchDateType.value) === 'created' ? 'createdAt' : 'plateDateTs';
-  
-  let startTs = 0, endTs = Date.now();
-  if (startVal) startTs = new Date(startVal + 'T00:00:00').getTime();
-  if (endVal)   endTs   = new Date(endVal   + 'T23:59:59').getTime();
-  
-  const limit = pageSize || 50;  // 既存の pageSize を利用
-  
+
+  let startTs = startVal ? new Date(startVal + 'T00:00:00').getTime() : 0;
+  let endTs   = endVal   ? new Date(endVal   + 'T23:59:59').getTime() : Date.now();
+
+  const limit = pageSize || 50;
+
   let snap;
   try {
     snap = await db.ref('/cases')
-      .orderByChild(basis)   // 'createdAt' または 'plateDateTs'
+      .orderByChild(basis)
       .startAt(startTs)
       .endAt(endTs)
       .limitToLast(limit)
@@ -1367,22 +1366,16 @@ async function searchAll(kw=""){
     handleDbError('cases 読み取り', e);
     return;
   }
-  
+
   const data = snap.val() || {};
-  const startVal = startDateInput.value;
-  const endVal   = endDateInput.value;
-  const basis    = (searchDateType && searchDateType.value) === 'created' ? 'createdAt' : 'plateDateTs';
-  let startTs = null, endTs = null;
-  if (startVal) startTs = new Date(startVal + 'T00:00:00').getTime();
-  if (endVal)   endTs   = new Date(endVal   + 'T23:59:59').getTime();
 
   // 復号を並列実行
   const decodedList = await Promise.all(
     Object.entries(data).map(async ([orderId, obj]) => {
       const baseTs = obj[basis] ?? obj.createdAt ?? 0;
-      if ((startTs !== null && baseTs < startTs) || (endTs !== null && baseTs > endTs)) {
-        return null;
-      }
+      // サーバ側で期間絞り済みだが念のため再チェック
+      if ((startVal && baseTs < startTs) || (endVal && baseTs > endTs)) return null;
+
       const dec = obj.enc ? await safeDecrypt(auth.currentUser?.uid, obj.enc) : null;
       return {
         orderId,
@@ -1400,14 +1393,14 @@ async function searchAll(kw=""){
 
   const kwTrim = (kw || "").trim();
   const res = decodedList
-    .filter(v => !!v)
+    .filter(Boolean)
     .filter(v =>
       !kwTrim ||
       v.orderId.includes(kwTrim) ||
-      (v.得意先||"").includes(kwTrim) ||
-      (v.品名||"").includes(kwTrim)
+      (v.得意先 || "").includes(kwTrim) ||
+      (v.品名   || "").includes(kwTrim)
     )
-    .sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   fullResults = res;
   currentPage = 1;
