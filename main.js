@@ -1009,15 +1009,35 @@ manualConfirmBtn.onclick = () => {
 /* ------------------------------
  * 暗号化ユーティリティ（AES-GCM + PBKDF2）
  * ------------------------------ */
-const PEPPER = "p9r7WqZ1-LocalPepper-ChangeIfNeeded";
+// 共有カギ（DBから読む）＋フォールバック
+const DEFAULT_PEPPER = "p9r7WqZ1-LocalPepper-ChangeIfNeeded"; // 既存データ用の既定値（必要なら変更）
+let SHARED_PASSPHRASE = null; // /shared/pepper から取得してセット
+let SHARED_ENC_KEY    = localStorage.getItem('legacySharedKey') || "REPLACE_WITH_SHARED_KEY"; // 旧互換（任意）
+
+async function loadSharedKeys(user){
+  // 匿名は鍵を持たせない（必要なら isAnonymous 条件を外してください）
+  if (!user || user.isAnonymous) { SHARED_PASSPHRASE = null; return; }
+  try {
+    const p = (await db.ref('/shared/pepper').once('value')).val();
+    const l = (await db.ref('/shared/legacyKey').once('value')).val(); // 任意（旧方式用）
+    if (p) { SHARED_PASSPHRASE = p; localStorage.setItem('sharedPepper', p); }
+    if (l) { SHARED_ENC_KEY = l;    localStorage.setItem('legacySharedKey', l); }
+  } catch(e){
+    console.warn('共有カギの取得に失敗:', e);
+    // オフラインでも動くようローカルをフォールバック
+    SHARED_PASSPHRASE = localStorage.getItem('sharedPepper') || SHARED_PASSPHRASE;
+  }
+}
+
 function b64(bytes){ return btoa(String.fromCharCode(...bytes)); }
 function b64dec(str){ return new Uint8Array([...atob(str)].map(c=>c.charCodeAt(0))); }
 
 // === 共有鍵（全ユーザー共通） ===
 async function deriveSharedKey(saltBytes){
+  const passphrase = SHARED_PASSPHRASE || localStorage.getItem('sharedPepper') || DEFAULT_PEPPER;
   const material = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(PEPPER), // ← uid非依存
+    new TextEncoder().encode(passphrase),
     "PBKDF2",
     false,
     ["deriveKey"]
@@ -1030,6 +1050,7 @@ async function deriveSharedKey(saltBytes){
     ["encrypt","decrypt"]
   );
 }
+
 async function encryptShared(payloadObj){
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -1870,6 +1891,7 @@ document.addEventListener("DOMContentLoaded", () => {
  * ------------------------------ */
 auth.onAuthStateChanged(async user => {
   if (user) {
+    await loadSharedKeys(user);
     try {
       const snap = await db.ref(`/admins/${user.uid}`).once("value");
       isAdmin = snap.val() === true;
