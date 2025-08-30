@@ -2029,52 +2029,38 @@ document.addEventListener("DOMContentLoaded", () => {
  * ------------------------------ */
 auth.onAuthStateChanged(async user => {
   if (user) {
-    await loadSharedKeys(user);
-
-    // 既存案件も共有カギで復号できるよう、ログイン後に共有方式への移行を試みる
-    try {
-      if (typeof migrateCasesToShared === 'function') {
-        await migrateCasesToShared();
-      }
-    } catch (e) {
-      console.error('migrateCasesToShared error:', e);
-    }
-    try {
-      const snap = await db.ref(`/admins/${user.uid}`).once("value");
-      isAdmin = snap.val() === true;
-    } catch (e) {
-      console.error("管理者判定エラー:", e);
-      isAdmin = false;
-    }
+    // 1) まずは即描画（待たない）
     loginView.style.display = "none";
     signupView.style.display = "none";
     mainView.style.display = "block";
-    showView('add-case-view');
     showView("add-case-view");
     initAddCaseView();
     startSessionTimer();
-    deleteSelectedBtn.style.display = isAdmin ? "block" : "none";
-    // ダウンロードボタンの表示制御は不要（廃止）
 
-    // ログイン後に案件一覧をリフレッシュし、暗号化された得意先・品名を表示できるようにする
-    try {
-      // 検索UIが存在する場合のみ検索を再実行する
-      if (typeof searchAll === 'function') {
-        const kwCurrent = (typeof searchInput !== 'undefined' && searchInput) ? (searchInput.value || "").trim() : "";
+    // 2) 共有鍵の取得は軽いので走らせる（UIはブロックしない）
+    //    ※ここは await しない：失敗しても後で再試行可能
+    loadSharedKeys(user).catch(e => console.warn("loadSharedKeys:", e));
 
-      }
-    } catch (e) {
-      console.error("search refresh error:", e);
-    }
+    // 3) 管理者判定は終わったらUIを更新（非同期）
+    db.ref(`/admins/${user.uid}`).once("value")
+      .then(snap => {
+        isAdmin = snap.val() === true;
+        deleteSelectedBtn.style.display = isAdmin ? "block" : "none";
+        // 既に表示済みの検索結果の「全選択UI」なども必要に応じて切替
+        if (selectAllContainer) selectAllContainer.style.display = isAdmin ? "block" : "none";
+      })
+      .catch(e => { console.error("管理者判定エラー:", e); isAdmin = false; });
+
+    // 4) ← ここで "migrateCasesToShared()" は呼びません（重い）
+
   } else {
+    // 未ログイン表示
     isAdmin = false;
     loginView.style.display = "block";
     signupView.style.display = "none";
     mainView.style.display = "none";
 
-    // ログアウト時のダウンロードボタン制御は不要（廃止）
-
-    // ログアウトまたはゲスト状態でも案件一覧を再描画し、復号不要の状態に更新する
+    // 未ログインでも一覧は空で構わないが、UI一貫性のため軽く再描画
     try {
       if (typeof searchAll === 'function') {
         const kwCurrent = (typeof searchInput !== 'undefined' && searchInput) ? (searchInput.value || "").trim() : "";
